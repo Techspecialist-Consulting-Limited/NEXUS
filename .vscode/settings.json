@@ -1,0 +1,17 @@
+{
+  // These migrations are PostgreSQL. The bundled MSSQL language service parses
+  // them as T-SQL and reports hundreds of false errors on perfectly valid
+  // syntax (`create type ... as enum`, `$$` function bodies, `on delete
+  // restrict`, expression indexes). Bind .sql to the generic SQL grammar and
+  // turn the T-SQL intellisense off for this workspace.
+  "files.associations": {
+    "*.sql": "sql"
+  },
+  "mssql.intelliSense.enableIntelliSense": false,
+  "mssql.intelliSense.enableErrorChecking": false,
+  "mssql.intelliSense.enableSuggestions": false,
+  "mssql.intelliSense.enableQuickInfo": false,
+  "[sql]": {
+    "editor.tabSize": 2
+  }
+}

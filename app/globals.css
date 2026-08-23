@@ -1,26 +1,539 @@
 @import "tailwindcss";
 
+/* ===========================================================================
+   NEXUS — design tokens
+   Implements GUIDE.md §3–§8 and the Appendix.
+
+   Six deliberate deviations from the guide, each marked [FIX n] below. They
+   are defects in the guide rather than preferences, and every one of them was
+   raised before being applied:
+
+     [FIX 1] tertiary text raised from white/30 to white/55. GUIDE §15 rule 9
+             mandates white/30; GUIDE §17 demands 4.5:1. white/30 over #08080c
+             measures ~2.6:1 and fails outright. white/55 measures ~5.4:1.
+     [FIX 2] status is never encoded by hue alone. The guide's status palette
+             is byte-identical to its department palette (delivered #48C9A9 IS
+             Operations), so a teal chip is ambiguous on any screen showing
+             both. Hues are kept exactly as specified; status is disambiguated
+             by fill pattern and icon instead. This also satisfies §17's
+             "never by colour alone".
+     [FIX 3] promised/deferred/dropped were white at 0.5/0.3/0.15 — three
+             greys that collapse into one another in an 8px ribbon segment on
+             a phone. Their opacities are separated and paired with pattern.
+     [FIX 4] @keyframes meshDrift is defined. GUIDE §3 animates it but never
+             declares it.
+     [FIX 5] the ambient field is z-index -1, not 0. A fixed pseudo-element at
+             z-index 0 paints above non-positioned content, which is the
+             opposite of the guide's own "background-only" instruction.
+     [FIX 6] `superseded` added to the status set. It exists in the schema
+             enum (migration 0003) but is missing from the guide's colour map,
+             so it would have fallen through to neutral.
+   =========================================================================== */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* === Typography (GUIDE §4) === */
+  --font-display: var(--font-inter), "SF Pro Display", system-ui, sans-serif;
+  --font-body: var(--font-inter), "SF Pro Text", system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), "SF Mono", ui-monospace, monospace;
+
+  /* === Type scale === */
+  /*
+   * 2xs exists because the interface genuinely needs a label smaller than
+   * body — section eyebrows, unit counts, timestamps. It was being written as
+   * text-[11px] in forty-nine places, which is not a scale, it is forty-nine
+   * decisions. One token, one size, one meaning.
+   *
+   * It is declared in the @theme block below rather than here, because that is
+   * the only place Tailwind reads when deciding which text-* utilities exist.
+   */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 2rem;
+  --text-4xl: 2.5rem;
+
+  /* === Spacing (4pt grid, GUIDE §8) === */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-20: 5rem;
+
+  /* === Easing (GUIDE §10) === */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease: cubic-bezier(0.25, 0.1, 0.25, 1);
+
+  /* === Shadows (GUIDE §7) — always black, never coloured === */
+  --shadow-subtle: 0 4px 16px rgba(0, 0, 0, 0.2);
+  --shadow-medium: 0 8px 32px rgba(0, 0, 0, 0.35);
+  --shadow-heavy: 0 16px 64px rgba(0, 0, 0, 0.5);
+  --shadow-dramatic: 0 24px 80px rgba(0, 0, 0, 0.6);
+
+  /* === Void === */
+  --void: #08080c;
+
+  /*
+   * The one opaque surface a NATIVE control can sit on.
+   *
+   * Everything else in NEXUS is a translucent white over the void, which the
+   * browser cannot use for a <select> popup: a popup painted with
+   * rgba(255,255,255,0.03) composites over the platform's own white, and the
+   * result is a white sheet of invisible white text. `color-scheme: dark` does
+   * not save it either — an explicit background on the select wins.
+   *
+   * So native controls get a real colour rather than a transparency. It was
+   * already being written as the literal #12121a at eight call sites; this is
+   * the same value with a name.
+   */
+  --native-surface: #12121a;
+
+  /* === Department colours (GUIDE §5, verified against seed.sql:48-52) === */
+  --dept-techspecialist: #5b8cff;
+  --dept-media-hub: #f2789f;
+  --dept-creative-hub: #f5b942;
+  --dept-operations: #48c9a9;
+  --dept-growth: #b18cf5;
+
+  /* === Status colours ===
+     Hues exactly as GUIDE §5 specifies. See [FIX 2]/[FIX 3]: these are never
+     the sole carrier of meaning — pair with .status-fill-* and an icon. */
+  --color-promised: rgba(255, 255, 255, 0.55);
+  --color-in-progress: #5b8cff;
+  --color-delivered: #48c9a9;
+  --color-partial: #f5b942;
+  --color-deferred: rgba(255, 255, 255, 0.38);
+  --color-blocked: #f2789f;
+  --color-dropped: rgba(255, 255, 255, 0.22);
+  --color-superseded: rgba(255, 255, 255, 0.3); /* [FIX 6] */
+
+  /* === Signal === */
+  --color-healthy: #48c9a9;
+  --color-warning: #f5b942;
+  --color-critical: #f2789f;
+  --color-neutral: rgba(255, 255, 255, 0.4);
+
+  /* === Priority === */
+  --priority-critical: #f2789f;
+  --priority-high: #f5b942;
+  --priority-normal: rgba(255, 255, 255, 0.5);
+  --priority-low: rgba(255, 255, 255, 0.25);
+
+  /* === Text hierarchy (GUIDE §4 rule 5) ===
+     white/opacity only — never Tailwind gray-*. */
+  --text-primary: rgba(255, 255, 255, 0.9);
+  --text-secondary: rgba(255, 255, 255, 0.6);
+  --text-tertiary: rgba(255, 255, 255, 0.55); /* [FIX 1] */
+  --text-quaternary: rgba(255, 255, 255, 0.3); /* decoration only, never text */
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /*
+   * 2xs is declared HERE, not in :root with the rest of the scale.
+   *
+   * Tailwind v4 generates a text-* utility only for a --text-* variable it can
+   * see inside @theme. xs through 4xl already exist in Tailwind's own theme, so
+   * redeclaring their values in :root works. 2xs does not exist there — and a
+   * :root declaration alone does not create the utility. `text-2xs` compiled to
+   * no rule at all: 111 usages across 32 files silently inherited their
+   * parent's size, and the bottom navigation drew 16px labels inside a pill
+   * built for 11. Nothing errors. The class simply is not there.
+   */
+  --text-2xs: 0.6875rem;
+
+  --color-void: var(--void);
+
+  --color-dept-techspecialist: var(--dept-techspecialist);
+  --color-dept-media-hub: var(--dept-media-hub);
+  --color-dept-creative-hub: var(--dept-creative-hub);
+  --color-dept-operations: var(--dept-operations);
+  --color-dept-growth: var(--dept-growth);
+
+  --color-promised: var(--color-promised);
+  --color-in-progress: var(--color-in-progress);
+  --color-delivered: var(--color-delivered);
+  --color-partial: var(--color-partial);
+  --color-deferred: var(--color-deferred);
+  --color-blocked: var(--color-blocked);
+  --color-dropped: var(--color-dropped);
+
+  --color-healthy: var(--color-healthy);
+  --color-warning: var(--color-warning);
+  --color-critical: var(--color-critical);
+
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
+  --font-mono: var(--font-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ===========================================================================
+   base
+   =========================================================================== */
+
+html {
+  color-scheme: dark;
+  background-color: var(--void);
+  -webkit-text-size-adjust: 100%;
+}
+
+/*
+ * Native dropdowns, once, instead of at every call site.
+ *
+ * A <select> in this product carries a translucent background so it matches
+ * the surface it sits on — and the browser paints the OPEN list with that same
+ * background over its own white default, which renders as white text on white.
+ * The list is not styleable beyond this, so the fix is to give the options a
+ * real colour.
+ *
+ * Applied globally because the alternative was `className="bg-[#12121a]"` on
+ * every <option> in the app: eight places already, and every new select a
+ * chance to forget one. Forgetting produced exactly this bug on the reporting
+ * page.
+ */
+select option,
+select optgroup {
+  background-color: var(--native-surface);
+  color: var(--text-primary);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--void);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  min-height: 100dvh;
+  /* GUIDE §11: no horizontal scrolling anywhere in the mobile experience. */
+  overflow-x: hidden;
+}
+
+/* GUIDE §4 rule 1: headings are medium, never bold. */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+
+/* ---------------------------------------------------------------------------
+   Ambient light field (GUIDE §3)
+   Restrained and broad. No discrete blobs, orbs or bokeh — the guide is
+   explicit that this must never read as wallpaper.
+   --------------------------------------------------------------------------- */
+.bg-mesh::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1; /* [FIX 5] */
+  pointer-events: none;
+  background:
+    linear-gradient(135deg, rgba(91, 140, 255, 0.05), transparent 34%),
+    linear-gradient(315deg, rgba(72, 201, 169, 0.04), transparent 42%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 60%);
+  animation: meshDrift 60s var(--ease-in-out) infinite alternate;
+}
+
+/* [FIX 4] — declared here; the guide animates this name but never defines it.
+   Transform-only (GUIDE §15 rule 6), so it stays off the main thread. */
+@keyframes meshDrift {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(-2%, 1.5%, 0) scale(1.06);
+  }
+}
+
+/* ===========================================================================
+   Glass surfaces (GUIDE §6)
+   Five elevation levels. Blur increases with elevation.
+   =========================================================================== */
+
+/*
+ * ORDER MATTERS: -webkit- first, standard second.
+ *
+ * Lightning CSS (via Tailwind v4) collapses the pair and keeps the LAST one
+ * written. With the standard property first, only -webkit-backdrop-filter
+ * survived minification — and a browser given only the prefixed alias computes
+ * `backdrop-filter: none`. Every glass surface in the product rendered as a
+ * flat 4%-white rectangle, in every browser, with no error anywhere.
+ *
+ * The @supports fallback below does not catch it either: browsers DO support
+ * the feature, they simply were never given the declaration.
+ *
+ * scripts/smoke.mjs asserts a non-`none` computed value, because this is
+ * invisible to typecheck, lint, tests and code review.
+ */
+.glass-l1 {
+  background-color: rgba(255, 255, 255, 0.04);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  backdrop-filter: blur(24px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-l2 {
+  background-color: rgba(255, 255, 255, 0.06);
+  -webkit-backdrop-filter: blur(40px) saturate(150%);
+  backdrop-filter: blur(40px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: var(--shadow-medium);
+}
+
+.glass-l3 {
+  background-color: rgba(255, 255, 255, 0.08);
+  -webkit-backdrop-filter: blur(64px) saturate(160%);
+  backdrop-filter: blur(64px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: var(--shadow-heavy);
+}
+
+.glass-l4 {
+  background-color: rgba(255, 255, 255, 0.12);
+  -webkit-backdrop-filter: blur(64px) saturate(160%);
+  backdrop-filter: blur(64px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: var(--shadow-dramatic);
+}
+
+/*
+  The diagonal sheen — the "lit from above" highlight. GUIDE §6 rule 2: if you
+  can clearly see the gradient it is too strong.
+*/
+.glass-sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.12) 0%,
+    rgba(255, 255, 255, 0.03) 28%,
+    transparent 58%
+  );
+  mix-blend-mode: screen;
+}
+
+/* backdrop-filter is expensive and not universal; fall back to opaque rather
+   than to an unreadable transparent rectangle. */
+@supports not (backdrop-filter: blur(1px)) {
+  .glass-l1, .glass-l2, .glass-l3, .glass-l4 {
+    background-color: #121218;
+  }
+}
+
+/* ===========================================================================
+   Status encoding — [FIX 2] and [FIX 3]
+
+   Hue says what it says in the guide. Pattern says it again, so the meaning
+   survives a colour-blind reader, a dimmed phone in sunlight, and the
+   collision with the department palette.
+   =========================================================================== */
+
+.status-delivered  { background-color: var(--color-delivered); }
+.status-in_progress{ background-color: var(--color-in-progress); }
+.status-promised   { background-color: var(--color-promised); }
+
+/* partial — half filled, because half of it landed */
+.status-partial {
+  background-image: linear-gradient(
+    to top,
+    var(--color-partial) 0%,
+    var(--color-partial) 50%,
+    rgba(255, 255, 255, 0.10) 50%,
+    rgba(255, 255, 255, 0.10) 100%
+  );
+}
+
+/* blocked — hatched, because something is in the way */
+.status-blocked {
+  background-color: color-mix(in srgb, var(--color-blocked) 45%, transparent);
+  background-image: repeating-linear-gradient(
+    45deg,
+    var(--color-blocked) 0 2px,
+    transparent 2px 5px
+  );
+}
+
+/* deferred — dimmed and dashed: consciously moved, not lost */
+.status-deferred {
+  background-color: transparent;
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--color-deferred) 0 4px,
+    transparent 4px 8px
+  );
+}
+
+/* dropped — hollow. Nothing is there, and it should look like nothing. */
+.status-dropped {
+  background-color: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--color-dropped);
+}
+
+.status-superseded {
+  background-color: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--color-superseded);
+  opacity: 0.7;
+}
+
+/* ===========================================================================
+   utilities
+   =========================================================================== */
+
+/* GUIDE §4 rule 4 / §15 rule 11: every metric is mono. Tabular figures so
+   columns do not wobble while a value animates. */
+.metric {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+.text-primary { color: var(--text-primary); }
+.text-secondary { color: var(--text-secondary); }
+.text-tertiary { color: var(--text-tertiary); }
+
+/* ---------------------------------------------------------------------------
+   Named type roles.
+
+   Every one of these was being spelled out inline — the same four or five
+   declarations repeated at each use, with the size drifting by a pixel or two
+   between them. Naming the role instead of the pixels means a heading is a
+   heading everywhere, and changing what that means is one edit.
+   --------------------------------------------------------------------------- */
+
+/* The label above a section. Reads as structure, not as content. */
+.eyebrow {
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+}
+
+/* A page title. One per page. */
+.page-title {
+  font-size: var(--text-2xl);
+  font-weight: 500;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+/* The sentence under a page title that says what the reader is looking at. */
+.standfirst {
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  color: var(--text-secondary);
+  max-width: 68ch;
+  text-wrap: pretty;
+}
+
+/* A card or band heading, one level below the page title. */
+.card-title {
+  font-size: var(--text-base);
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+/* Body copy inside a card. */
+.body-sm {
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+/* A supporting note: provenance, timestamps, counts. */
+.note {
+  font-size: var(--text-2xs);
+  line-height: 1.5;
+  color: var(--text-tertiary);
+}
+
+@media (min-width: 768px) {
+  .page-title { font-size: var(--text-3xl); }
+}
+
+/* GUIDE §11: 44px minimum touch target, no exceptions. */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* GUIDE §11: respect device chrome. */
+.safe-bottom { padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px); }
+.safe-top { padding-top: max(env(safe-area-inset-top, 0px), 0px); }
+
+/* Breathing indicator for in-progress work (GUIDE §10). Opacity only. */
+@keyframes breathe {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.9; }
+}
+.status-pulse { animation: breathe 3s var(--ease-in-out) infinite; }
+
+/* ===========================================================================
+   accessibility (GUIDE §17)
+   =========================================================================== */
+
+:where(a, button, select, input, textarea, [tabindex]):focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.5);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* Skip link — keyboard users should not tab the whole nav to reach content. */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  z-index: 100;
+  /* Sized here rather than only in :focus — it is the same element off-screen
+     as on, and a keyboard user lands on it at full size. */
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 8px;
+}
+.skip-link:focus {
+  left: 16px;
+  top: 16px;
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(40px);
+}
+
+/*
+  GUIDE §10: opacity fades are kept because they aid comprehension. Movement
+  and scale are removed. Ambient motion stops entirely.
+*/
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .bg-mesh::before { animation: none; }
+  .status-pulse { animation: none; opacity: 0.75; }
+}
+
+::selection { background: rgba(91, 140, 255, 0.3); }
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
 }

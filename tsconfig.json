@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2017",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -19,7 +23,9 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": [
+        "./*"
+      ]
     }
   },
   "include": [
@@ -30,5 +36,17 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    "scripts/preview-email.ts",
+    "scripts/test-email.ts",
+    "scripts/resend-dns.ts",
+    "scripts/check-resend.ts",
+    "scripts/seed-remote.ts",
+    "scripts/verify-remote-login.ts",
+    "scripts/check-azure.mts",
+    "scripts/preview-digest.mts",
+    "scripts/probe-narrate.mts",
+    "scripts/probe-narrate2.mts"
+  ]
 }

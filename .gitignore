@@ -32,6 +32,8 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# ...but the template carries no secrets and documents what has to be set.
+!.env.example
 
 # vercel
 .vercel
@@ -39,3 +41,17 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# NEXUS local development
+# local PGlite demo database, rebuilt from migrations + seed
+# (a trailing comment is NOT supported here - it becomes part of the pattern)
+/.pglite/
+dev.log
+dev.err.log
+tsconfig.tsbuildinfo
+/.smoke/
+
+# Local server logs from verification runs
+.smoke-run.log
+prod.log
+prod.err.log
