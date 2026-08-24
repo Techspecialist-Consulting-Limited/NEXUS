@@ -67,6 +67,7 @@ export default async function LoginPage({
       mode={authMode()}
       next={params.next ?? null}
       devEnabled
+      forcedDemo={process.env.NEXUS_FORCE_DEMO_AUTH === "1"}
       notice={notice}
       providers={providers}
       invitation={

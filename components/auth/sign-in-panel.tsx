@@ -46,6 +46,7 @@ export function SignInPanel({
   mode: authMode,
   next,
   devEnabled,
+  forcedDemo = false,
   notice,
   providers,
   invitation = null,
@@ -53,6 +54,12 @@ export function SignInPanel({
   mode: "supabase" | "dev";
   next: string | null;
   devEnabled: boolean;
+  /**
+   * Demo mode was ASKED for with NEXUS_FORCE_DEMO_AUTH, rather than fallen
+   * back to. Read on the server: the flag is deliberately not NEXT_PUBLIC_ so
+   * it can never reach a browser and be used to downgrade a real deployment.
+   */
+  forcedDemo?: boolean;
   notice?: string | null;
   providers: EnabledProviders;
   invitation?: InvitationContext | null;
@@ -234,12 +241,33 @@ export function SignInPanel({
 
       {authMode === "dev" ? (
         <div className="space-y-3">
+          {/*
+            Two reasons land here and they need different advice. A build with
+            no Supabase keys genuinely has nothing to sign in against. A build
+            run with NEXUS_FORCE_DEMO_AUTH=1 has a perfectly good provider that
+            was deliberately overridden — telling its operator to go and set
+            keys they already set is the same untrue message the provider
+            notice used to give, and it sends them to fix something that is
+            not broken.
+          */}
           <p className="rounded-lg border border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 px-3 py-2.5 text-xs leading-relaxed text-[var(--color-warning)]">
-            No authentication provider is configured, so NEXUS is running on the
-            local demo database. Set{" "}
-            <span className="metric">NEXT_PUBLIC_SUPABASE_URL</span> and{" "}
-            <span className="metric">NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY</span>{" "}
-            to enable Microsoft, Google and password sign-in.
+            {forcedDemo ? (
+              <>
+                This server was started with{" "}
+                <span className="metric">NEXUS_FORCE_DEMO_AUTH=1</span>, so it is
+                running on the local demo database with seeded people. Real
+                sign-in is switched off for this run — restart without that flag
+                to use it.
+              </>
+            ) : (
+              <>
+                No authentication provider is configured, so NEXUS is running on
+                the local demo database. Set{" "}
+                <span className="metric">NEXT_PUBLIC_SUPABASE_URL</span> and{" "}
+                <span className="metric">NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY</span>{" "}
+                to enable Microsoft, Google and password sign-in.
+              </>
+            )}
           </p>
           {devEnabled && (
             <GlassButton
