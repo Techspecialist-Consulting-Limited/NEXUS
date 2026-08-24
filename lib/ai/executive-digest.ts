@@ -349,6 +349,17 @@ export function renderDigestEmail(
     `Delivered ${m.delivery_rate ?? "—"}%   Told in time ${m.signal_integrity ?? "—"}%   ` +
       `Reported ${m.people_responded ?? "—"}/${m.people_reporting ?? "—"}`,
     "",
+    ...(result.threads.length
+      ? [
+          "THE WEEK",
+          ...result.threads.flatMap((t) => [
+            `  ${t.headline}`,
+            `    ${t.detail}`,
+            ...(credit(t) ? [`    ${credit(t)}`] : []),
+          ]),
+          "",
+        ]
+      : []),
     ...(result.whatChanged.length
       ? ["WHAT CHANGED", ...result.whatChanged.map((c) => `  - ${c}`), ""]
       : []),
@@ -362,17 +373,6 @@ export function renderDigestEmail(
           "",
         ]
       : ["Nothing is escalated this period.", ""]),
-    ...(result.threads.length
-      ? [
-          "THE WEEK",
-          ...result.threads.flatMap((t) => [
-            `  ${t.headline}`,
-            `    ${t.detail}`,
-            ...(credit(t) ? [`    ${credit(t)}`] : []),
-          ]),
-          "",
-        ]
-      : []),
     ...(result.praise.length ? ["WORTH SAYING", ...result.praise.map((p) => `  - ${p}`), ""] : []),
     ...(silent.length
       ? [
@@ -416,6 +416,28 @@ export function renderDigestEmail(
     </td></tr>
 
     ${
+      result.threads.length
+        ? `<tr><td style="padding:22px 28px 0">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#8a91a0;font-weight:600">The week</div>
+      ${result.threads
+        .map(
+          (t) => `
+        <div style="margin-top:12px;padding-left:12px;border-left:2px solid #e4e6eb">
+          <div style="font-size:14px;font-weight:600;line-height:1.5;color:#12151c">${escapeHtml(t.headline)}</div>
+          <div style="font-size:14px;line-height:1.65;color:#3c4250;margin-top:3px">${escapeHtml(t.detail)}</div>
+          ${
+            credit(t)
+              ? `<div style="font-size:12px;line-height:1.5;color:#8a91a0;margin-top:4px">${escapeHtml(credit(t))}</div>`
+              : ""
+          }
+        </div>`,
+        )
+        .join("")}
+      </td></tr>`
+        : ""
+    }
+
+    ${
       result.whatChanged.length
         ? `<tr><td style="padding:22px 28px 0">
       <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#8a91a0;font-weight:600">What changed</div>
@@ -448,28 +470,6 @@ export function renderDigestEmail(
         : `<tr><td style="padding:22px 28px 0">
       <p style="margin:0;font-size:14px;color:#3c4250">Nothing is escalated this period.</p>
       </td></tr>`
-    }
-
-    ${
-      result.threads.length
-        ? `<tr><td style="padding:22px 28px 0">
-      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#8a91a0;font-weight:600">The week</div>
-      ${result.threads
-        .map(
-          (t) => `
-        <div style="margin-top:12px;padding-left:12px;border-left:2px solid #e4e6eb">
-          <div style="font-size:14px;font-weight:600;line-height:1.5;color:#12151c">${escapeHtml(t.headline)}</div>
-          <div style="font-size:14px;line-height:1.65;color:#3c4250;margin-top:3px">${escapeHtml(t.detail)}</div>
-          ${
-            credit(t)
-              ? `<div style="font-size:12px;line-height:1.5;color:#8a91a0;margin-top:4px">${escapeHtml(credit(t))}</div>`
-              : ""
-          }
-        </div>`,
-        )
-        .join("")}
-      </td></tr>`
-        : ""
     }
 
     ${

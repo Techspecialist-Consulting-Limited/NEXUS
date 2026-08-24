@@ -115,11 +115,13 @@ function sequence(brief: WeeklyBrief) {
   };
 
   push("headline", brief.headline);
-  brief.whatChanged.forEach((t) => push("changed", t));
+  // Reading order, not source order: one cursor runs across the document, so
+  // the sequence has to match what is on screen or the typing jumps sections.
   brief.threads.forEach((t) => {
     push("threads", t.headline);
     push("threads", t.detail);
   });
+  brief.whatChanged.forEach((t) => push("changed", t));
   brief.decisions.forEach((d) => {
     push("decisions", d.risk);
     push("decisions", d.action);
@@ -271,22 +273,6 @@ export function WeeklyBriefModal({ brief }: { brief: WeeklyBrief }) {
         </div>
 
         <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 pb-2 sm:px-7">
-          {segments.changed.length > 0 && (
-            <section>
-              <h3 className="card-title text-primary">What changed</h3>
-              <ul className="mt-2 space-y-2">
-                {segments.changed.map((s) => (
-                  <li key={s.at} className="body-sm flex gap-2.5">
-                    <span className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-white/30" />
-                    <span>
-                      <Typed segment={s} cursor={cursor} />
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-
           {/*
             The week as one account. Each thread names whose reports it came
             from, and each name opens that person — which is what makes the
@@ -337,6 +323,22 @@ export function WeeklyBriefModal({ brief }: { brief: WeeklyBrief }) {
             </section>
           )}
 
+          {segments.changed.length > 0 && (
+            <section>
+              <h3 className="card-title text-primary">What changed</h3>
+              <ul className="mt-2 space-y-2">
+                {segments.changed.map((s) => (
+                  <li key={s.at} className="body-sm flex gap-2.5">
+                    <span className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-white/30" />
+                    <span>
+                      <Typed segment={s} cursor={cursor} />
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
           {brief.decisions.length > 0 && (
             <section>
               <h3 className="card-title text-primary">Decisions</h3>
@@ -366,6 +368,22 @@ export function WeeklyBriefModal({ brief }: { brief: WeeklyBrief }) {
                     </li>
                   );
                 })}
+              </ul>
+            </section>
+          )}
+
+          {segments.praise.length > 0 && (
+            <section>
+              <h3 className="card-title text-primary">Worth saying</h3>
+              <ul className="mt-2 space-y-2">
+                {segments.praise.map((s) => (
+                  <li key={s.at} className="body-sm flex gap-2.5">
+                    <span className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-white/30" />
+                    <span>
+                      <Typed segment={s} cursor={cursor} />
+                    </span>
+                  </li>
+                ))}
               </ul>
             </section>
           )}
@@ -405,22 +423,6 @@ export function WeeklyBriefModal({ brief }: { brief: WeeklyBrief }) {
                 No report was filed for this week. That is a gap in the record,
                 not a record of their work.
               </p>
-            </section>
-          )}
-
-          {segments.praise.length > 0 && (
-            <section>
-              <h3 className="card-title text-primary">Worth saying</h3>
-              <ul className="mt-2 space-y-2">
-                {segments.praise.map((s) => (
-                  <li key={s.at} className="body-sm flex gap-2.5">
-                    <span className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-white/30" />
-                    <span>
-                      <Typed segment={s} cursor={cursor} />
-                    </span>
-                  </li>
-                ))}
-              </ul>
             </section>
           )}
         </div>
