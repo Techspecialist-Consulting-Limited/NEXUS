@@ -86,7 +86,7 @@ export function AccountMenu({ name, email }: { name: string; email: string }) {
         */
         <div
           role="menu"
-          className="glass-l3 absolute right-0 top-full z-50 mt-2 w-56 rounded-lg p-2
+          className="glass-overlay absolute right-0 top-full z-50 mt-2 w-56 rounded-lg p-2
                      md:bottom-full md:left-0 md:right-auto md:top-auto md:mb-2 md:mt-0"
         >
           <p className="px-2 pb-2 pt-1 text-2xs leading-snug text-tertiary">

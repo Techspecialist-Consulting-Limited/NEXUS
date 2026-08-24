@@ -83,7 +83,7 @@
   --void: #08080c;
 
   /*
-   * The one opaque surface a NATIVE control can sit on.
+   * The one opaque surface a native control — or a floating overlay — sits on.
    *
    * Everything else in NEXUS is a translucent white over the void, which the
    * browser cannot use for a <select> popup: a popup painted with
@@ -94,6 +94,8 @@
    * So native controls get a real colour rather than a transparency. It was
    * already being written as the literal #12121a at eight call sites; this is
    * the same value with a name.
+   *
+   * The same reasoning later covered dropdown menus — see .glass-overlay.
    */
   --native-surface: #12121a;
 
@@ -304,6 +306,33 @@ h1, h2, h3, h4, h5, h6 {
   backdrop-filter: blur(64px) saturate(160%);
   border: 1px solid rgba(255, 255, 255, 0.2);
   box-shadow: var(--shadow-dramatic);
+}
+
+/*
+ * A floating overlay: a dropdown menu or popover.
+ *
+ * WHY THIS IS NOT glass-l3.
+ *
+ * Glass frames content the layout already controls. An overlay floats over
+ * content it does NOT control — and backdrop-filter does not remove what is
+ * behind it, it smears it. Over the near-flat void there is almost nothing for
+ * a 64px blur to sample, so an 8%-white panel left high-contrast text legible
+ * straight through its own: the account menu showed the sidebar's
+ * "Integrations" and "Audit log" links, and the cycle label on mobile, printed
+ * underneath "Signed in as".
+ *
+ * An overlay therefore sits on a real colour. Elevation is carried by the
+ * border and the shadow, which is what actually separates a menu from the page
+ * — visual-system.md: glass applied uniformly "stops meaning anything and
+ * starts costing legibility", and this is that sentence as a bug report.
+ *
+ * No backdrop-filter: under an opaque background it costs a compositing pass
+ * and changes nothing on screen.
+ */
+.glass-overlay {
+  background-color: var(--native-surface);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: var(--shadow-heavy);
 }
 
 /*
