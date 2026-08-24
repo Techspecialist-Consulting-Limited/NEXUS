@@ -10,6 +10,7 @@ import {
   departmentHealth,
   getPerson,
   latestVisibleCycle,
+  latestWeeklyBrief,
   pendingReview,
   recentCycles,
   recentStaffUpdates,
@@ -129,9 +130,15 @@ export default async function DashboardPage() {
   const isChairman = me.role === "executive";
 
   if (isChairman) {
-    const [brief, updates] = await Promise.all([
+    /*
+     * The weekly brief is the STORED digest, read here and passed down as
+     * plain props. Null when none has been sent, which is the whole of the
+     * empty state: no brief, no modal.
+     */
+    const [brief, updates, weekly] = await Promise.all([
       executiveBrief(actor, week.id),
       recentStaffUpdates(actor, week.id),
+      latestWeeklyBrief(actor),
     ]);
 
     return (
@@ -147,6 +154,7 @@ export default async function DashboardPage() {
         cycleLabel={week.label}
         insights={brief.insights}
         updates={updates}
+        weeklyBrief={weekly}
       />
     );
   }

@@ -795,6 +795,60 @@ begin
   from profiles p
   where p.org_id = v_org and p.role in ('executive', 'hr', 'admin');
 
+  -- ---- the Chairman's weekly brief ----------------------------------------
+  --
+  -- The digest the notification above says to go and read. Without this row
+  -- the demo Chairman is told a brief exists and then finds nothing, and the
+  -- welcome modal on /dashboard never appears at all.
+  --
+  -- Written against the MOST RECENT SETTLED cycle, never the one still inside
+  -- the correction window (GUIDE section 8): a briefing on an unsettled week
+  -- reports numbers its subjects have not seen.
+  --
+  -- The prose restates the same three narratives the reconciliation engine
+  -- finds on its own — the eight-week carry, the Creative Hub dependency, the
+  -- silent drops. It sits on the same screen as those findings, so anything
+  -- else here would read as the system contradicting itself.
+  insert into digests (org_id, scope, scope_id, period, cycle_id, status,
+                       subject, summary_json, recipients, sent_at, created_at)
+  select
+    v_org, 'executive', null, 'weekly', cy.id, 'sent',
+    'Delivery held, and Creative Hub is now blocking a second unit',
+    '{
+      "subject": "Delivery held, and Creative Hub is now blocking a second unit",
+      "headline": "Delivery held at last week''s level, but the Creative Hub dependency is now in its third cycle and five commitments closed without anyone saying what happened to them.",
+      "whatChanged": [
+        "The warehouse migration has now been carried eight weeks running.",
+        "Creative Hub has been blocking Techspecialist for three cycles.",
+        "Five commitments across five people closed with no status update.",
+        "Growth declared every deviation in time for the second week running."
+      ],
+      "decisions": [
+        {
+          "risk": "The reporting pipeline migration has moved eight weeks in a row. Each week on its own looks like a small slip; the chain is the finding.",
+          "action": "Ask what the smallest shippable piece of it would be, and let the rest wait for it.",
+          "concerns": "Techspecialist"
+        },
+        {
+          "risk": "Creative Hub has held up Techspecialist for three cycles and it has not cleared on its own.",
+          "action": "Put both leads in one conversation this week and name who owns the unblock.",
+          "concerns": "Creative Hub"
+        },
+        {
+          "risk": "Five commitments went quiet rather than being deferred, so the delivery figure is softer than it reads.",
+          "action": "Ask what happened to those five before treating the percentage as settled."
+        }
+      ],
+      "praise": [
+        "Growth flagged every change as it happened, which is what makes their figures worth comparing."
+      ]
+    }'::jsonb,
+    array[]::text[],
+    now() - interval '18 hours', now() - interval '18 hours'
+  from cycles cy
+  where cy.org_id = v_org
+    and cy.starts_on = (date_trunc('week', current_date) - interval '2 weeks')::date;
+
   raise notice 'NEXUS seed: % people, % commitments, % check-ins',
     (select count(*) from profiles where org_id = v_org),
     (select count(*) from commitments c join profiles p on p.id = c.profile_id where p.org_id = v_org),

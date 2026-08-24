@@ -16,7 +16,8 @@ import {
 } from "lucide-react";
 import { GlassCard } from "@/components/ui/glass-card";
 import { VoiceConsole } from "@/components/assistant/voice-console";
-import type { StaffUpdate } from "@/lib/queries";
+import { WeeklyBriefModal } from "@/components/executive/weekly-brief-modal";
+import type { StaffUpdate, WeeklyBrief } from "@/lib/queries";
 import type { AIInsight } from "@/lib/insights";
 
 /*
@@ -116,6 +117,7 @@ export function ExecutiveHome({
   cycleLabel,
   insights,
   updates,
+  weeklyBrief = null,
 }: {
   firstName: string;
   greeting: string;
@@ -123,12 +125,19 @@ export function ExecutiveHome({
   cycleLabel: string;
   insights: AIInsight[];
   updates: StaffUpdate[];
+  weeklyBrief?: WeeklyBrief | null;
 }) {
   const priority = insights.slice(0, 3);
   const needsAttention = insights.filter((i) => i.severity !== "normal").length;
 
   return (
     <div className="mx-auto flex max-w-[1400px] flex-col gap-4 pb-2">
+      {/*
+        Shown once per brief, then not again until the next one is sent. It
+        decides that for itself on the client, so nothing renders here that the
+        browser immediately has to take back.
+      */}
+      {weeklyBrief && <WeeklyBriefModal brief={weeklyBrief} />}
       {/* ---- 1 + 2: ask, and who moved ---------------------------------- */}
       <div className="grid gap-4 lg:grid-cols-[1.9fr_1fr]">
         <GlassCard level={2} className="relative overflow-hidden p-5 md:p-7">

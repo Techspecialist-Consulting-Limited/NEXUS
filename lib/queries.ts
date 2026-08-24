@@ -775,3 +775,97 @@ export async function pendingReview(afterCycleSeq: number): Promise<PendingRevie
   );
   return rows[0] ?? null;
 }
+
+/*
+ * The Chairman's most recent weekly brief, as STORED.
+ *
+ * Migration 0005 wrote the digests table structured-first for exactly this:
+ * "the email template reads summary_json; html is a derived artifact. That
+ * ordering keeps the same briefing usable in the web UI, in email, and (later)
+ * in Slack without regenerating it." This is the web UI half of that promise.
+ *
+ * Nothing here calls a model. `weeklyBrief` once regenerated on every render
+ * and then preferred the stored value anyway — 22-34 seconds of blocking work
+ * on a home page, paid for an answer it discarded (GUIDE §14). The brief on
+ * screen is the same object that rendered the email, so the two can never
+ * disagree about what the week was.
+ *
+ * `status = 'sent'` because this is the companion to a briefing he received,
+ * not a preview of one he has not. It is reachable even with no mail
+ * configured: schedule.ts marks a digest sent once it has no deliverable
+ * recipients left, rather than retrying forever.
+ */
+export type WeeklyBrief = {
+  id: string;
+  cycleLabel: string | null;
+  headline: string;
+  whatChanged: string[];
+  decisions: { risk: string; action: string; concerns?: string }[];
+  praise: string[];
+};
+
+type DigestRow = {
+  id: string;
+  cycle_label: string | null;
+  summary_json: unknown;
+};
+
+/** Defensive: summary_json is jsonb written by one build and read by another. */
+function strings(value: unknown, cap: number): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((v): v is string => typeof v === "string" && v.trim().length > 0)
+    .slice(0, cap);
+}
+
+export async function latestWeeklyBrief(actor: string): Promise<WeeklyBrief | null> {
+  const rows = await asActor(
+    actor,
+    (sql) => sql<DigestRow>`
+      select d.id, c.label as cycle_label, d.summary_json
+      from digests d
+      left join cycles c on c.id = d.cycle_id
+      where d.scope = 'executive'
+        and d.period = 'weekly'
+        and d.status = 'sent'
+      order by d.sent_at desc nulls last, d.created_at desc
+      limit 1
+    `,
+  );
+
+  const row = rows[0];
+  if (!row) return null;
+
+  const s = row.summary_json;
+  if (typeof s !== "object" || s === null || Array.isArray(s)) return null;
+  const summary = s as Record<string, unknown>;
+
+  /*
+   * Tolerate at the edge, refuse to render nothing (rejected-patterns §14).
+   * A briefing with no headline is the empty-artefact case that once went out
+   * by email looking perfectly fine. Here it means no modal at all.
+   */
+  const headline = typeof summary.headline === "string" ? summary.headline.trim() : "";
+  if (!headline) return null;
+
+  const decisions = Array.isArray(summary.decisions)
+    ? summary.decisions
+        .filter(
+          (d): d is { risk: string; action: string; concerns?: string } =>
+            typeof d === "object" &&
+            d !== null &&
+            typeof (d as { risk?: unknown }).risk === "string" &&
+            typeof (d as { action?: unknown }).action === "string",
+        )
+        .slice(0, 4)
+    : [];
+
+  return {
+    id: row.id,
+    cycleLabel: row.cycle_label,
+    headline,
+    whatChanged: strings(summary.whatChanged, 4),
+    decisions,
+    praise: strings(summary.praise, 2),
+  };
+}
