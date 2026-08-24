@@ -90,7 +90,13 @@ for (const file of files) {
 
 const [counts] = await sql`
   select
-    (select count(*) from information_schema.tables where table_schema='public')::int as tables,
+    /*
+     * BASE TABLE only. Without the filter this counts views as tables, so a
+     * healthy schema reported 21 where a clean replay of the same migrations
+     * reports 17 — which reads as drift against production and is not.
+     */
+    (select count(*) from information_schema.tables
+      where table_schema='public' and table_type='BASE TABLE')::int as tables,
     (select count(*) from information_schema.views  where table_schema='public')::int as views,
     (select count(*) from pg_policies where schemaname='public')::int                 as policies
 `;
