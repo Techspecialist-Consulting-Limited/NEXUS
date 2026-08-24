@@ -58,6 +58,61 @@ export async function previewInvitation(token: string): Promise<InvitePreview | 
   return rows[0] ?? null;
 }
 
+/**
+ * The open invitation for a signed-in address, found without a token.
+ *
+ * WHY THIS EXISTS. The token is carried in a URL, and a URL is the fragile
+ * part of an invitation: it survives an email client, a redirect chain and a
+ * copy-paste, until one day it does not. When it was lost, the invited person
+ * was shown the founder path — "create an organisation" — on an invitation to
+ * an organisation that already existed. For a member of staff that is
+ * confusing. For the Chairman it is worse: accept it and he administers a new
+ * empty organisation instead of leading the real one, and the invitation he
+ * was actually sent is still sitting unaccepted.
+ *
+ * So the token is now a convenience rather than a requirement. The address is
+ * the real key, and it is a better one: this reads the email from the SESSION,
+ * which Supabase has already verified, not from the URL. Migration 0008 makes
+ * the same point from the other side — "the email address is NOT trusted from
+ * the URL: it is read from this row".
+ *
+ * A live invitation is unique per (org, email), so the only way to get more
+ * than one row is to be invited by two different organisations. The newest
+ * wins and the other stays open, because silently accepting on someone's
+ * behalf is worse than making them click again.
+ */
+export async function pendingInvitationFor(
+  email: string,
+): Promise<{ token: string; preview: InvitePreview } | null> {
+  const rows = await asService(
+    (sql) => sql<InvitePreview & { token: string }>`
+      select
+        i.token               as token,
+        o.name                as "orgName",
+        o.slug                as "orgSlug",
+        i.email               as email,
+        i.role::text          as role,
+        d.name                as "departmentName",
+        inviter.full_name     as "invitedBy",
+        i.expires_at          as "expiresAt"
+      from invitations i
+      join organizations o on o.id = i.org_id
+      left join departments d on d.id = i.department_id
+      left join profiles inviter on inviter.id = i.invited_by
+      where i.email = lower(${email})
+        and i.accepted_at is null
+        and i.revoked_at is null
+        and i.expires_at > now()
+      order by i.created_at desc
+      limit 1
+    `,
+  );
+  const row = rows[0];
+  if (!row) return null;
+  const { token, ...preview } = row;
+  return { token, preview };
+}
+
 export async function createOrganization(
   identity: Identity,
   orgName: string,

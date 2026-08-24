@@ -4,6 +4,7 @@ import { homeFor } from "@/lib/nav";
 import {
   departmentsForOrg,
   organizationsForDomain,
+  pendingInvitationFor,
   previewInvitation,
 } from "@/lib/onboarding";
 import { OnboardingPanel } from "@/components/auth/onboarding-panel";
@@ -41,7 +42,30 @@ export default async function OnboardingPage({
     redirect(homeFor(membership.role));
   }
 
-  const invitation = params.invite ? await previewInvitation(params.invite) : null;
+  /*
+   * The token first, then the address.
+   *
+   * A URL is the fragile part of an invitation, and when the token went
+   * missing this page offered to found an organisation to somebody who had
+   * been invited to join one. Falling back to the signed-in address closes
+   * that regardless of how the token was lost — and the address is the safer
+   * key, because Supabase has verified it and a URL parameter proves nothing.
+   *
+   * Ordering matters: an explicit token wins, so following a specific
+   * invitation link still lands on that specific invitation even when the
+   * address has another one open.
+   */
+  let token = params.invite ?? null;
+  let invitation = token ? await previewInvitation(token) : null;
+
+  if (!invitation) {
+    const found = await pendingInvitationFor(identity.email);
+    if (found) {
+      token = found.token;
+      invitation = found.preview;
+    }
+  }
+
   const joinable = invitation ? [] : await organizationsForDomain(identity.email);
   const departments =
     joinable.length === 1 ? await departmentsForOrg(joinable[0].slug) : [];
@@ -53,7 +77,7 @@ export default async function OnboardingPage({
         name: identity.name,
         provider: identity.provider,
       }}
-      token={params.invite ?? null}
+      token={token}
       invitation={invitation}
       joinable={joinable}
       departments={departments}
