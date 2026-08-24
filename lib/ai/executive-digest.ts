@@ -388,6 +388,8 @@ export function renderDigestEmail(
           "",
         ]
       : []),
+    `See what each person reported: ${appUrl}/dashboard`,
+    "",
     ...(result.whatChanged.length
       ? ["WHAT CHANGED", ...result.whatChanged.map((c) => `  - ${c}`), ""]
       : []),
@@ -409,8 +411,6 @@ export function renderDigestEmail(
           "",
         ]
       : []),
-    `See what each person reported: ${appUrl}/dashboard`,
-    "",
     "Every figure here is counted from records. Reconciliations still awaiting",
     "an employee's confirmation are not included.",
   ].join("\n");
@@ -462,6 +462,14 @@ export function renderDigestEmail(
       </td></tr>`
         : ""
     }
+
+    <tr><td style="padding:20px 28px 0">
+      <a href="${escapeHtml(appUrl)}/dashboard"
+         style="display:inline-block;padding:11px 20px;background:#3b6cf5;color:#ffffff;
+                text-decoration:none;border-radius:8px;font-size:14px;font-weight:600">
+        See what each person reported
+      </a>
+    </td></tr>
 
     ${
       result.whatChanged.length
@@ -521,12 +529,7 @@ export function renderDigestEmail(
     }
 
     <tr><td style="padding:24px 28px 28px">
-      <a href="${escapeHtml(appUrl)}/dashboard"
-         style="display:inline-block;padding:11px 20px;background:#3b6cf5;color:#ffffff;
-                text-decoration:none;border-radius:8px;font-size:14px;font-weight:600">
-        Open the full view
-      </a>
-      <p style="margin:16px 0 0;font-size:11px;line-height:1.6;color:#8a91a0">
+      <p style="margin:0;font-size:11px;line-height:1.6;color:#8a91a0">
         Every figure here is counted from records, not written by a model.
         Reconciliations still awaiting an employee&rsquo;s confirmation are not
         included &mdash; they appear once that person has seen them.
