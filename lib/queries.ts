@@ -940,6 +940,8 @@ export type PersonWeek = {
 export async function weeklyPersonReports(
   actor: string,
   cycleId: string,
+  /** Narrow to one unit. Omitted, this returns everybody the actor may see. */
+  departmentId?: string,
 ): Promise<PersonWeek[]> {
   return asActor(
     actor,
@@ -1004,6 +1006,8 @@ export async function weeklyPersonReports(
         on ss.profile_id = p.id and ss.cycle_id = ${cycleId}
       where p.status = 'active'
         and p.role in ('staff', 'lead', 'hr')
+        and (${departmentId ?? null}::uuid is null
+             or p.department_id = ${departmentId ?? null}::uuid)
       group by p.id, p.full_name, d.name
       order by d.name nulls last, p.full_name
     `,

@@ -16,7 +16,6 @@ import { StatusChip } from "@/components/ui/status-chip";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Reveal } from "@/components/motion/reveal";
 import { heroItem, staggerContainer, staggerItem } from "@/lib/motion-tokens";
-import { healthTone } from "@/lib/status";
 import { weekCode, weekRange } from "@/lib/cycle";
 import type {
   BlockingEdge,
@@ -24,6 +23,7 @@ import type {
   Department,
   DepartmentHealth,
   TeamMember,
+  PersonWeek,
 } from "@/lib/queries";
 
 /*
@@ -40,6 +40,7 @@ export function DepartmentView({
   department,
   health,
   team,
+  said,
   critical,
   edges,
   cycleLabel,
@@ -47,10 +48,21 @@ export function DepartmentView({
   department: Department;
   health: DepartmentHealth | null;
   team: TeamMember[];
+  /**
+   * What each person reported, keyed by profile.
+   *
+   * Separate from `team` on purpose: `team` is reconciliation COUNTS and this
+   * is CONTENT, and they come from different tables for different reasons.
+   * The roster carried only the counts, which is why it read as a flagging
+   * screen — a page can only be as much about reporting as its data is.
+   */
+  said: PersonWeek[];
   critical: CriticalItem[];
   edges: BlockingEdge[];
   cycleLabel: string;
 }) {
+  const reports = new Map(said.map((p) => [p.profileId, p]));
+
   return (
     <div className="pt-2">
       <Link
@@ -91,32 +103,27 @@ export function DepartmentView({
         {/* ---- unit health ---------------------------------------------- */}
         <m.div variants={heroItem}>
           <GlassCard level={2} className="p-5">
-            <div className="flex flex-wrap items-end gap-x-8 gap-y-4">
+            {/*
+              NO DELIVERY OR TOLD-IN-TIME SCORE HERE.
+              
+              Both are computed and both still drive the reconciliation engine
+              — they are simply not put in front of a reader yet. Two large
+              coloured percentages at the top set the frame for everything
+              below them, and the frame this page needs is "what is my team
+              reporting", not "how did my team score".
+
+              What stays is how many people reported, which is a count of
+              participation rather than a judgement of anyone, and it is the
+              one number that answers a question this page exists to answer.
+            */}
+            <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-3">
               <div>
-                <p className="text-xs text-tertiary">Delivered</p>
-                <p
-                  className="metric mt-1 text-4xl font-medium leading-none"
-                  style={{ color: healthTone(health?.delivery_rate ?? null) }}
-                >
-                  {health?.delivery_rate == null ? "—" : Math.round(health.delivery_rate)}
-                  <span className="text-xl text-white/40">%</span>
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-tertiary">Told in time</p>
-                <p
-                  className="metric mt-1 text-4xl font-medium leading-none"
-                  style={{ color: healthTone(health?.signal_integrity ?? null) }}
-                >
-                  {health?.signal_integrity == null ? "—" : Math.round(health.signal_integrity)}
-                  <span className="text-xl text-white/40">%</span>
-                </p>
-              </div>
-              <div className="ml-auto text-right">
-                <p className="text-xs text-tertiary">Reported</p>
+                <p className="text-xs text-tertiary">Reported this week</p>
                 <p className="metric mt-1 text-2xl leading-none text-white/90">
                   {health?.people_responded ?? 0}
-                  <span className="text-base text-white/40">/{health?.people_reporting ?? team.length}</span>
+                  <span className="text-base text-white/40">
+                    /{health?.people_reporting ?? team.length}
+                  </span>
                 </p>
               </div>
             </div>
@@ -134,7 +141,14 @@ export function DepartmentView({
           <m.div variants={staggerItem}>
             <SectionHeader
               title="Waiting on other units"
-              hint="Nobody here is scored down for these."
+              /*
+                Was "Nobody here is scored down for these." With the scores no
+                longer on the page that sentence reassured the reader about a
+                mechanic they cannot see. The point it was making is still
+                worth making — this work is not the waiting team's fault — so
+                it now says that directly.
+              */
+              hint="This work is held elsewhere. It is not the waiting team's to finish."
             />
             <div className="space-y-2">
               {edges.map((e, i) => (
@@ -167,8 +181,8 @@ export function DepartmentView({
         {/* ---- the team ---------------------------------------------------- */}
         <Reveal className="">
           <SectionHeader
-            title="The team"
-            hint="Ordered by who may need support, not by who scored highest."
+            title="The team's week"
+            hint="What each person reported. Open anyone to read it in their own words."
           />
           {team.length === 0 ? (
             <GlassCard level={1}>
@@ -180,9 +194,21 @@ export function DepartmentView({
             </GlassCard>
           ) : (
             <ul className="space-y-2">
-              {team.map((p) => (
+              {team.map((p) => {
+                const said = reports.get(p.profile_id);
+                return (
                 <li key={p.profile_id}>
-                  <GlassCard level={1} className="p-3.5">
+                  {/*
+                    The whole row opens that person. Their name is the least
+                    useful part of the row to aim at, and it truncates.
+                  */}
+                  <Link
+                    href={`/people/${p.profile_id}`}
+                    aria-label={`Open ${p.full_name}'s week`}
+                    className="glass-l1 block rounded-lg p-3.5 transition-colors
+                               hover:bg-white/[0.06]
+                               focus-visible:outline focus-visible:outline-2 focus-visible:outline-white/40"
+                  >
                     <div className="flex items-center gap-3">
                       <span
                         aria-hidden="true"
@@ -202,21 +228,64 @@ export function DepartmentView({
                         </p>
                       </div>
 
-                      <div className="shrink-0 text-right">
-                        {p.responded ? (
-                          <span
-                            className="metric text-sm"
-                            style={{ color: healthTone(p.delivery_rate) }}
-                          >
-                            {p.delivery_rate === null ? "—" : `${Math.round(p.delivery_rate)}%`}
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-2xs text-white/45">
-                            <EarOff size={11} aria-hidden="true" /> no update
-                          </span>
+                      {/*
+                        No delivery percentage here, deliberately. A score
+                        beside somebody's name on a page their colleagues read
+                        is a ranking of humans, which rejected-patterns.md §9
+                        rejects — and the caption that used to sit under this
+                        heading ("ordered by who may need support, not by who
+                        scored highest") was the page admitting the number was
+                        the loudest thing on every row.
+                        The counts below stay: they name a piece of WORK that
+                        needs attention rather than rating the person.
+                      */}
+                      {!p.responded && (
+                        <span className="inline-flex shrink-0 items-center gap-1 text-2xs text-white/45">
+                          <EarOff size={11} aria-hidden="true" /> no update
+                        </span>
+                      )}
+                    </div>
+
+                    {/*
+                      What they actually said. This is the point of the page:
+                      the roster used to carry nothing anybody wrote, which is
+                      why it read as a flagging screen rather than a report.
+                    */}
+                    {said && p.responded && (
+                      <div className="mt-2.5 space-y-1 pl-12">
+                        {said.delivered.length > 0 && (
+                          <p className="body-sm line-clamp-2">
+                            <span className="text-[var(--color-delivered)]">Landed</span>{" "}
+                            {said.delivered.join(" · ")}
+                          </p>
+                        )}
+                        {said.open.length > 0 && (
+                          <p className="body-sm line-clamp-2">
+                            <span className="text-white/45">Still open</span>{" "}
+                            {said.open.join(" · ")}
+                          </p>
+                        )}
+                        {said.blocked.length > 0 && (
+                          <p className="body-sm line-clamp-2">
+                            <span className="text-[var(--color-blocked)]">Held up</span>{" "}
+                            {said.blocked.map((b: { title: string }) => b.title).join(" · ")}
+                          </p>
+                        )}
+                        {said.planned.length > 0 && (
+                          <p className="note line-clamp-1">
+                            Next: {said.planned.join(" · ")}
+                          </p>
                         )}
                       </div>
-                    </div>
+                    )}
+
+                    {/* Rule 5: silence is not an empty week. */}
+                    {!p.responded && (
+                      <p className="note mt-2.5 pl-12">
+                        No check-in was filed for this week. Nothing here says
+                        what they did or did not do.
+                      </p>
+                    )}
 
                     {(p.silent_drop_count > 0 ||
                       p.protected_count > 0 ||
@@ -242,9 +311,10 @@ export function DepartmentView({
                         )}
                       </p>
                     )}
-                  </GlassCard>
+                  </Link>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           )}
         </Reveal>

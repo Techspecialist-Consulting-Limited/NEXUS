@@ -67,28 +67,37 @@ describe("digest email figures", () => {
 
   it("shows an em dash rather than inventing a zero", () => {
     const { html } = render({});
-    // "0%" would be a claim about the week; the em dash is honest about the record.
-    expect(html).not.toMatch(/>0%</);
+    // "0/0" would be a claim about the week; the dash is honest about the record.
+    expect(html).not.toContain("0/0");
     expect(html).toContain("—");
   });
 
-  it("still renders real figures when they are there", () => {
+  it("reports how many people filed, which is a count and not a score", () => {
+    const { html, text } = render({ people_responded: 14, people_reporting: 16 });
+    expect(html).toContain("14/16");
+    expect(text).toContain("14/16");
+  });
+
+  /*
+   * Delivery and told-in-time are computed and still drive reconciliation.
+   * They are deliberately not shown: two percentages at the top of a briefing
+   * frame everything under them, and this briefing is framed around what
+   * people reported. Pinned so they cannot drift back in unnoticed.
+   */
+  it("puts no delivery or told-in-time score in front of the Chairman", () => {
     const { html, text } = render({
       delivery_rate: 57,
       signal_integrity: 81,
       people_responded: 14,
       people_reporting: 16,
     });
-    expect(html).toContain("57%");
-    expect(html).toContain("81%");
+    for (const body of [html, text]) {
+      expect(body).not.toContain("57%");
+      expect(body).not.toContain("81%");
+      expect(body).not.toMatch(/Told in time/i);
+    }
+    // ...and the participation count still arrives.
     expect(html).toContain("14/16");
-    expect(text).toContain("57%");
-  });
-
-  it("rounds rather than printing a long decimal at an executive", () => {
-    const { html } = render({ delivery_rate: 57.4166666 });
-    expect(html).toContain("57%");
-    expect(html).not.toContain("57.41");
   });
 
   it("renders the brief without a metrics object at all", () => {

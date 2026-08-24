@@ -337,14 +337,17 @@ export function renderDigestEmail(
    *
    * Checking the type rather than the value covers both, plus a string that
    * survived a JSON round trip and NaN from an average over zero rows.
+   *
+   * The delivery and told-in-time percentages are deliberately NOT rendered.
+   * They are still computed and still drive reconciliation; they are simply
+   * not put in front of the Chairman yet. Two figures at the top of a
+   * briefing set the frame for everything under them, and the frame this one
+   * needs is what people reported. How many of them reported is a count of
+   * participation rather than a judgement, so it stays.
    */
   const num = (v: unknown): number | null => {
     const n = typeof v === "string" ? Number(v) : v;
     return typeof n === "number" && Number.isFinite(n) ? n : null;
-  };
-  const pct = (v: unknown): string => {
-    const n = num(v);
-    return n === null ? "—" : `${Math.round(n)}%`;
   };
   const count = (v: unknown): string => {
     const n = num(v);
@@ -372,8 +375,7 @@ export function renderDigestEmail(
     result.headline,
     "",
     `${orgName} · ${cycleLabel}`,
-    `Delivered ${pct(m.delivery_rate)}   Told in time ${pct(m.signal_integrity)}   ` +
-      `Reported ${count(m.people_responded)}/${count(m.people_reporting)}`,
+    `Reported ${count(m.people_responded)}/${count(m.people_reporting)}`,
     "",
     ...(result.threads.length
       ? [
@@ -435,8 +437,6 @@ export function renderDigestEmail(
 
     <tr><td style="padding:18px 28px 0">
       <table role="presentation" cellpadding="0" cellspacing="0"><tr>
-        ${stat("Delivered", pct(m.delivery_rate))}
-        ${stat("Told in time", pct(m.signal_integrity))}
         ${stat("Reported", `${count(m.people_responded)}/${count(m.people_reporting)}`)}
       </tr></table>
     </td></tr>
