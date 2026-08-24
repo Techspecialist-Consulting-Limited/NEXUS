@@ -392,11 +392,17 @@ export function SignInPanel({
         </div>
       )}
 
+      {/*
+        Two different reasons produce an empty provider list, and they need
+        opposite advice. Telling somebody to go and switch Microsoft on when it
+        is already on — because the settings endpoint answered 401 — costs them
+        the one trip to the dashboard that would have fixed it.
+      */}
       {authMode === "supabase" && !hasSocial && (
         <p className="mt-4 rounded-lg border border-white/[0.10] bg-white/[0.04] px-3 py-2.5 text-2xs leading-relaxed text-tertiary">
-          Microsoft and Google sign-in are not switched on for this project yet.
-          Enable them under Authentication → Providers in the Supabase dashboard
-          and they appear here on the next visit.
+          {providers.known
+            ? "Microsoft and Google sign-in are not switched on for this project yet. Enable them under Authentication → Providers in the Supabase dashboard and they appear here on the next visit."
+            : "NEXUS could not check which sign-in methods this project has, so only email is offered here. Anything else that is switched on will reappear once that check succeeds."}
         </p>
       )}
 

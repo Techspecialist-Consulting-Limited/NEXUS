@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { CircleCheck, CircleSlash } from "lucide-react";
+import { CircleCheck, CircleDashed, CircleSlash } from "lucide-react";
 import { requireViewer } from "@/lib/session";
 import { hasAdministration } from "@/lib/capabilities";
 import { authMode } from "@/lib/auth";
@@ -32,7 +32,8 @@ export const dynamic = "force-dynamic";
 
 type ProviderRow = {
   name: string;
-  on: boolean;
+  /** true on, false off, null we could not find out. */
+  on: boolean | null;
   detail: string;
 };
 
@@ -67,28 +68,33 @@ export default async function AdminIntegrationsPage() {
   const usedBy = (keys: string[]) =>
     keys.reduce((sum, k) => sum + (used.get(k) ?? 0), 0);
 
+  /*
+   * Three states, not two.
+   *
+   * `enabledProviders()` reports social-off when it could not reach Supabase
+   * at all, so rendering that as "Not enabled on this project" states a fact
+   * about a dashboard this page never managed to read — and this page's whole
+   * contract is that every line on it is observed. Unknown is its own answer.
+   */
+  const identityRow = (name: string, on: boolean, keys: string[]): ProviderRow =>
+    providers.known
+      ? {
+          name,
+          on,
+          detail: on
+            ? `Enabled. ${usedBy(keys)} people signed in with it.`
+            : "Not enabled on this project.",
+        }
+      : {
+          name,
+          on: null,
+          detail: "Unknown — this project's sign-in settings could not be read.",
+        };
+
   const identity: ProviderRow[] = [
-    {
-      name: "Microsoft",
-      on: providers.azure,
-      detail: providers.azure
-        ? `Enabled. ${usedBy(["azure", "entra", "microsoft"])} people signed in with it.`
-        : "Not enabled on this project.",
-    },
-    {
-      name: "Google",
-      on: providers.google,
-      detail: providers.google
-        ? `Enabled. ${usedBy(["google"])} people signed in with it.`
-        : "Not enabled on this project.",
-    },
-    {
-      name: "Email link",
-      on: providers.email,
-      detail: providers.email
-        ? `Enabled. ${usedBy(["email"])} people signed in with it.`
-        : "Not enabled on this project.",
-    },
+    identityRow("Microsoft", providers.azure, ["azure", "entra", "microsoft"]),
+    identityRow("Google", providers.google, ["google"]),
+    identityRow("Email link", providers.email, ["email"]),
   ];
 
   const services: ProviderRow[] = [
@@ -137,7 +143,11 @@ export default async function AdminIntegrationsPage() {
 
       <Group
         title="How people sign in"
-        blurb="Set in your Supabase project, not here. NEXUS offers on the sign-in screen exactly what is enabled, so nobody meets a button that cannot work."
+        blurb={
+          providers.known
+            ? "Set in your Supabase project, not here. NEXUS offers on the sign-in screen exactly what is enabled, so nobody meets a button that cannot work."
+            : "Set in your Supabase project, not here — and NEXUS could not read that configuration on this request. The states below are unknown rather than off, and the sign-in screen is falling back to email only. A 401 from Supabase means the publishable key on this deployment is wrong; the server log names the status."
+        }
         rows={identity}
       />
 
@@ -187,21 +197,27 @@ function Group({
             key={row.name}
             className="flex items-start gap-3 border-b border-white/[0.05] px-4 py-3 last:border-b-0"
           >
-            {row.on ? (
+            {row.on === true ? (
               <CircleCheck
                 size={15}
                 className="mt-0.5 shrink-0 text-[var(--color-delivered)]"
                 aria-label="Connected"
               />
-            ) : (
+            ) : row.on === false ? (
               <CircleSlash
                 size={15}
                 className="mt-0.5 shrink-0 text-white/30"
                 aria-label="Not connected"
               />
+            ) : (
+              <CircleDashed
+                size={15}
+                className="mt-0.5 shrink-0 text-white/30"
+                aria-label="Unknown"
+              />
             )}
             <div className="min-w-0">
-              <p className={row.on ? "text-sm text-white/90" : "text-sm text-white/55"}>
+              <p className={row.on === true ? "text-sm text-white/90" : "text-sm text-white/55"}>
                 {row.name}
               </p>
               <p className="note mt-0.5">{row.detail}</p>
