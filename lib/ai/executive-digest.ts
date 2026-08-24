@@ -1,4 +1,5 @@
 import { asService } from "../db";
+import { weekLabel } from "../cycle";
 import { aiProvider } from "./provider";
 import { executiveBrief } from "../insights";
 import { weeklyPersonReports } from "../queries";
@@ -304,7 +305,13 @@ export function renderDigestEmail(
   digest: BuiltDigest,
   appUrl: string,
 ): { subject: string; html: string; text: string } {
-  const { orgName, cycleLabel } = digest;
+  const { orgName } = digest;
+  /*
+   * Dates, not "W33". The week number is precise and almost nobody can place
+   * it — a Chairman reading "W33" has to work out which week that was before
+   * the sentence beside it means anything.
+   */
+  const cycleLabel = weekLabel(digest.cycleLabel);
 
   /*
    * Defend against a stored briefing that predates a schema change.

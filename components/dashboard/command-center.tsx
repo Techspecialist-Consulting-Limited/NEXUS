@@ -10,7 +10,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { heroItem, staggerContainer, staggerItem } from "@/lib/motion-tokens";
 import { cn } from "@/lib/cn";
 import { healthTone } from "@/lib/status";
-import { weekCode, weekRange } from "@/lib/cycle";
+import { weekLabel } from "@/lib/cycle";
 import type { CoursePoint, PendingReview } from "@/lib/queries";
 import type { AIInsight, ExecutiveBrief } from "@/lib/insights";
 
@@ -77,9 +77,7 @@ export function CommandCenter({
           {isChairman ? "Command" : "Organisation"}
         </h1>
         <p className="text-xs text-tertiary">
-          <span className="metric text-white/70">{weekCode(cycleLabel)}</span>
-          {" · "}
-          {weekRange(cycleLabel)}
+          <span className="metric text-white/70">{weekLabel(cycleLabel)}</span>
         </p>
       </div>
 
@@ -140,7 +138,7 @@ export function CommandCenter({
               <Row label="Held elsewhere" value={held} tone={held ? "var(--color-healthy)" : undefined} />
               {pending && (
                 <Row
-                  label={`${weekCode(pending.label)} confirming`}
+                  label={`${weekLabel(pending.label)} confirming`}
                   value={pending.pending}
                   tone="var(--color-warning)"
                 />

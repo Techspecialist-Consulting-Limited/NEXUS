@@ -12,7 +12,7 @@ import {
 import { GlassCard } from "@/components/ui/glass-card";
 import { EvidenceChip } from "@/components/ui/evidence-chip";
 import { PageHead } from "@/components/executive/page-head";
-import { weekCode } from "@/lib/cycle";
+import { weekLabel } from "@/lib/cycle";
 import type { AIInsight } from "@/lib/insights";
 
 /*
@@ -66,7 +66,7 @@ export function InsightBoard({
     <div className="mx-auto flex max-w-[1400px] flex-col gap-4 pb-2">
       <PageHead
         title="Insights"
-        cycleLabel={weekCode(cycleLabel)}
+        cycleLabel={weekLabel(cycleLabel)}
         standfirst={
           insights.length === 0 ? (
             "Nothing needs your attention this week."

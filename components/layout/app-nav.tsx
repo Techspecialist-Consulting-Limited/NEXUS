@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { NexusMark } from "@/components/ui/nexus-mark";
 import { usePathname } from "next/navigation";
 import { m } from "motion/react";
 import {
@@ -256,12 +257,7 @@ export function SideNav({
     >
       {/* identity */}
       <div className="flex items-center gap-2.5 px-4 py-4 lg:px-5">
-        <span
-          aria-hidden="true"
-          className="grid size-8 shrink-0 place-items-center rounded-lg bg-[var(--dept-techspecialist)]/20 text-xs font-semibold text-[var(--dept-techspecialist)]"
-        >
-          N
-        </span>
+        <NexusMark size={32} />
         <div className="hidden min-w-0 lg:block">
           <p className="truncate text-sm font-medium leading-tight">{orgName}</p>
           <p className="truncate text-2xs leading-tight text-tertiary">{roleLabel}</p>

@@ -4,7 +4,7 @@ import { m } from "motion/react";
 import { Brain, MessageCircleQuestion, Sparkles } from "lucide-react";
 import { GlassCard } from "@/components/ui/glass-card";
 import { PageHead } from "@/components/executive/page-head";
-import { weekCode } from "@/lib/cycle";
+import { weekLabel } from "@/lib/cycle";
 
 /*
  * Coaching — the employee's own page about their own week.
@@ -40,7 +40,7 @@ export function CoachBoard({
     <div className="mx-auto flex max-w-[1400px] flex-col gap-4 pb-2">
       <PageHead
         title="Coaching"
-        cycleLabel={weekCode(cycleLabel)}
+        cycleLabel={weekLabel(cycleLabel)}
         standfirst={
           nothing
             ? "Nothing to work through this week."

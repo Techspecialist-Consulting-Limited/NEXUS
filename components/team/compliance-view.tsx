@@ -6,7 +6,7 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { SectionHeader } from "@/components/ui/section-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { staggerContainer, staggerItem, heroItem } from "@/lib/motion-tokens";
-import { weekCode, weekRange } from "@/lib/cycle";
+import { weekRange } from "@/lib/cycle";
 import type { ComplianceRow } from "@/lib/team";
 
 /*
@@ -39,9 +39,6 @@ export function ComplianceView({
           <h1 className="text-2xl font-medium tracking-tight">Reporting</h1>
           <p className="mt-0.5 text-xs text-tertiary">{weekRange(cycleLabel)}</p>
         </div>
-        <span className="metric shrink-0 rounded-md bg-white/[0.06] px-2 py-1 text-xs text-white/70">
-          {weekCode(cycleLabel)}
-        </span>
       </div>
 
       <m.div variants={staggerContainer} initial="hidden" animate="visible" className="mt-4">

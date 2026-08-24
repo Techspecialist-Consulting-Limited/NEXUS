@@ -23,7 +23,7 @@ import { cn } from "@/lib/cn";
 import { GlassCard } from "@/components/ui/glass-card";
 import { useDictation } from "@/lib/voice";
 import { useToast } from "@/components/ui/toast";
-import { weekCode } from "@/lib/cycle";
+import { weekLabel } from "@/lib/cycle";
 import { filingFailure } from "@/lib/api-messages";
 import type { OpenCommitment } from "@/lib/checkin";
 
@@ -698,7 +698,7 @@ function DesktopWorkspace(props: Shared) {
         <div className="flex flex-col gap-4">
           <GlassCard level={2} className="p-5">
             <p className="eyebrow">Cycle archive</p>
-            <h2 className="card-title mt-1">{weekCode(cycleLabel)} context</h2>
+            <h2 className="card-title mt-1">{weekLabel(cycleLabel)} context</h2>
             <p className="body-sm mt-1.5">
               Reconciling what you committed to for {cycleLabel}. Every answer here feeds
               this week&rsquo;s brief.

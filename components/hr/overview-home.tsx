@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { GlassCard } from "@/components/ui/glass-card";
 import { PageHead } from "@/components/executive/page-head";
-import { weekCode } from "@/lib/cycle";
+import { weekLabel } from "@/lib/cycle";
 import type { ComplianceRow } from "@/lib/team";
 import type { DepartmentHealth } from "@/lib/queries";
 
@@ -74,20 +74,20 @@ export function HrOverview({
     <div className="mx-auto flex max-w-[1400px] flex-col gap-4 pb-2">
       <PageHead
         title="Overview"
-        cycleLabel={weekCode(openWeekLabel)}
+        cycleLabel={weekLabel(openWeekLabel)}
         standfirst={
           compliance.length === 0 ? (
             "Nobody is expected to report this week."
           ) : missing.length === 0 ? (
             <>
-              Everyone has reported for {weekCode(openWeekLabel)}
+              Everyone has reported for {weekLabel(openWeekLabel)}
               {late.length > 0 ? `, ${late.length} after the deadline.` : "."}
             </>
           ) : (
             <>
               {missing.length} of {compliance.length}{" "}
               {compliance.length === 1 ? "person has" : "people have"} not reported for{" "}
-              {weekCode(openWeekLabel)}
+              {weekLabel(openWeekLabel)}
               {late.length > 0 ? `, and ${late.length} filed late.` : "."}
             </>
           )
@@ -98,7 +98,7 @@ export function HrOverview({
       <div className="grid items-start gap-4 lg:grid-cols-[1fr_1.6fr]">
         <GlassCard level={2} className="p-5">
           <p className="eyebrow">
-            Reporting · {weekCode(openWeekLabel)}
+            Reporting · {weekLabel(openWeekLabel)}
           </p>
 
           <p
@@ -150,7 +150,7 @@ export function HrOverview({
                 aria-hidden="true"
               />
               <p className="text-sm leading-relaxed text-secondary">
-                Nobody to chase. Everyone expected to report for {weekCode(openWeekLabel)}{" "}
+                Nobody to chase. Everyone expected to report for {weekLabel(openWeekLabel)}{" "}
                 has done so
                 {late.length > 0
                   ? `, though ${late.length} arrived after the deadline. Late is still reported — worth knowing, not worth chasing.`
@@ -223,7 +223,7 @@ export function HrOverview({
       <GlassCard level={2} className="p-5">
         <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
           <h2 className="eyebrow">
-            Delivery · {settledWeekLabel ? weekCode(settledWeekLabel) : "—"}
+            Delivery · {settledWeekLabel ? weekLabel(settledWeekLabel) : "—"}
           </h2>
           <Link
             href="/departments"

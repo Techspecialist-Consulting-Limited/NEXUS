@@ -4,7 +4,7 @@ import { m } from "motion/react";
 import { Check, CircleDashed, Clock, ShieldCheck } from "lucide-react";
 import { GlassCard } from "@/components/ui/glass-card";
 import { PageHead } from "@/components/executive/page-head";
-import { weekCode } from "@/lib/cycle";
+import { weekLabel } from "@/lib/cycle";
 import type { ComplianceRow } from "@/lib/team";
 
 /*
@@ -67,7 +67,7 @@ export function ReportingBoard({
     <div className="mx-auto flex max-w-[1400px] flex-col gap-4 pb-2">
       <PageHead
         title="Reporting"
-        cycleLabel={weekCode(cycleLabel)}
+        cycleLabel={weekLabel(cycleLabel)}
         standfirst={
           rows.length === 0 ? (
             "Nobody is expected to report this week."
@@ -134,7 +134,7 @@ export function ReportingBoard({
 
           {missing.length === 0 ? (
             <p className="mt-3 text-sm leading-relaxed text-secondary">
-              Nobody to chase. Everyone expected to report for {weekCode(cycleLabel)} has
+              Nobody to chase. Everyone expected to report for {weekLabel(cycleLabel)} has
               done so.
             </p>
           ) : (

@@ -9,7 +9,7 @@ import { SectionHeader } from "@/components/ui/section-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { InsightCard } from "@/components/dashboard/insight-card";
 import { staggerContainer, staggerItem } from "@/lib/motion-tokens";
-import { weekCode, weekRange } from "@/lib/cycle";
+import { weekRange } from "@/lib/cycle";
 import type { AIInsight } from "@/lib/insights";
 
 /*
@@ -46,9 +46,6 @@ export function AdviceFeed({
           </h1>
           <p className="mt-0.5 text-xs text-tertiary">{weekRange(cycleLabel)}</p>
         </div>
-        <span className="metric shrink-0 rounded-md bg-white/[0.06] px-2 py-1 text-xs text-white/70">
-          {weekCode(cycleLabel)}
-        </span>
       </div>
 
       {nothing ? (

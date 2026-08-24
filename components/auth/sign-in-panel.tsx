@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, Mail, MailCheck } from "lucide-react";
 import { GlassCard } from "@/components/ui/glass-card";
+import { NexusMark } from "@/components/ui/nexus-mark";
 import { GlassButton } from "@/components/ui/glass-button";
 import { useToast } from "@/components/ui/toast";
 import { supabaseBrowser, OAUTH_PROVIDERS, type OAuthProvider } from "@/lib/supabase-browser";
@@ -207,12 +208,7 @@ export function SignInPanel({
   return (
     <GlassCard level={2} className="p-6">
       <div className="mb-6 text-center">
-        <span
-          aria-hidden="true"
-          className="mx-auto mb-3 grid size-10 place-items-center rounded-xl bg-[var(--dept-techspecialist)]/20 text-sm font-semibold text-[var(--dept-techspecialist)]"
-        >
-          N
-        </span>
+        <NexusMark size={44} className="mx-auto mb-3" />
         <h1 className="text-xl font-medium tracking-tight">
           {invitation
             ? `Join ${invitation.orgName}`

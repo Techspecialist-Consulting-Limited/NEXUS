@@ -4,7 +4,7 @@ import { m } from "motion/react";
 import { CornerDownRight, Quote, Repeat2, ShieldCheck } from "lucide-react";
 import { GlassCard } from "@/components/ui/glass-card";
 import { PageHead } from "@/components/executive/page-head";
-import { weekCode } from "@/lib/cycle";
+import { weekLabel } from "@/lib/cycle";
 import type { Cycle, CommitmentRow } from "@/lib/queries";
 
 /*
@@ -62,7 +62,7 @@ export function TaskBoard({
     <div className="mx-auto flex max-w-[1400px] flex-col gap-4 pb-2">
       <PageHead
         title="Tasks"
-        cycleLabel={current ? weekCode(current.cycle.label) : "—"}
+        cycleLabel={current ? weekLabel(current.cycle.label) : "—"}
         standfirst={
           all.length === 0 ? (
             "Nothing recorded yet. Your next check-in creates it."

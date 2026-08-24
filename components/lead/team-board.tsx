@@ -13,7 +13,7 @@ import {
 import { GlassCard } from "@/components/ui/glass-card";
 import { ProgressRing } from "@/components/ui/progress-ring";
 import { PageHead } from "@/components/executive/page-head";
-import { weekCode } from "@/lib/cycle";
+import { weekLabel } from "@/lib/cycle";
 import type { CriticalItem, DepartmentHealth, TeamMember } from "@/lib/queries";
 
 /*
@@ -108,7 +108,7 @@ export function TeamBoard({
     <div className="mx-auto flex max-w-[1400px] flex-col gap-4 pb-2">
       <PageHead
         title={unitName}
-        cycleLabel={weekCode(cycleLabel)}
+        cycleLabel={weekLabel(cycleLabel)}
         standfirst={
           team.length === 0 ? (
             "Nobody is assigned to this unit yet."

@@ -3,7 +3,7 @@ import { currentActorId } from "@/lib/session";
 import { departmentHealth, getPerson, latestVisibleCycle } from "@/lib/queries";
 import { GlassCard } from "@/components/ui/glass-card";
 import { EmptyState } from "@/components/ui/empty-state";
-import { weekCode, weekRange } from "@/lib/cycle";
+import { weekRange } from "@/lib/cycle";
 import { Building2 } from "lucide-react";
 import { UnitList } from "@/components/dashboard/unit-list";
 import { UnitBoard } from "@/components/executive/unit-board";
@@ -49,9 +49,6 @@ export default async function DepartmentsPage() {
           <h1 className="text-2xl font-medium tracking-tight">Units</h1>
           <p className="mt-0.5 text-xs text-tertiary">{weekRange(week.label)}</p>
         </div>
-        <span className="metric shrink-0 rounded-md bg-white/[0.06] px-2 py-1 text-xs text-white/70">
-          {weekCode(week.label)}
-        </span>
       </div>
 
       {departments.length === 0 ? (

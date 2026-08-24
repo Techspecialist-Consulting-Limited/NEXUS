@@ -19,7 +19,7 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { InlineCheckIn } from "@/components/staff/inline-checkin";
 import { FirstRun } from "@/components/onboarding/first-run";
 import { useToast } from "@/components/ui/toast";
-import { weekCode } from "@/lib/cycle";
+import { weekLabel } from "@/lib/cycle";
 import type { CommitmentRow, Person, Reconciliation } from "@/lib/queries";
 
 /*
@@ -196,7 +196,7 @@ export function CopilotHome({
 
             {commitments.length === 0 ? (
               <p className="note mt-3">
-                Nothing recorded for {weekCode(cycleLabel)}. Your next check-in creates it.
+                Nothing recorded for {weekLabel(cycleLabel)}. Your next check-in creates it.
               </p>
             ) : (
               <ul className="mt-3 space-y-2">
@@ -324,7 +324,7 @@ export function CopilotHome({
           {reportedAt && (
             <p className="note flex items-center gap-1.5 px-1">
               <Check size={11} aria-hidden="true" />
-              Reported {ago(reportedAt)} · {weekCode(cycleLabel)}
+              Reported {ago(reportedAt)} · {weekLabel(cycleLabel)}
             </p>
           )}
         </div>
@@ -358,7 +358,7 @@ function Highlight({
         </p>
         <p className="mt-2 text-base leading-relaxed text-white/90">
           Nothing is blocked or carrying. Everything on your list for{" "}
-          {weekCode(cycleLabel)} is moving.
+          {weekLabel(cycleLabel)} is moving.
         </p>
       </GlassCard>
     );

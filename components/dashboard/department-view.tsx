@@ -16,7 +16,7 @@ import { StatusChip } from "@/components/ui/status-chip";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Reveal } from "@/components/motion/reveal";
 import { heroItem, staggerContainer, staggerItem } from "@/lib/motion-tokens";
-import { weekCode, weekRange } from "@/lib/cycle";
+import { weekRange } from "@/lib/cycle";
 import type {
   BlockingEdge,
   CriticalItem,
@@ -89,9 +89,6 @@ export function DepartmentView({
             {weekRange(cycleLabel)}
           </p>
         </div>
-        <span className="metric shrink-0 rounded-md bg-white/[0.06] px-2 py-1 text-xs text-white/70">
-          {weekCode(cycleLabel)}
-        </span>
       </div>
 
       <m.div

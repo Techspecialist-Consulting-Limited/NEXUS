@@ -9,7 +9,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { weekCode } from "@/lib/cycle";
+import { weekLabel } from "@/lib/cycle";
 import type { CoursePoint } from "@/lib/queries";
 
 /*
@@ -53,7 +53,7 @@ export function CoursePlot({
   }
 
   const data: Row[] = points.map((p) => ({
-    week: weekCode(p.label),
+    week: weekLabel(p.label),
     promised: p.promised,
     delivered: p.delivered,
   }));

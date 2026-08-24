@@ -5,7 +5,7 @@ import { m } from "motion/react";
 import { ArrowRight, BellOff, CircleAlert, Clock, Info } from "lucide-react";
 import { GlassCard } from "@/components/ui/glass-card";
 import { PageHead } from "@/components/executive/page-head";
-import { weekCode } from "@/lib/cycle";
+import { weekLabel } from "@/lib/cycle";
 import type { Alert } from "@/app/(app)/notifications/page";
 
 /*
@@ -58,7 +58,7 @@ export function AlertBoard({
     <div className="mx-auto flex max-w-[1400px] flex-col gap-4 pb-2">
       <PageHead
         title="Alerts"
-        cycleLabel={weekCode(cycleLabel)}
+        cycleLabel={weekLabel(cycleLabel)}
         standfirst={
           alerts.length === 0 ? (
             "Nothing is waiting on you."

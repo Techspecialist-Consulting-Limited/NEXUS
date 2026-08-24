@@ -8,7 +8,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { SectionHeader } from "@/components/ui/section-header";
 import { staggerContainer, staggerItem } from "@/lib/motion-tokens";
 import { statusMeta } from "@/lib/status";
-import { weekCode, weekRange } from "@/lib/cycle";
+import { weekLabel } from "@/lib/cycle";
 import type { CommitmentRow, Cycle } from "@/lib/queries";
 
 /** Every commitment, newest week first, each with the sentence it came from. */
@@ -37,8 +37,8 @@ export function CommitmentList({
           {weeks.map(({ cycle, commitments }) => (
             <section key={cycle.id}>
               <SectionHeader
-                title={weekCode(cycle.label)}
-                hint={`${weekRange(cycle.label)} · ${commitments.length} items`}
+                title={weekLabel(cycle.label)}
+                hint={`${commitments.length} ${commitments.length === 1 ? "item" : "items"}`}
               />
               <m.ul
                 variants={staggerContainer}

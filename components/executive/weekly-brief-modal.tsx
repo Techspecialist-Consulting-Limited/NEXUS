@@ -10,6 +10,7 @@ import {
 import Link from "next/link";
 import { useReducedMotion } from "motion/react";
 import { Dialog } from "@/components/ui/dialog";
+import { weekLabel } from "@/lib/cycle";
 import type { WeeklyBrief } from "@/lib/queries";
 
 /*
@@ -247,7 +248,7 @@ export function WeeklyBriefModal({ brief }: { brief: WeeklyBrief }) {
         matters.
       */}
       <h2 id="weekly-brief-title" className="sr-only">
-        Weekly brief{brief.cycleLabel ? ` for ${brief.cycleLabel}` : ""}
+        Weekly brief{brief.cycleLabel ? ` for ${weekLabel(brief.cycleLabel)}` : ""}
       </h2>
       {/*
         Only while the visual copy is hidden. Once typing finishes the visual
@@ -263,7 +264,7 @@ export function WeeklyBriefModal({ brief }: { brief: WeeklyBrief }) {
       >
         <div className="shrink-0 px-5 pb-3 pt-5 pr-16 sm:px-7 sm:pb-4 sm:pt-6 sm:pr-16">
           <p className="eyebrow">
-            Weekly brief{brief.cycleLabel ? ` · ${brief.cycleLabel}` : ""}
+            Weekly brief{brief.cycleLabel ? ` · ${weekLabel(brief.cycleLabel)}` : ""}
           </p>
           <h2 className="standfirst mt-2 text-primary">
             {segments.headline.map((s) => (
