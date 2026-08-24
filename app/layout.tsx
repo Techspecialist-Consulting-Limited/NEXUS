@@ -22,6 +22,13 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
+  /*
+   * The icons themselves are file-convention, not declared here:
+   * app/favicon.ico and app/apple-icon.png are picked up by Next and the link
+   * tags are emitted for them. Only the manifest needs naming, because it
+   * lives in public/ so its own icon paths resolve from the root.
+   */
+  manifest: "/site.webmanifest",
   title: "NEXUS",
   description:
     "Tell it what happened. It does the rest. NEXUS turns a thirty-second weekly update into reconciled commitments, coaching, and the Chairman's Monday brief.",
