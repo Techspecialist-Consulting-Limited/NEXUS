@@ -77,7 +77,15 @@ export async function POST(request: Request) {
     );
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? url.origin;
+  /*
+   * Trailing slashes stripped. Every consumer builds links as `${appUrl}/path`,
+   * and the value pasted into a dashboard usually ends in "/" because that is
+   * what a browser address bar shows. That produced "https://host//dashboard",
+   * which survives only because Vercel happens to 308 it back — an extra hop
+   * on the one link in the Chairman's briefing, resting on a normalisation
+   * nobody chose.
+   */
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? url.origin).replace(/\/+$/, "");
   const results = [];
 
   /*

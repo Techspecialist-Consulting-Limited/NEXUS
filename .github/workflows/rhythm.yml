@@ -1,0 +1,69 @@
+name: Reporting rhythm
+
+# Calls POST /api/cron/tick hourly. GUIDE §8: "the tick fires hourly and
+# lib/rhythm.ts decides what is due, per organisation, in its timezone."
+#
+# WHY NOT VERCEL CRON. It sends GET, and this endpoint is POST-only on
+# purpose — it emails the whole organisation, and a method a browser, a
+# preloader or a link scanner can trigger by accident is the wrong shape for
+# that. Vercel's Hobby plan also caps cron at once per day, which would make a
+# Friday-morning prompt arrive on Saturday.
+#
+# Firing more often than needed is safe by construction: every job is
+# idempotent, so a double tick cannot open two check-ins, send two digests or
+# notify twice. And the gate stays true for the rest of the week once a moment
+# has passed, so a missed hour is picked up by the next tick rather than
+# skipped entirely.
+
+on:
+  schedule:
+    # Hourly, on the hour. GitHub runs these best-effort and can be late under
+    # load; tolerable here precisely because the gate asks "has this moment
+    # passed" rather than "is it exactly this hour".
+    - cron: "0 * * * *"
+  # So it can be run by hand from the Actions tab without waiting an hour.
+  workflow_dispatch:
+
+# No repository contents are needed, and this must not be able to change any.
+permissions: {}
+
+concurrency:
+  group: reporting-rhythm
+  cancel-in-progress: false
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Tick
+        env:
+          APP_URL: ${{ secrets.NEXUS_APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${APP_URL:-}" ] || [ -z "${CRON_SECRET:-}" ]; then
+            echo "::error::NEXUS_APP_URL or CRON_SECRET is not set in repository secrets."
+            exit 1
+          fi
+
+          # Trailing slashes stripped: the value is usually pasted from an
+          # address bar, and "${APP_URL}/api/..." would then carry "//".
+          url="${APP_URL%/}/api/cron/tick"
+
+          body=$(mktemp)
+          code=$(curl -sS -o "$body" -w "%{http_code}" \
+                   --max-time 300 --retry 2 --retry-delay 15 \
+                   -X POST -H "Authorization: Bearer ${CRON_SECRET}" "$url")
+
+          echo "HTTP $code"
+          # The response names every job and what it did. Worth having in the
+          # log: "nothing was due" and "the scheduler never ran" look identical
+          # from outside, and only one of those is fine.
+          cat "$body"; echo
+
+          if [ "$code" != "200" ]; then
+            echo "::error::Rhythm tick failed with HTTP $code"
+            exit 1
+          fi
