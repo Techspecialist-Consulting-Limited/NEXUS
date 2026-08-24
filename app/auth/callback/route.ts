@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { SUPABASE_KEY, SUPABASE_URL } from "@/lib/supabase-env";
+import { onboardingDestination } from "@/lib/onboarding";
 
 /*
  * OAuth landing point for Microsoft Entra ID and Google.
@@ -71,8 +72,10 @@ export async function GET(request: Request) {
    * authenticated but may have no membership at all, and onboarding is the
    * only screen that can tell the difference. It forwards them onward once it
    * knows.
+   *
+   * Unless `next` is ALREADY an onboarding URL — an invitation carries its
+   * token there, and wrapping it in another ?next= hides that token from the
+   * page that has to read it. See onboardingDestination().
    */
-  return NextResponse.redirect(
-    new URL(`/onboarding?next=${encodeURIComponent(next)}`, url.origin),
-  );
+  return NextResponse.redirect(new URL(onboardingDestination(next), url.origin));
 }

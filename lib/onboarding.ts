@@ -148,3 +148,36 @@ export async function departmentsForOrg(orgSlug: string) {
     `,
   );
 }
+
+/**
+ * Where /auth/callback should send somebody once their session exists.
+ *
+ * THE BUG THIS FIXES. The callback always redirected to
+ * `/onboarding?next=<next>`, which is right for an ordinary sign-in: the
+ * person is authenticated but may have no membership, and onboarding is the
+ * only screen that can tell the difference.
+ *
+ * It is wrong for an invitation. There, `next` is ALREADY an onboarding URL
+ * carrying the invite token — `/onboarding?invite=abc` — and wrapping it in
+ * another `?next=` hid the token from the only page that reads it. The invited
+ * person set a password, confirmed their email, and was then shown "create an
+ * organisation" instead of "join Techspecialist". Pressing Back revealed the
+ * correct screen, because the pre-callback URL still had the token on it.
+ *
+ * It only fires when the project requires email confirmation. With
+ * confirmation off, signUp returns a session immediately and the browser goes
+ * straight to `target` without passing through here at all — which is why it
+ * survived every test of the invitation flow.
+ *
+ * Relative paths only. An absolute `next` here would make the callback an
+ * open redirect, which is a phishing primitive.
+ */
+export function onboardingDestination(rawNext: string | null): string {
+  const next =
+    rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/";
+
+  // Already an onboarding URL: it carries its own context. Use it as given.
+  if (next === "/onboarding" || next.startsWith("/onboarding?")) return next;
+
+  return `/onboarding?next=${encodeURIComponent(next)}`;
+}
