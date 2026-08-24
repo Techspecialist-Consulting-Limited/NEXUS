@@ -407,6 +407,10 @@ export async function runSendDigest(appUrl: string): Promise<JobResult> {
       whatChanged: string[];
       decisions: { risk: string; action: string; concerns?: string }[];
       praise: string[];
+      /** Optional: briefings written before threads existed do not carry it. */
+      threads?: { headline: string; detail: string; people: string[] }[];
+      /** Counted at generation time, not written by the model. */
+      silent?: string[];
       metrics: Record<string, unknown>;
     };
 
@@ -449,8 +453,15 @@ export async function runSendDigest(appUrl: string): Promise<JobResult> {
         cycleId: digest.cycle_id,
         cycleLabel: digest.cycle_label,
         orgName: digest.org_name,
-        result: summary,
+        /*
+         * `threads` postdates the briefings already in the table, and
+         * summary_json is read by whatever build is running rather than the
+         * one that wrote it. Defaulting here keeps an older briefing sendable
+         * instead of failing its delivery on a field it could not have had.
+         */
+        result: { ...summary, threads: summary.threads ?? [] },
         metrics: summary.metrics ?? {},
+        silent: summary.silent ?? [],
         model: "stored",
       },
       appUrl,

@@ -802,6 +802,12 @@ export type WeeklyBrief = {
   whatChanged: string[];
   decisions: { risk: string; action: string; concerns?: string }[];
   praise: string[];
+  /** The week grouped into threads, each naming who it came from. */
+  threads: { headline: string; detail: string; people: string[] }[];
+  /** Who filed nothing. Counted from records, never written by the model. */
+  silent: string[];
+  /** Name -> profile, so a name in a thread can be opened. */
+  roster: { name: string; profileId: string }[];
 };
 
 type DigestRow = {
@@ -860,6 +866,35 @@ export async function latestWeeklyBrief(actor: string): Promise<WeeklyBrief | nu
         .slice(0, 4)
     : [];
 
+  const threads = Array.isArray(summary.threads)
+    ? summary.threads
+        .filter(
+          (t): t is { headline: string; detail: string; people: string[] } =>
+            typeof t === "object" &&
+            t !== null &&
+            typeof (t as { headline?: unknown }).headline === "string" &&
+            typeof (t as { detail?: unknown }).detail === "string",
+        )
+        .map((t) => ({
+          headline: t.headline,
+          detail: t.detail,
+          people: Array.isArray(t.people)
+            ? t.people.filter((n): n is string => typeof n === "string")
+            : [],
+        }))
+        .slice(0, 7)
+    : [];
+
+  const roster = Array.isArray(summary.roster)
+    ? summary.roster.filter(
+        (r): r is { name: string; profileId: string } =>
+          typeof r === "object" &&
+          r !== null &&
+          typeof (r as { name?: unknown }).name === "string" &&
+          typeof (r as { profileId?: unknown }).profileId === "string",
+      )
+    : [];
+
   return {
     id: row.id,
     cycleLabel: row.cycle_label,
@@ -867,5 +902,110 @@ export async function latestWeeklyBrief(actor: string): Promise<WeeklyBrief | nu
     whatChanged: strings(summary.whatChanged, 4),
     decisions,
     praise: strings(summary.praise, 2),
+    threads,
+    silent: strings(summary.silent, 40),
+    roster,
   };
+}
+
+/*
+ * What each person reported for a cycle, and what they plan for the next one.
+ *
+ * SOURCED FROM COMMITMENTS, NEVER FROM CHECK-IN TEXT. `check_ins` is
+ * author-only in RLS — "the plan is shared; the raw words behind it are not"
+ * (migration 0006). Commitments are org-visible and carry the person's own
+ * verbatim `source_quote`, which is why every upward-facing surface in this
+ * product reads them instead. Whether somebody reported at all comes from
+ * `submission_status`, the envelope view: arrived, when, how long, never what
+ * it said.
+ *
+ * `reported` is the distinction rule 5 turns on. Somebody who filed nothing is
+ * NOT somebody with an empty week, and the two must never render the same way.
+ */
+export type PersonWeek = {
+  profileId: string;
+  fullName: string;
+  departmentName: string | null;
+  reported: boolean;
+  /** Landed this cycle. */
+  delivered: string[];
+  /** Committed to this cycle and still open at the end of it. */
+  open: string[];
+  /** Held up by another unit. Never counted against the person. */
+  blocked: { title: string; blockingUnit: string | null }[];
+  /** What they committed to for the cycle that follows. */
+  planned: string[];
+};
+
+export async function weeklyPersonReports(
+  actor: string,
+  cycleId: string,
+): Promise<PersonWeek[]> {
+  return asActor(
+    actor,
+    (sql) => sql<PersonWeek>`
+      with this_cycle as (
+        select id, org_id, starts_on, kind from cycles where id = ${cycleId}
+      ),
+      next_cycle as (
+        select n.id
+        from cycles n, this_cycle t
+        where n.org_id = t.org_id and n.kind = t.kind
+          and n.starts_on > t.starts_on
+        order by n.starts_on
+        limit 1
+      )
+      select
+        p.id                  as "profileId",
+        p.full_name           as "fullName",
+        d.name                as "departmentName",
+        coalesce(bool_or(ss.submitted), false) as reported,
+
+        coalesce((
+          select json_agg(c.title order by c.created_at)
+          from commitments c
+          where c.profile_id = p.id and c.target_cycle_id = ${cycleId}
+            and c.deleted_at is null
+            and c.status in ('delivered', 'partial')
+        ), '[]'::json) as delivered,
+
+        coalesce((
+          select json_agg(c.title order by c.created_at)
+          from commitments c
+          where c.profile_id = p.id and c.target_cycle_id = ${cycleId}
+            and c.deleted_at is null
+            and c.status in ('promised', 'in_progress', 'deferred')
+        ), '[]'::json) as open,
+
+        coalesce((
+          select json_agg(json_build_object(
+                   'title', c.title,
+                   'blockingUnit', bd.name
+                 ) order by c.created_at)
+          from commitments c
+          left join departments bd on bd.id = c.depends_on_department_id
+          where c.profile_id = p.id and c.target_cycle_id = ${cycleId}
+            and c.deleted_at is null
+            and c.status = 'blocked'
+        ), '[]'::json) as blocked,
+
+        coalesce((
+          select json_agg(c.title order by c.created_at)
+          from commitments c
+          where c.profile_id = p.id
+            and c.target_cycle_id = (select id from next_cycle)
+            and c.deleted_at is null
+            and c.status not in ('dropped', 'superseded')
+        ), '[]'::json) as planned
+
+      from profiles p
+      left join departments d on d.id = p.department_id
+      left join submission_status ss
+        on ss.profile_id = p.id and ss.cycle_id = ${cycleId}
+      where p.status = 'active'
+        and p.role in ('staff', 'lead', 'hr')
+      group by p.id, p.full_name, d.name
+      order by d.name nulls last, p.full_name
+    `,
+  );
 }

@@ -841,8 +841,57 @@ begin
       ],
       "praise": [
         "Growth flagged every change as it happened, which is what makes their figures worth comparing."
+      ],
+      "threads": [
+        {
+          "headline": "Reporting pipeline migration to the new warehouse",
+          "detail": "Still moving. It has now been carried eight weeks running, and each week on its own has looked like a small slip. Amara is carrying it into next week again.",
+          "people": ["Amara Okonkwo"]
+        },
+        {
+          "headline": "Deployment pipeline and the reconciliation endpoint",
+          "detail": "Both landed. Zainab and Emeka closed the staging rollout together, and Zainab shipped the reconciliation endpoint; the retry and backoff work went in alongside it.",
+          "people": ["Zainab Yusuf", "Emeka Obi"]
+        },
+        {
+          "headline": "Design tokens and the brand assets in the app shell",
+          "detail": "The token documentation is finished. The brand assets it feeds are still waiting on Creative Hub, so that piece has not moved for a third week — the people waiting are not scored down for it.",
+          "people": ["Adaeze Nnamdi", "Halima Sani"]
+        },
+        {
+          "headline": "Inbound partnership pipeline",
+          "detail": "Qualified and handed on. Ifeoma and Musa worked the same list and both flagged their changes before the week closed rather than afterwards.",
+          "people": ["Ifeoma Chukwu", "Musa Danjuma"]
+        }
       ]
-    }'::jsonb,
+    }'::jsonb
+    /*
+     * silent and roster are FACTS, derived here rather than written into the
+     * literal above. A hand-written non-reporter would contradict the check-in
+     * rows two clicks away on that person's page, and seed data that disagrees
+     * with itself is a product bug (GUIDE section 14).
+     */
+    || jsonb_build_object(
+         'silent',
+         coalesce((
+           select jsonb_agg(p.full_name order by p.full_name)
+           from profiles p
+           where p.org_id = v_org and p.status = 'active'
+             and p.role in ('staff', 'lead', 'hr')
+             and not exists (
+               select 1 from check_ins ci
+               where ci.profile_id = p.id and ci.cycle_id = cy.id
+                 and ci.responded_at is not null
+             )
+         ), '[]'::jsonb),
+         'roster',
+         coalesce((
+           select jsonb_agg(jsonb_build_object('name', p.full_name, 'profileId', p.id))
+           from profiles p
+           where p.org_id = v_org and p.status = 'active'
+             and p.role in ('staff', 'lead', 'hr')
+         ), '[]'::jsonb)
+       ),
     array[]::text[],
     now() - interval '18 hours', now() - interval '18 hours'
   from cycles cy

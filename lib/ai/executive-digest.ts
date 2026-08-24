@@ -1,6 +1,7 @@
 import { asService } from "../db";
 import { aiProvider } from "./provider";
 import { executiveBrief } from "../insights";
+import { weeklyPersonReports } from "../queries";
 import type { DigestContext, DigestResult } from "./types";
 
 /*
@@ -25,6 +26,12 @@ export type BuiltDigest = {
   result: DigestResult;
   /** The figures the prose was written from, kept for the evidence trail. */
   metrics: Record<string, unknown>;
+  /**
+   * Who filed nothing, by name. Counted from records, never written by the
+   * model — the same rule as every other fact on the page. A briefing that
+   * silently omitted them would read as though everyone had reported.
+   */
+  silent: string[];
   model: string;
   costUsd?: number;
 };
@@ -60,7 +67,10 @@ export async function buildDigestContext(
   );
   if (!meta?.chairman_id) return null;
 
-  const brief = await executiveBrief(meta.chairman_id, cycleId);
+  const [brief, people] = await Promise.all([
+    executiveBrief(meta.chairman_id, cycleId),
+    weeklyPersonReports(meta.chairman_id, cycleId),
+  ]);
 
   const withValue = brief.departments.filter((d) => d.delivery_rate !== null);
   const avg = (pick: (d: (typeof brief.departments)[number]) => number | null) => {
@@ -134,6 +144,22 @@ export async function buildDigestContext(
         signal: d.signal_integrity === null ? null : Math.round(d.signal_integrity),
         reported: `${d.people_responded}/${d.people_reporting}`,
       })),
+      /*
+       * Read as the Chairman, through RLS, rather than with asService. He is
+       * the recipient, so what reaches the briefing is exactly what he is
+       * allowed to open and check for himself — and a convenience path must
+       * not widen access (GUIDE §6).
+       */
+      people: people.map((p) => ({
+        profileId: p.profileId,
+        name: p.fullName,
+        unit: p.departmentName,
+        reported: p.reported,
+        delivered: p.delivered,
+        open: p.open,
+        blocked: p.blocked,
+        planned: p.planned,
+      })),
       previous,
     },
   };
@@ -147,7 +173,65 @@ export async function generateDigest(
   const built = await buildDigestContext(cycleId, period);
   if (!built) return null;
 
-  const { data, usage } = await aiProvider().digest(built.context);
+  const { data: raw, usage } = await aiProvider().digest(built.context);
+
+  /*
+   * Every name in a thread must be a real person in this organisation.
+   *
+   * "people" is the whole reason a thread is checkable — the Chairman opens
+   * one and reads that person's own words. A name the roster does not contain
+   * cannot be opened, so the claim cannot be verified, and an unverifiable
+   * claim about a named colleague is the specific harm the answer prompt
+   * already guards against.
+   *
+   * Matched case-insensitively because the failure to defend against is a
+   * model tidying capitalisation, not a model inventing "Jane Smith". A thread
+   * left with nobody real is dropped rather than shown unattributed.
+   */
+  const roster = new Map(
+    built.context.people.map((p) => [p.name.trim().toLowerCase(), p.name]),
+  );
+  let dropped = 0;
+  const threads = (raw.threads ?? [])
+    .map((t) => ({
+      ...t,
+      people: t.people
+        .map((n) => roster.get(n.trim().toLowerCase()))
+        .filter((n): n is string => Boolean(n)),
+    }))
+    .filter((t) => {
+      if (t.people.length > 0) return true;
+      dropped++;
+      return false;
+    });
+
+  if (dropped > 0) {
+    console.warn(
+      `[nexus] digest: dropped ${dropped} thread(s) naming nobody on the roster.`,
+    );
+  }
+
+  const data: DigestResult = { ...raw, threads };
+
+  /*
+   * Named from records. "Silence is not a status" (rule 5) cuts both ways: a
+   * person who filed nothing must not be described as having done nothing,
+   * and must not be quietly left out either — omitting them reads as though
+   * everyone reported.
+   */
+  const silent = built.context.people.filter((p) => !p.reported).map((p) => p.name);
+
+  /*
+   * Name -> profile, stored with the briefing so the web view can turn every
+   * name in a thread into a link to that person without re-deriving it from
+   * text. Matching names in SQL at render time would be fragile in exactly the
+   * way names are; this is resolved once, from the roster the briefing was
+   * actually written from.
+   */
+  const rosterIds = built.context.people.map((p) => ({
+    name: p.name,
+    profileId: p.profileId,
+  }));
 
   /*
    * Structured first, rendered second — as migration 0005 says. summary_json
@@ -172,7 +256,7 @@ export async function generateDigest(
               * database is wrong. Casting to text first forces Postgres to do
               * the parsing, which both backends agree on.
               */
-             ${JSON.stringify({ ...data, metrics: built.context.metrics })}::text::jsonb,
+             ${JSON.stringify({ ...data, metrics: built.context.metrics, silent, roster: rosterIds })}::text::jsonb,
              ${usage.model}, ${usage.costUsd ?? null}
       from cycles cy where cy.id = ${cycleId}
       on conflict (org_id, scope, scope_id, period, cycle_id) do update
@@ -190,6 +274,7 @@ export async function generateDigest(
     orgName: built.context.orgName,
     result: data,
     metrics: built.context.metrics,
+    silent,
     model: usage.model,
     costUsd: usage.costUsd,
   };
@@ -236,8 +321,26 @@ export function renderDigestEmail(
     whatChanged: digest.result?.whatChanged ?? [],
     decisions: digest.result?.decisions ?? [],
     praise: digest.result?.praise ?? [],
+    threads: digest.result?.threads ?? [],
   };
   const m = (digest.metrics ?? {}) as Record<string, number | null>;
+  const silent = digest.silent ?? [];
+
+  /** "A", "A and B", "A, B and C" — a list a person reads, not an array. */
+  const names = (list: string[]): string =>
+    list.length <= 1
+      ? (list[0] ?? "")
+      : `${list.slice(0, -1).join(", ")} and ${list[list.length - 1]}`;
+
+  /*
+   * The attribution line exists so a claim can be checked against a person.
+   * When the prose already names everyone it is the same fact twice — so it is
+   * shown only when it adds a name the sentence did not.
+   */
+  const credit = (t: { detail: string; people: string[] }): string =>
+    t.people.length === 0 || t.people.every((n) => t.detail.includes(n))
+      ? ""
+      : names(t.people);
 
   const text = [
     result.headline,
@@ -259,8 +362,26 @@ export function renderDigestEmail(
           "",
         ]
       : ["Nothing is escalated this period.", ""]),
+    ...(result.threads.length
+      ? [
+          "THE WEEK",
+          ...result.threads.flatMap((t) => [
+            `  ${t.headline}`,
+            `    ${t.detail}`,
+            ...(credit(t) ? [`    ${credit(t)}`] : []),
+          ]),
+          "",
+        ]
+      : []),
     ...(result.praise.length ? ["WORTH SAYING", ...result.praise.map((p) => `  - ${p}`), ""] : []),
-    `Open the full view: ${appUrl}/dashboard`,
+    ...(silent.length
+      ? [
+          `NOT HEARD FROM: ${names(silent)}`,
+          "No report was filed for this period. That is not a record of their work.",
+          "",
+        ]
+      : []),
+    `See what each person reported: ${appUrl}/dashboard`,
     "",
     "Every figure here is counted from records. Reconciliations still awaiting",
     "an employee's confirmation are not included.",
@@ -330,12 +451,46 @@ export function renderDigestEmail(
     }
 
     ${
+      result.threads.length
+        ? `<tr><td style="padding:22px 28px 0">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#8a91a0;font-weight:600">The week</div>
+      ${result.threads
+        .map(
+          (t) => `
+        <div style="margin-top:12px;padding-left:12px;border-left:2px solid #e4e6eb">
+          <div style="font-size:14px;font-weight:600;line-height:1.5;color:#12151c">${escapeHtml(t.headline)}</div>
+          <div style="font-size:14px;line-height:1.65;color:#3c4250;margin-top:3px">${escapeHtml(t.detail)}</div>
+          ${
+            credit(t)
+              ? `<div style="font-size:12px;line-height:1.5;color:#8a91a0;margin-top:4px">${escapeHtml(credit(t))}</div>`
+              : ""
+          }
+        </div>`,
+        )
+        .join("")}
+      </td></tr>`
+        : ""
+    }
+
+    ${
       result.praise.length
         ? `<tr><td style="padding:22px 28px 0">
       <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#8a91a0;font-weight:600">Worth saying</div>
       <ul style="margin:8px 0 0;padding-left:18px;font-size:14px;line-height:1.65;color:#3c4250">
         ${result.praise.map((p) => `<li>${escapeHtml(p)}</li>`).join("")}
       </ul></td></tr>`
+        : ""
+    }
+
+    ${
+      silent.length
+        ? `<tr><td style="padding:22px 28px 0">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#8a91a0;font-weight:600">Not heard from</div>
+      <p style="margin:8px 0 0;font-size:14px;line-height:1.65;color:#3c4250">${escapeHtml(names(silent))}</p>
+      <p style="margin:4px 0 0;font-size:12px;line-height:1.55;color:#8a91a0">
+        No report was filed for this period. That is not a record of their work.
+      </p>
+      </td></tr>`
         : ""
     }
 

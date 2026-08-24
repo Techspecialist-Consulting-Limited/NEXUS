@@ -544,6 +544,106 @@ export class MockProvider implements AiProvider {
       );
     }
 
+    /*
+     * Threads, grouped on the one signal a RULE can see honestly: the same
+     * commitment title reported by more than one person.
+     *
+     * The live model also groups on shared clients, systems and dependencies,
+     * which needs judgement. The mock deliberately does not attempt that — its
+     * job is to be the floor and the control, so when the real model produces
+     * something strange the first useful question is what the rules did with
+     * the same input. An imitation that guessed would answer nothing.
+     */
+    type Bucket = {
+      title: string;
+      people: string[];
+      landed: string[];
+      open: string[];
+      blockedBy: (string | null)[];
+      next: string[];
+    };
+    const buckets = new Map<string, Bucket>();
+    const bucket = (title: string): Bucket => {
+      const k = title.trim().toLowerCase();
+      let b = buckets.get(k);
+      if (!b) {
+        b = { title, people: [], landed: [], open: [], blockedBy: [], next: [] };
+        buckets.set(k, b);
+      }
+      return b;
+    };
+    const involve = (b: Bucket, name: string) => {
+      if (!b.people.includes(name)) b.people.push(name);
+    };
+
+    for (const person of input.people) {
+      if (!person.reported) continue;
+      for (const t of person.delivered) {
+        const b = bucket(t);
+        involve(b, person.name);
+        b.landed.push(person.name);
+      }
+      for (const t of person.open) {
+        const b = bucket(t);
+        involve(b, person.name);
+        b.open.push(person.name);
+      }
+      for (const x of person.blocked) {
+        const b = bucket(x.title);
+        involve(b, person.name);
+        b.blockedBy.push(x.blockingUnit);
+      }
+      // What they have taken on for the coming period. Half of what the
+      // Chairman asked to see is where the work goes next, not only where it
+      // landed.
+      for (const t of person.planned) {
+        const b = bucket(t);
+        involve(b, person.name);
+        b.next.push(person.name);
+      }
+    }
+
+    const names = (list: string[]): string =>
+      list.length <= 1
+        ? (list[0] ?? "")
+        : `${list.slice(0, -1).join(", ")} and ${list[list.length - 1]}`;
+    /** Verb agreement. One person has it open; three people have it open. */
+    const verb = (list: string[], one: string, many: string) =>
+      list.length === 1 ? one : many;
+
+    const threads = [...buckets.values()]
+      // Shared work first — it is the part a per-person list would have
+      // repeated, and therefore the part grouping actually earns.
+      .sort((a, b) => b.people.length - a.people.length || b.landed.length - a.landed.length)
+      .slice(0, 7)
+      .map((b) => {
+        const parts: string[] = [];
+        if (b.landed.length) parts.push(`${names(b.landed)} completed it`);
+        if (b.open.length) {
+          parts.push(`${names(b.open)} still ${verb(b.open, "has", "have")} it open`);
+        }
+        const units = b.blockedBy.filter((u): u is string => Boolean(u));
+        if (b.blockedBy.length) {
+          parts.push(
+            units.length
+              ? `it is held up by ${names([...new Set(units)])}`
+              : "it is blocked",
+          );
+        }
+        if (b.next.length) {
+          parts.push(
+            `${names(b.next)} ${verb(b.next, "carries", "carry")} it into next period`,
+          );
+        }
+        return {
+          headline: b.title,
+          detail: parts.length
+            ? `${parts.join("; ")}.`.replace(/^./, (c) => c.toUpperCase())
+            : "Reported this period.",
+          people: b.people,
+        };
+      });
+
     const headline =
       delivery === null
         ? `${input.orgName} has no settled figures for ${input.cycleLabel} yet.`
@@ -562,6 +662,7 @@ export class MockProvider implements AiProvider {
         whatChanged,
         decisions,
         praise,
+        threads,
       },
       started,
     );

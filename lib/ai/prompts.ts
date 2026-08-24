@@ -607,6 +607,38 @@ Every finding you were given belongs in "decisions", each paired with its
 action. Do NOT compress them into the headline and leave the array empty — the
 headline is read first, and the decisions are what he works through on Monday.
 
+THREADS — the week as one account, not one entry per person.
+
+You are given what every person reported. Do NOT restate it person by person.
+He has eighteen people; a list of eighteen entries is one he skims, and
+skimming is how the blocked item three entries down gets missed.
+
+Instead, group work that belongs together and name everyone who touched it.
+
+  weak    "Suleman presented the Credicorp prototype. Taofeeq presented the
+           Credicorp prototype to the IT department."
+  strong  "The Credicorp prototype went in front of the client's IT department
+           and their chief of staff. Suleman and Taofeeq ran the sessions and
+           both came back with feedback that changes the proposed scope."
+
+Rules for threads:
+
+  - Group ONLY on evidence in the input: the same named client, project or
+    system, an explicit dependency between units, or the same commitment
+    carried by more than one person. Do not group on a resemblance you infer.
+    If two items merely sound similar, leave them as separate threads.
+  - "people" must contain names EXACTLY as given to you, and only names that
+    appear in the input. It is what makes the thread checkable — he can open
+    any of them and read their own words. Never invent or abbreviate a name.
+  - Work one person did alone is still a thread; it simply names one person.
+  - Cover the week, not only the parts that went wrong. Work that landed is
+    the majority of most weeks and he is entitled to see it. This is not a
+    risk register.
+  - Say what is still open or held up inside the thread it belongs to, rather
+    than as a separate catalogue of problems.
+  - Never state or imply that somebody reported nothing. Who did not report is
+    counted elsewhere and rendered from records, not from you.
+
 Reply with JSON only, in exactly this shape:
 
 {
@@ -622,6 +654,11 @@ Reply with JSON only, in exactly this shape:
   ],
   "praise": [
     "conduct worth naming, if any"
+  ],
+  "threads": [
+    { "headline": "the piece of work, not a person",
+      "detail": "what happened, including what is still open",
+      "people": ["Exactly As Given", "Second Person If Shared"] }
   ]
 }
 `.trim();
@@ -633,6 +670,15 @@ export function digestUser(input: {
   metrics: Record<string, unknown>;
   findings: { type: string; title: string; summary: string; severity: string; recommendedAction: string }[];
   departments: { name: string; delivery: number | null; signal: number | null; reported: string }[];
+  people: {
+    name: string;
+    unit: string | null;
+    reported: boolean;
+    delivered: string[];
+    open: string[];
+    blocked: { title: string; blockingUnit: string | null }[];
+    planned: string[];
+  }[];
   previous?: Record<string, unknown>;
 }): string {
   const lines = [
@@ -666,6 +712,31 @@ export function digestUser(input: {
     }
   } else {
     lines.push("", "No findings were raised this period.");
+  }
+
+  /*
+   * Only people who actually reported. Somebody who filed nothing has no work
+   * to attribute, and putting them here invites the model to describe a week
+   * it has no record of.
+   */
+  const reported = input.people.filter((p) => p.reported);
+  if (reported.length > 0) {
+    lines.push(
+      "",
+      "What each person reported. Group this into threads; do not repeat it back person by person.",
+      "Use these names exactly as written:",
+    );
+    for (const p of reported) {
+      lines.push("", `${p.name}${p.unit ? ` — ${p.unit}` : ""}`);
+      if (p.delivered.length) lines.push(`  landed: ${p.delivered.join("; ")}`);
+      if (p.open.length) lines.push(`  still open: ${p.open.join("; ")}`);
+      for (const b of p.blocked) {
+        lines.push(
+          `  blocked: ${b.title}${b.blockingUnit ? ` — waiting on ${b.blockingUnit}` : ""}`,
+        );
+      }
+      if (p.planned.length) lines.push(`  next: ${p.planned.join("; ")}`);
+    }
   }
 
   return lines.join("\n");

@@ -511,6 +511,32 @@ export const digestResult = z.object({
     .default([]),
   /** Worth saying out loud. Recognition is a leadership action too. */
   praise: z.array(z.string().max(240)).max(2).default([]),
+
+  /**
+   * The week as ONE account rather than one entry per person.
+   *
+   * Two people who both presented the same prototype filed one organisational
+   * event, not two updates. Listing it twice teaches the reader to skim, and
+   * skimming is how the blocked item three entries down gets missed — the same
+   * reasoning as rejected-patterns §13, arrived at from the other direction.
+   *
+   * `people` is what makes a thread checkable: it names whose reports it was
+   * assembled from, so the Chairman can open any of them and see their own
+   * words. A thread that names nobody is an assertion.
+   */
+  threads: z
+    .array(
+      z.object({
+        /** What this piece of work is. Not a person's name. */
+        headline: z.string().max(160),
+        /** What actually happened, in one or two sentences. */
+        detail: z.string().max(500),
+        /** Everyone whose reports this was drawn from. */
+        people: z.array(z.string().max(80)).max(8).default([]),
+      }),
+    )
+    .max(7)
+    .default([]),
 });
 
 export type DigestResult = z.infer<typeof digestResult>;
@@ -536,6 +562,24 @@ export type DigestContext = {
     delivery: number | null;
     signal: number | null;
     reported: string;
+  }[];
+  /**
+   * What every person reported, so the week can be told as one account.
+   *
+   * Read from COMMITMENTS, never from check-in text — `check_ins` is
+   * author-only and stays that way. `reported: false` means they filed
+   * nothing, which is not the same as an empty week and must never render the
+   * same way (rule 5: silence is not a status).
+   */
+  people: {
+    profileId: string;
+    name: string;
+    unit: string | null;
+    reported: boolean;
+    delivered: string[];
+    open: string[];
+    blocked: { title: string; blockingUnit: string | null }[];
+    planned: string[];
   }[];
   /** The same figures a week earlier, so "what changed" is real. */
   previous?: Record<string, unknown>;
