@@ -1040,6 +1040,25 @@ begin
      * with itself is a product bug (GUIDE section 14).
      */
     || jsonb_build_object(
+         /*
+          * The figures the stat block reads. COMPUTED, never written into the
+          * literal above — the seed must not state a delivery rate the seeded
+          * rows do not produce, and a briefing whose header disagrees with its
+          * own database is worse than one with no header at all.
+          *
+          * Absent entirely, these read back as undefined, which is how the
+          * demo emailed "undefined%".
+          */
+         'metrics', (
+           select jsonb_build_object(
+             'delivery_rate',    round(avg(dch.delivery_rate)),
+             'signal_integrity', round(avg(dch.signal_integrity)),
+             'people_reporting', coalesce(sum(dch.people_reporting), 0),
+             'people_responded', coalesce(sum(dch.people_responded), 0)
+           )
+           from department_cycle_health dch
+           where dch.cycle_id = cy.id
+         ),
          'silent',
          coalesce((
            select jsonb_agg(p.full_name order by p.full_name)

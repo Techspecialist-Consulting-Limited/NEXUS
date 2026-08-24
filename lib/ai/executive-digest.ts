@@ -323,7 +323,33 @@ export function renderDigestEmail(
     praise: digest.result?.praise ?? [],
     threads: digest.result?.threads ?? [],
   };
-  const m = (digest.metrics ?? {}) as Record<string, number | null>;
+  const m = (digest.metrics ?? {}) as Record<string, unknown>;
+
+  /*
+   * A figure, or an em dash. NEVER the string "undefined".
+   *
+   * The stat block tested `=== null`, which a stored briefing whose metrics
+   * object is ABSENT does not satisfy — the lookup returns undefined, falls
+   * past the guard, and the Chairman was emailed "undefined%" above a
+   * perfectly good briefing. `null` was guarded because that is what SQL
+   * returns for a week with nothing to average; undefined is what a missing
+   * key returns, and the two arrive by completely different routes.
+   *
+   * Checking the type rather than the value covers both, plus a string that
+   * survived a JSON round trip and NaN from an average over zero rows.
+   */
+  const num = (v: unknown): number | null => {
+    const n = typeof v === "string" ? Number(v) : v;
+    return typeof n === "number" && Number.isFinite(n) ? n : null;
+  };
+  const pct = (v: unknown): string => {
+    const n = num(v);
+    return n === null ? "—" : `${Math.round(n)}%`;
+  };
+  const count = (v: unknown): string => {
+    const n = num(v);
+    return n === null ? "—" : String(n);
+  };
   const silent = digest.silent ?? [];
 
   /** "A", "A and B", "A, B and C" — a list a person reads, not an array. */
@@ -346,8 +372,8 @@ export function renderDigestEmail(
     result.headline,
     "",
     `${orgName} · ${cycleLabel}`,
-    `Delivered ${m.delivery_rate ?? "—"}%   Told in time ${m.signal_integrity ?? "—"}%   ` +
-      `Reported ${m.people_responded ?? "—"}/${m.people_reporting ?? "—"}`,
+    `Delivered ${pct(m.delivery_rate)}   Told in time ${pct(m.signal_integrity)}   ` +
+      `Reported ${count(m.people_responded)}/${count(m.people_reporting)}`,
     "",
     ...(result.threads.length
       ? [
@@ -409,9 +435,9 @@ export function renderDigestEmail(
 
     <tr><td style="padding:18px 28px 0">
       <table role="presentation" cellpadding="0" cellspacing="0"><tr>
-        ${stat("Delivered", m.delivery_rate === null ? "—" : `${m.delivery_rate}%`)}
-        ${stat("Told in time", m.signal_integrity === null ? "—" : `${m.signal_integrity}%`)}
-        ${stat("Reported", `${m.people_responded ?? "—"}/${m.people_reporting ?? "—"}`)}
+        ${stat("Delivered", pct(m.delivery_rate))}
+        ${stat("Told in time", pct(m.signal_integrity))}
+        ${stat("Reported", `${count(m.people_responded)}/${count(m.people_reporting)}`)}
       </tr></table>
     </td></tr>
 
