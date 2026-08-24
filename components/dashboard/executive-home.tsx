@@ -214,7 +214,23 @@ export function ExecutiveHome({
             <ul className="mt-3 flex flex-col gap-2">
               {updates.slice(0, 3).map((u) => (
                 <li key={`${u.profile_id}-${u.title}`}>
-                  <div className="rounded-lg border border-white/[0.08] bg-white/[0.03] p-3">
+                  {/*
+                    The whole card is the target, not the name. The name
+                    truncates at this width — "Musa Danj…" — and a link you
+                    cannot read the end of is a poor thing to ask somebody to
+                    aim at. The card is already well over the 44px minimum.
+
+                    The label says whose week it opens, because the card's own
+                    text reads as a sentence about work rather than as a
+                    destination.
+                  */}
+                  <Link
+                    href={`/people/${u.profile_id}`}
+                    aria-label={`Open ${u.full_name}'s week`}
+                    className="block rounded-lg border border-white/[0.08] bg-white/[0.03] p-3
+                               transition-colors hover:border-white/[0.16] hover:bg-white/[0.06]
+                               focus-visible:outline focus-visible:outline-2 focus-visible:outline-white/40"
+                  >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex min-w-0 items-center gap-2.5">
                         <Avatar name={u.full_name} color={u.department_color} />
@@ -252,7 +268,7 @@ export function ExecutiveHome({
                         {u.source_quote ?? u.title}
                       </p>
                     </div>
-                  </div>
+                  </Link>
                 </li>
               ))}
             </ul>
