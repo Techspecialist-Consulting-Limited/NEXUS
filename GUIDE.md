@@ -601,7 +601,9 @@ went unnoticed.
 ```
 NEXT_PUBLIC_SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-DATABASE_URL                       Session pooler, password percent-encoded
+DATABASE_URL                       Transaction pooler (port 6543), password
+                                   percent-encoded. NOT the session pooler on
+                                   5432 — see below.
 AZURE_OPENAI_ENDPOINT              v1 or classic; normalised either way
 AZURE_OPENAI_API_KEY
 AZURE_OPENAI_DEPLOYMENT            Quality tier
@@ -613,6 +615,24 @@ CRON_SECRET
 NEXT_PUBLIC_APP_URL
 NEXUS_MAIL_REDIRECT                Divert all mail to one inbox for testing
 ```
+
+### Which pooler, and why it is not a preference
+
+**Transaction pooler, port 6543.** The session pooler on 5432 limits the whole
+project to 15 clients — not 15 per instance — and a serverless deployment opens
+a pool per instance. Three warm Vercel instances exhausted it and every page
+returned `EMAXCONNSESSION: max clients reached in session mode`. Scaling out
+made it worse.
+
+This is safe only because of how `asActor()` is written: the identity RLS reads
+is set with `set_config(…, true)` and `set local role` **inside `begin()`**, and
+transaction mode pins a transaction to one backend for its duration. Anything
+that ever needs state to survive *between* transactions cannot use this
+connection.
+
+`npm run db:migrate` is a different case — it runs from a laptop, not from
+serverless, and DDL is happier on a direct connection. It takes a URL argument
+for that: `node scripts/migrate.mjs <url>`.
 
 Runtime switches, none of them `NEXT_PUBLIC_`: `NEXUS_FORCE_MOCK_AI`,
 `NEXUS_FORCE_LOCAL_DB`, `NEXUS_FORCE_DEMO_AUTH`.
@@ -695,6 +715,15 @@ but refuse to *send* nothing.
 with no memory gave one person the same commitment three times in a week. Each
 duplicate counted separately, inflating delivery by roughly twenty points across
 every unit figure and executive briefing.
+
+**A connection limit is per project, not per instance.** `DATABASE_URL` pointed
+at Supabase's session pooler while the driver was configured for the
+transaction pooler — `prepare: false` had been there all along, for a mode
+nothing was actually connecting to. At `max: 5`, three warm serverless
+instances reached the session pooler's 15-client cap and every request failed
+with `EMAXCONNSESSION`. It could not be reproduced locally, where one process
+holds one pool, and the documentation in §13 specified the wrong pooler, so the
+configuration looked correct to anyone checking it against the guide.
 
 **Derive, don't write state in an effect.** And never claim in an empty state
 what you have not checked: "nothing has gone quiet — the week is running itself"

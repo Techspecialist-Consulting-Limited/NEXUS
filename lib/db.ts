@@ -249,10 +249,47 @@ let remoteClient: any;
 
 async function remote() {
   if (!remoteClient) {
+    const url = process.env.DATABASE_URL!;
+
+    /*
+     * Serverless opens a pool PER INSTANCE, and Vercel runs many of them.
+     *
+     * Supabase's SESSION pooler (port 5432) caps the whole project at 15
+     * clients. At max: 5 that is three warm instances, after which every page
+     * died with `EMAXCONNSESSION: max clients reached in session mode`. The
+     * limit is per project, not per instance, so scaling out made it worse
+     * rather than better — the classic serverless-plus-session-pooler trap.
+     *
+     * The answer is the TRANSACTION pooler on 6543, which this driver was
+     * already written for: `prepare: false` exists for precisely that mode.
+     *
+     * It is safe for RLS, which is the part worth being sure about. Every
+     * actor-scoped read runs inside begin(), and both
+     * `set_config('request.jwt.claim.sub', …, true)` and `set local role`
+     * are transaction-local. Transaction mode pins a transaction to one
+     * backend for its duration, so the identity can never be separated from
+     * the statements it governs. Session-scoped state would NOT survive here
+     * — if anything ever needs it, it needs a different connection.
+     */
+    if (process.env.NODE_ENV === "production" && /:5432(\D|$)/.test(url)) {
+      console.warn(
+        "[nexus] DATABASE_URL is on port 5432 — Supabase's SESSION pooler. " +
+          "That caps the whole project at 15 clients and fails under " +
+          "concurrency as EMAXCONNSESSION. Use the transaction pooler on 6543.",
+      );
+    }
+
     const postgres = (await import("postgres")).default;
-    remoteClient = postgres(process.env.DATABASE_URL!, {
-      prepare: false, // Supabase's transaction pooler does not support it
-      max: 5,
+    remoteClient = postgres(url, {
+      prepare: false, // Transaction pooling cannot reuse prepared statements.
+      /*
+       * Sized to the widest parallel read on any page — the Chairman's
+       * dashboard issues three at once. Larger only holds idle connections
+       * that other instances are then unable to open.
+       */
+      max: 3,
+      idle_timeout: 20,
+      connect_timeout: 10,
     });
   }
   return remoteClient;
