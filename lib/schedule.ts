@@ -35,6 +35,7 @@ import { send, isDeliverable, mailRedirect } from "./email";
 export type JobName =
   | "prompt"
   | "remind"
+  | "reconcile"
   | "narrate"
   | "coordinate"
   | "digest"
@@ -177,6 +178,112 @@ export async function runRemind(force = false): Promise<JobResult> {
         ? "Nobody needed chasing."
         : `Reminded ${queued} people; ${suppressed} held by the notification budget.`,
     counts: { queued, suppressed },
+  };
+}
+
+/**
+ * Turn what people reported into a reconciled week.
+ *
+ * THIS WAS THE MISSING LINK. `refresh_reconciliation()` has existed since
+ * migration 0004 and nothing in the application ever called it — it appeared
+ * only in the seed, in tests, and in a comment. Nothing advanced a row through
+ * `draft -> awaiting_employee -> auto_confirmed` either. So on a real
+ * deployment: check-ins were filed, commitments were extracted, and then the
+ * chain stopped. No cycle ever became settled, `narrate` found nothing to
+ * write, and `runDigest` answered "No settled cycle to brief on yet" forever.
+ * The Chairman would never have received a briefing, whatever the schedule
+ * said.
+ *
+ * Ungated, like narrate and coordinate: this computes, it does not notify.
+ * Holding arithmetic back until a configured hour only means somebody opens
+ * their own week and finds it empty.
+ *
+ * All three steps are idempotent, which they have to be — the tick fires
+ * hourly and retries.
+ */
+export async function runReconcile(): Promise<JobResult> {
+  /*
+   * 1. Recompute. The last three weeks rather than only the current one, so a
+   *    late submission or a corrected commitment is picked up rather than
+   *    frozen at whatever the first run saw.
+   *
+   *    On conflict the function updates the COUNTS and leaves status,
+   *    review_due_at, ai_narrative and employee_note alone, so recomputing
+   *    can neither restart somebody's correction window nor discard what they
+   *    or the model wrote.
+   */
+  const computed = await asService(
+    (sql) => sql<{ id: string }>`
+      select refresh_reconciliation(p.id, cy.id) as id
+      from profiles p
+      join cycles cy
+        on cy.org_id = p.org_id
+       and cy.kind = 'week'
+      where p.status = 'active'
+        -- The Chairman files nothing, so there is nothing of his to reconcile.
+        and p.role <> 'executive'
+        and cy.starts_on <= current_date
+        and cy.starts_on > current_date - interval '21 days'
+    `,
+  );
+
+  /*
+   * 2. Open the correction window on weeks that have ENDED.
+   *
+   * review_due_at is reset here rather than trusted from the insert. The row
+   * is first written mid-week, so its original due time is mid-week too —
+   * left alone, a week could auto-confirm before it had even finished. The
+   * window has to start when the person is actually asked to look.
+   */
+  const opened = await asService(
+    (sql) => sql<{ id: string }>`
+      update reconciliations r
+         set status = 'awaiting_employee',
+             review_due_at = now() + make_interval(
+               hours => coalesce((o.settings ->> 'review_window_hours')::integer, 24)
+             )
+        from cycles cy, organizations o
+       where cy.id = r.cycle_id
+         and o.id = r.org_id
+         and r.status = 'draft'
+         and cy.ends_on < current_date
+      returning r.id
+    `,
+  );
+
+  /*
+   * 3. Auto-confirm once the window has elapsed.
+   *
+   * Rule 2 in one statement: nothing reaches a lead or the Chairman until its
+   * subject has had the chance to correct it. Silence for the full window
+   * counts as acceptance — 'auto_confirmed' records that it was silence
+   * rather than agreement, which is a distinction worth keeping.
+   */
+  const settled = await asService(
+    (sql) => sql<{ id: string }>`
+      update reconciliations
+         set status = 'auto_confirmed',
+             confirmed_at = now()
+       where status = 'awaiting_employee'
+         and review_due_at is not null
+         and review_due_at <= now()
+      returning id
+    `,
+  );
+
+  const parts = [`recomputed ${computed.length}`];
+  if (opened.length) parts.push(`opened ${opened.length} for review`);
+  if (settled.length) parts.push(`settled ${settled.length}`);
+
+  return {
+    job: "reconcile",
+    ok: true,
+    detail: parts.join(", ") + ".",
+    counts: {
+      recomputed: computed.length,
+      opened: opened.length,
+      settled: settled.length,
+    },
   };
 }
 
@@ -575,6 +682,8 @@ export async function runJob(
       return runPrompt(force);
     case "remind":
       return runRemind(force);
+    case "reconcile":
+      return runReconcile();
     case "narrate":
       return runNarrate();
     case "coordinate":

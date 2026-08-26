@@ -389,10 +389,20 @@ unset — no secret means no jobs, not open access).
 |---|---|
 | `prompt` | Opens a check-in for everyone who files one: `staff`, `lead`, `hr`. |
 | `remind` | Chases only non-submitters. |
+| `reconcile` | Turns what was reported into a settled week: recompute, open the correction window once a week has ended, auto-confirm once it elapses. Everything below reads what it produces. |
 | `narrate` | Writes weekly readouts before anybody opens their home page. |
 | `coordinate` | Silent drops, open commitments, cross-team blockers. |
 | `digest` | Writes the Chairman's briefing for the most recent **settled** cycle. |
 | `send-digest` | Delivers anything generated and unsent. |
+
+`reconcile` was missing for a long time, and its absence was invisible.
+`refresh_reconciliation()` existed from migration 0004 and nothing called it;
+nothing advanced a row through `draft → awaiting_employee → auto_confirmed`
+either. Check-ins were filed and commitments extracted, then the chain stopped:
+no cycle ever settled, `narrate` had nothing to write, and the digest answered
+"No settled cycle to brief on yet" indefinitely. Every job reported success
+while the product did nothing, because each was honestly reporting on an empty
+input.
 
 **Every job is idempotent by construction**, not by convention. Schedulers fire
 twice — pg_cron retries, deploys overlap, someone presses the button again.

@@ -18,6 +18,16 @@ import { runJob, type JobName } from "@/lib/schedule";
 const JOBS: JobName[] = [
   "prompt",
   "remind",
+  /*
+   * Order matters from here down, and it is a dependency chain rather than a
+   * preference.
+   *
+   * `reconcile` turns what people reported into a settled week. Everything
+   * after it reads what it produces: `narrate` writes a readout per settled
+   * reconciliation, and `digest` briefs on the most recent settled cycle. Run
+   * it later and each tick would work from the previous hour's picture.
+   */
+  "reconcile",
   // Before the digest: warm the weekly readouts so nobody opens their home
   // page and waits thirty seconds for a model to write one.
   "narrate",
