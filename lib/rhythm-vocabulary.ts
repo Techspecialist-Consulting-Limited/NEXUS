@@ -20,6 +20,17 @@ export type RhythmConfig = {
   reviewWindowHours: number;
   /** The most NEXUS will send one person in a day, across every kind. */
   maxNudgesPerDay: number;
+  /**
+   * The first week this organisation reports on, as YYYY-MM-DD. Null means
+   * "since the organisation was created".
+   *
+   * Reconciliation walks weeks forward from here. Without it the job had to
+   * guess a window — three weeks, chosen for no reason — which both missed
+   * history an organisation genuinely wanted counted and reached back into
+   * weeks from before anybody was using NEXUS, where "nobody reported" is an
+   * artefact of the software not existing yet rather than a fact about anyone.
+   */
+  reportingStartsOn: string | null;
 };
 
 export const DAY_NAME: Record<number, string> = {

@@ -51,7 +51,24 @@ export const RHYTHM_DEFAULTS: RhythmConfig = {
   digestHour: 9,
   reviewWindowHours: 24,
   maxNudgesPerDay: 2,
+  reportingStartsOn: null,
 };
+
+/**
+ * A calendar date, or null.
+ *
+ * Only YYYY-MM-DD. Anything else is treated as unset rather than coerced,
+ * because a half-parsed date here would silently change which weeks the
+ * organisation is reconciled from — and a wrong answer about that is worse
+ * than falling back to when the organisation was created.
+ */
+function day(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const t = v.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(t)) return null;
+  const d = new Date(`${t}T00:00:00Z`);
+  return Number.isNaN(d.getTime()) ? null : t;
+}
 
 function int(v: unknown, fallback: number, min: number, max: number): number {
   const n = Number(v);
@@ -69,6 +86,7 @@ export function readRhythm(settings: Record<string, unknown>): RhythmConfig {
     digestHour: int(settings.exec_digest_hour, d.digestHour, 0, 23),
     reviewWindowHours: int(settings.review_window_hours, d.reviewWindowHours, 1, 168),
     maxNudgesPerDay: int(settings.max_nudges_per_day, d.maxNudgesPerDay, 1, 20),
+    reportingStartsOn: day(settings.reporting_starts_on),
   };
 }
 
@@ -103,6 +121,7 @@ export async function updateRhythm(
     exec_digest_hour: next.digestHour,
     review_window_hours: next.reviewWindowHours,
     max_nudges_per_day: next.maxNudgesPerDay,
+    reporting_starts_on: next.reportingStartsOn,
   };
 
   const rows = await asActor(

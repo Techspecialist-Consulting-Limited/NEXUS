@@ -331,6 +331,7 @@ describe("the rhythm gate", () => {
     digestHour: 9,
     reviewWindowHours: 24,
     maxNudgesPerDay: 2,
+      reportingStartsOn: null,
   };
 
   it("is at-or-after, so a late tick catches up rather than skipping a week", () => {

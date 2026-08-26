@@ -156,6 +156,21 @@ export function RhythmForm({
         </Row>
 
         <Row
+          label="Reporting starts"
+          hint="The first week NEXUS reconciles. Leave it empty to start from the day this organisation was created. Set it to skip weeks from before people were actually using NEXUS, where nobody reporting says nothing about anybody."
+        >
+          <input
+            type="date"
+            aria-label="First week to report on"
+            value={form.reportingStartsOn ?? ""}
+            onChange={(e) => set("reportingStartsOn", e.target.value || null)}
+            className="min-h-11 rounded-lg border border-white/[0.12] bg-white/[0.04] px-3
+                       text-sm text-white/90 [color-scheme:dark]
+                       focus-visible:outline focus-visible:outline-2 focus-visible:outline-white/40"
+          />
+        </Row>
+
+        <Row
           label="Daily message budget"
           hint="The most NEXUS will send one person in a day, across every kind. A genuine escalation is exempt."
         >

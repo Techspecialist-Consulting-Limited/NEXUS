@@ -216,6 +216,7 @@ export async function runReconcile(): Promise<JobResult> {
     (sql) => sql<{ id: string }>`
       select refresh_reconciliation(p.id, cy.id) as id
       from profiles p
+      join organizations o on o.id = p.org_id
       join cycles cy
         on cy.org_id = p.org_id
        and cy.kind = 'week'
@@ -223,7 +224,33 @@ export async function runReconcile(): Promise<JobResult> {
         -- The Chairman files nothing, so there is nothing of his to reconcile.
         and p.role <> 'executive'
         and cy.starts_on <= current_date
-        and cy.starts_on > current_date - interval '21 days'
+        /*
+         * From when this organisation started reporting, not from a window
+         * picked out of the air. Defaults to the day the organisation was
+         * created, because reporting cannot predate the organisation and
+         * nobody should have to configure that to get a sensible answer.
+         *
+         * Reaching further back is not merely wasted work: it manufactures
+         * weeks in which "nobody reported" is an artefact of the software not
+         * existing yet rather than a fact about anybody.
+         */
+        and cy.starts_on >= coalesce(
+          (o.settings ->> 'reporting_starts_on')::date,
+          o.created_at::date
+        )
+        /*
+         * Never recompute a week that has settled. Its subject has seen those
+         * figures, and a later edit to an old commitment must not silently
+         * rewrite numbers somebody already confirmed and acted on. This is
+         * also what bounds the work: only open weeks are ever touched, so the
+         * cost per tick stays flat however long the organisation has run.
+         */
+        and not exists (
+          select 1 from reconciliations r
+          where r.profile_id = p.id
+            and r.cycle_id = cy.id
+            and r.status in ('confirmed', 'auto_confirmed')
+        )
     `,
   );
 

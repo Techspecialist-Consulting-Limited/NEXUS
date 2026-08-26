@@ -22,6 +22,18 @@ const body = z.object({
   digestHour: z.number().int().min(0).max(23),
   reviewWindowHours: z.number().int().min(1).max(168),
   maxNudgesPerDay: z.number().int().min(1).max(20),
+  /*
+   * The first week to report on. Null means "since the organisation was
+   * created", which is the right default and the one nobody has to think
+   * about. Accepted as a plain calendar date rather than a timestamp: a week
+   * begins on a day, and a timezone on this value would make the boundary
+   * depend on who saved the form.
+   */
+  reportingStartsOn: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Use a date like 2026-08-24.")
+    .nullable()
+    .default(null),
 });
 
 export async function PATCH(request: Request) {
