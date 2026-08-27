@@ -247,3 +247,9 @@ one minute would promise a precision nothing can honour.
    UI agree with each other.
 4. **Custom SMTP is unconfirmed.** No Supabase auth email has appeared in the
    Resend log. Briefing delivery uses Resend directly and is verified working.
+5. **One brief went out with `localhost` links.** The first verification run
+   read `NEXT_PUBLIC_APP_URL` from a local `.env.local` while writing to the
+   production database, so the "Open the full report" button in that email
+   points at the tester's machine. `verify-delivery.mts` now refuses to send
+   when the URL is local, and says why. The replacement brief is generated and
+   waiting; it will go out on the next production tick with the deployed URL.
