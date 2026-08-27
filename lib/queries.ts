@@ -1013,3 +1013,40 @@ export async function weeklyPersonReports(
     `,
   );
 }
+
+/**
+ * The week this person has actually been asked to report on.
+ *
+ * THE RHYTHM DECIDES, NOT THE CALENDAR. `runPrompt` creates a check_in row
+ * against the cycle it opened; this returns that cycle, so the interface files
+ * against the same week the person was asked about.
+ *
+ * Without it the two disagreed permanently. `recentCycles` excludes the current
+ * week — `starts_on < date_trunc('week', current_date)` — so `/my-week` showed
+ * LAST week for the whole of this one, while the prompt opened THIS week.
+ * Somebody following "your check-in is open" filed against a different week
+ * than the one that had been opened for them, every single time.
+ *
+ * Null when nothing is open — the prompt has not run, or they have already
+ * answered everything. The caller falls back to the most recent settled week,
+ * which is the right place to be when there is nothing waiting.
+ */
+export async function openCheckInCycle(
+  actor: string,
+  profileId: string,
+): Promise<Cycle | null> {
+  const rows = await asActor(
+    actor,
+    (sql) => sql<Cycle>`
+      select cy.id, cy.label, cy.starts_on, cy.ends_on, cy.seq
+      from check_ins ci
+      join cycles cy on cy.id = ci.cycle_id
+      where ci.profile_id = ${profileId}
+        and ci.responded_at is null
+        and ci.status in ('pending', 'prompted')
+      order by cy.starts_on desc
+      limit 1
+    `,
+  );
+  return rows[0] ?? null;
+}

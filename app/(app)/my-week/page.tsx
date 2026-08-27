@@ -3,7 +3,7 @@ import { currentActorId, requireViewer } from "@/lib/session";
 import { homeFor } from "@/lib/nav";
 import { hasPersonalWorkspace } from "@/lib/capabilities";
 import { asActor } from "@/lib/db";
-import { getPerson, recentCycles } from "@/lib/queries";
+import { getPerson, openCheckInCycle, recentCycles } from "@/lib/queries";
 import { weeklyBrief } from "@/lib/coach";
 import { CopilotHome } from "@/components/staff/copilot-home";
 
@@ -48,8 +48,19 @@ export default async function MyWeekPage() {
     redirect(homeFor(me.role));
   }
 
+  /*
+   * The week the rhythm opened for them, falling back to the most recent
+   * settled one.
+   *
+   * These used to be permanently out of step: recentCycles excludes the
+   * current week, so this page showed LAST week for the whole of this one
+   * while runPrompt opened THIS week. Somebody following "your check-in is
+   * open" filed against a different week than the one they were asked about,
+   * and the compliance figures then answered "did they report?" about a week
+   * they had not been asked to report on.
+   */
   const cycles = await recentCycles(actor);
-  const week = cycles.at(-1);
+  const week = (await openCheckInCycle(actor, me.id)) ?? cycles.at(-1);
 
   if (!week) {
     return (

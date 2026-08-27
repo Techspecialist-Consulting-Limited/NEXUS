@@ -435,29 +435,39 @@ export async function runDigest(force = false): Promise<JobResult> {
    * that lands in somebody's inbox on a schedule they were told about, so
    * "Monday 9am" has to mean Monday 9am rather than whenever the tick ran.
    */
-  if (!force) {
-    const due = await currentCycles("digest", false);
-    if (due.length === 0) {
-      return {
-        job: "digest",
-        ok: true,
-        detail: "Not yet due for any organisation.",
-      };
-    }
+  const due = await currentCycles("digest", force);
+  if (due.length === 0) {
+    return { job: "digest", ok: true, detail: "Not yet due for any organisation." };
   }
+  const dueOrgIds = due.map((d) => d.org_id);
 
+  /*
+   * ONE BRIEFING PER ORGANISATION.
+   *
+   * This used to select a single newest settled cycle across every tenant and
+   * generate one digest from it — `order by starts_on desc limit 1`, with no
+   * org filter at all. With more than one organisation in the database that
+   * means exactly one of them ever receives a briefing, and the others are
+   * silently skipped forever. Whichever happens to hold the newest settled
+   * week wins, so it can also swap between them week to week.
+   *
+   * `distinct on (cy.org_id)` takes the newest settled cycle for EACH
+   * organisation instead, restricted to the ones whose configured moment has
+   * arrived.
+   */
   const settled = await asService(
-    (sql) => sql<{ cycle_id: string; label: string }>`
-      select cy.id as cycle_id, cy.label
+    (sql) => sql<{ org_id: string; cycle_id: string; label: string }>`
+      select distinct on (cy.org_id)
+             cy.org_id, cy.id as cycle_id, cy.label
       from cycles cy
       where cy.kind = 'week'
+        and cy.org_id = any(${dueOrgIds}::uuid[])
         and exists (
           select 1 from reconciliations r
           where r.cycle_id = cy.id
             and r.status in ('confirmed', 'auto_confirmed')
         )
-      order by cy.starts_on desc
-      limit 1
+      order by cy.org_id, cy.starts_on desc
     `,
   );
 
@@ -465,16 +475,39 @@ export async function runDigest(force = false): Promise<JobResult> {
     return { job: "digest", ok: true, detail: "No settled cycle to brief on yet." };
   }
 
-  const built = await generateDigest(settled[0].cycle_id, "weekly");
-  return built
-    ? {
-        job: "digest",
-        ok: true,
-        detail: `Wrote the briefing for ${built.cycleLabel}: "${built.result.subject}"`,
-        counts: { decisions: built.result.decisions.length },
-      }
-    : { job: "digest", ok: true, detail: "No organisation has a Chairman to brief." };
+  const written: string[] = [];
+  const problems: string[] = [];
+
+  for (const row of settled) {
+    try {
+      const built = await generateDigest(row.cycle_id, "weekly");
+      /*
+       * generateDigest returns null when an organisation has no Chairman.
+       * That is a configuration fact rather than a failure, and it must not
+       * stop the remaining organisations from being briefed.
+       */
+      if (built) written.push(`${built.orgName}: ${row.label}`);
+    } catch (error) {
+      problems.push(
+        `${row.label}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  return {
+    job: "digest",
+    ok: problems.length === 0,
+    detail:
+      written.length === 0
+        ? problems.length
+          ? `No briefing written. ${problems.join("; ")}`
+          : "No organisation has a Chairman to brief."
+        : `Wrote ${written.length} briefing(s) — ${written.join(", ")}.` +
+          (problems.length ? ` ${problems.length} failed: ${problems.join("; ")}` : ""),
+    counts: { written: written.length, failed: problems.length },
+  };
 }
+
 
 /**
  * Deliver any generated-but-unsent briefing.
