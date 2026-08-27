@@ -5,6 +5,7 @@ import { organizationProfile } from "@/lib/organization";
 import { rhythmFor } from "@/lib/rhythm";
 import { AdminShell, AdminIndex, ADMIN_PAGES } from "@/components/admin/admin-shell";
 import { RhythmForm } from "@/components/admin/rhythm-form";
+import { BriefDelivery } from "@/components/admin/brief-delivery";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +34,22 @@ export default async function AdminReportingPage() {
       title="Reporting"
       standfirst="When the week opens, when NEXUS chases, and when the Chairman is briefed."
     >
-      <RhythmForm rhythm={rhythm} timezone={org?.timezone ?? "UTC"} />
+      <RhythmForm
+        rhythm={rhythm}
+        timezone={org?.timezone ?? "UTC"}
+        /*
+         * The server's clock, so "next brief: Mon 31 Aug, 09:00" renders the
+         * same on the server and on first paint. Computing it in the client
+         * component would be a hydration mismatch on the one line of this page
+         * somebody will actually check.
+         */
+        now={new Date().toISOString()}
+      />
+
+      <BriefDelivery
+        scheduledFor={rhythm.nextDigestAt}
+        timezone={org?.timezone ?? "UTC"}
+      />
 
       <section className="rounded-lg border border-white/[0.09] bg-white/[0.02]">
         <div className="border-b border-white/[0.07] px-4 py-3.5">
@@ -63,6 +79,11 @@ export default async function AdminReportingPage() {
             [
               "Find what matters",
               "Blockers, repeated carryovers, silent drops, and who needs support.",
+              "Every run",
+            ],
+            [
+              "Settle the week",
+              "Reconciles what was promised against what was reported, then opens each person's correction window before anything rolls up.",
               "Every run",
             ],
             ["Build the brief", "One per organisation, from figures counted in SQL.", "Scheduled"],
@@ -96,20 +117,21 @@ export default async function AdminReportingPage() {
       <section className="rounded-lg border border-white/[0.09] bg-white/[0.02] px-4 py-3.5">
         <h2 className="text-sm font-medium text-white/90">How it is triggered</h2>
         <p className="body-sm mt-1.5">
-          Point a scheduler at{" "}
+          A scheduler posts to{" "}
           <code className="rounded bg-white/[0.07] px-1 py-0.5 text-xs">
             POST /api/cron/tick
           </code>{" "}
-          <strong>every hour</strong>, authorised with the{" "}
+          <strong>every five minutes</strong>, authorised with the{" "}
           <code className="rounded bg-white/[0.07] px-1 py-0.5 text-xs">CRON_SECRET</code>{" "}
-          bearer token. NEXUS decides what is due from the times above, so an
-          hourly tick is not an hourly rhythm — it is how the rhythm gets
-          noticed on time.
+          bearer token. NEXUS decides what is due from the times above, so a
+          five-minute tick is not a five-minute rhythm — it is the resolution at
+          which the rhythm can be noticed.
         </p>
         <p className="note mt-2">
-          Naming one job —{" "}
-          <code className="rounded bg-white/[0.07] px-1 py-0.5 text-xs">?job=digest</code>{" "}
-          — runs it immediately and ignores the schedule. That is the manual run.
+          That resolution is the floor on every interval offered above. The tick
+          is best-effort and can run a few minutes late under load, so treat
+          &ldquo;in ten minutes&rdquo; as ten to fifteen. <strong>Send it now</strong>{" "}
+          does not wait for a tick at all.
         </p>
       </section>
 

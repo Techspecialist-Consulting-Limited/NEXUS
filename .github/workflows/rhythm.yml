@@ -1,7 +1,14 @@
 name: Reporting rhythm
 
-# Calls POST /api/cron/tick hourly. GUIDE §8: "the tick fires hourly and
-# lib/rhythm.ts decides what is due, per organisation, in its timezone."
+# Calls POST /api/cron/tick every five minutes. lib/rhythm.ts decides what is
+# due, per organisation, in its timezone — the tick is the RESOLUTION of the
+# rhythm, not the rhythm.
+#
+# WHY FIVE AND NOT SIXTY. Hourly made "brief the Chairman in ten minutes"
+# unanswerable no matter what the Reporting page said, because the fastest
+# anything could be noticed was the top of the next hour. Five minutes is the
+# shortest interval GitHub schedules, and it is the floor the cadence picker
+# offers for exactly that reason.
 #
 # WHY NOT VERCEL CRON. It sends GET, and this endpoint is POST-only on
 # purpose — it emails the whole organisation, and a method a browser, a
@@ -17,10 +24,11 @@ name: Reporting rhythm
 
 on:
   schedule:
-    # Hourly, on the hour. GitHub runs these best-effort and can be late under
-    # load; tolerable here precisely because the gate asks "has this moment
-    # passed" rather than "is it exactly this hour".
-    - cron: "0 * * * *"
+    # GitHub runs these best-effort and can be several minutes late under
+    # load. Tolerable precisely because the gate asks "has this moment passed
+    # and has nothing gone out since" rather than "is it exactly now" — a late
+    # tick catches up instead of skipping.
+    - cron: "*/5 * * * *"
   # So it can be run by hand from the Actions tab without waiting an hour.
   workflow_dispatch:
 

@@ -23,7 +23,34 @@
  */
 import { aiProvider } from "../lib/ai/provider";
 
-const CASES: { name: string; text: string; expect: { commitments?: number } }[] = [
+type Case = {
+  name: string;
+  text: string;
+  expect: { commitments?: number };
+  /*
+   * Open commitments to hand the model.
+   *
+   * THE GAP THIS CLOSES. Every case here used to pass [] — so the `updates`
+   * branch of the schema was never exercised at all, by anything. That branch
+   * is where the model returned update objects with no `status`, and commitment
+   * objects shaped {person, week, text}, on roughly a quarter of responses. It
+   * failed in production, under a real name, while this check reported five out
+   * of five.
+   *
+   * A person with no open commitments is the EASY case. The hard one is the
+   * ordinary one: somebody who promised three things last week and is now
+   * reporting on them.
+   */
+  open?: { id: string; title: string }[];
+};
+
+const OPEN = [
+  { id: "a", title: "Finalize the Smart Reporting System and prepare it for deployment" },
+  { id: "b", title: "Continue defining the Credicorp solution, with a focus on the IT department" },
+  { id: "c", title: "Work with Robinah to update and improve the TechSpecialist website" },
+];
+
+const CASES: Case[] = [
   {
     name: "achievements + a blocker + several plans (the shape that failed)",
     text:
@@ -56,6 +83,27 @@ const CASES: { name: string; text: string; expect: { commitments?: number } }[] 
     text: "Everything is blocked on Legal. Nothing moved.",
     expect: {},
   },
+  {
+    name: "reporting against three open commitments (the shape that failed)",
+    text:
+      "Completed the end-to-end delivery check for the reporting rhythm. The " +
+      "vendor approval is still blocked by Legal." +
+      "\n\n" +
+      "Next week I will confirm the Chairman's brief arrives on the configured " +
+      "schedule, and finish the pilot checklist.",
+    expect: { commitments: 1 },
+    open: OPEN,
+  },
+  {
+    name: "explicitly finishing an open commitment",
+    text:
+      "Finalized the Smart Reporting System and pushed it for deployment. " +
+      "The Credicorp solution definition is still in progress." +
+      "\n\n" +
+      "Next week: hand the website work over to Robinah.",
+    expect: { commitments: 1 },
+    open: OPEN,
+  },
 ];
 
 const p = aiProvider();
@@ -75,7 +123,7 @@ for (const c of CASES) {
   try {
     const { data } = await p.extract({
       text: c.text,
-      openCommitments: [],
+      openCommitments: c.open ?? [],
       personName: "Amara Okonkwo",
       cycleLabel: "W34 · 17 Aug–23 Aug",
     });
@@ -94,6 +142,26 @@ for (const c of CASES) {
       if (typeof b !== "string") {
         failures++;
         console.log(`        FAIL: blocker is not a string: ${JSON.stringify(b)}`);
+      }
+    }
+    /*
+     * An update with no status is dropped rather than defaulted, so anything
+     * that survives here must carry one — and must name a commitment that
+     * really exists, or the caller cannot resolve it to an id.
+     */
+    const titles = new Set((c.open ?? []).map((o) => o.title.toLowerCase()));
+    for (const u of data.updates) {
+      if (!u.status) {
+        failures++;
+        console.log(`        FAIL: update has no status: ${JSON.stringify(u)}`);
+      }
+      if (titles.size && !titles.has(u.commitment_title.toLowerCase())) {
+        console.log(`        WARN: update names an unknown commitment: ${u.commitment_title}`);
+      }
+    }
+    for (const cm of data.commitments) {
+      if (!cm.source_quote || !c.text.includes(cm.source_quote.slice(0, 24))) {
+        console.log(`        WARN: source_quote is not a verbatim slice: ${cm.source_quote}`);
       }
     }
   } catch (error) {

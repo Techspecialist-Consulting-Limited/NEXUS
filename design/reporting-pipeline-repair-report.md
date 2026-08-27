@@ -129,6 +129,10 @@ that the database must be correct rather than made to look correct.
 
 ## Known issues left open
 
+> **Superseded.** Every item below has since been resolved or restated — see
+> [brief-delivery.md](brief-delivery.md) for the current list. Kept as the
+> record of what was open at the time of this repair.
+
 1. **`runDigest` has no organisation filter.** It selects one settled cycle
    globally and generates one digest, so with two organisations in production
    only one can ever receive a briefing. Real today, not caused by this repair.

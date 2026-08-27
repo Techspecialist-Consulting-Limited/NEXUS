@@ -4,6 +4,7 @@ import {
   assistantAnswer,
   checkInDraft,
   extractionResult,
+  extractionResultLenient,
   digestResult,
   narrativeResult,
   toneResult,
@@ -220,6 +221,21 @@ function buildClient(config: AzureConfig) {
 /** Said once, the first time a hashed vector is actually handed out. */
 let warnedAboutEmbeddings = false;
 
+/**
+ * Walk a Zod issue path into the raw response, to report what was actually
+ * there. Returns undefined rather than throwing on any mismatch — this runs
+ * inside an error path, and a diagnostic that can itself fail is worse than a
+ * vague message.
+ */
+function valueAt(root: unknown, path: readonly PropertyKey[]): unknown {
+  let cur: unknown = root;
+  for (const key of path) {
+    if (cur === null || typeof cur !== "object") return undefined;
+    cur = (cur as Record<PropertyKey, unknown>)[key];
+  }
+  return cur;
+}
+
 export class AzureProvider implements AiProvider {
   readonly name = "azure";
   readonly model: string;
@@ -298,6 +314,20 @@ export class AzureProvider implements AiProvider {
      * nobody is waiting.
      */
     maxTokens?: number,
+    /*
+     * A last-resort schema, tried only after the retry has also failed.
+     *
+     * The retry is worth having: feeding a validation error back recovers the
+     * response most of the time, because "source_quote is required" is a
+     * fixable instruction. What must not happen is the alternative that reached
+     * production — throwing, and taking somebody's entire submission with it.
+     *
+     * So the order is: ask strictly, ask again with the error, then keep
+     * whatever stands up. Only extraction supplies one, because only extraction
+     * sits directly between a person pressing submit and their week being
+     * recorded.
+     */
+    lastResort?: ZodType<T>,
   ): Promise<AiResult<T>> {
     const deployment =
       tier === "fast" && this.config.fastDeployment
@@ -391,9 +421,57 @@ export class AzureProvider implements AiProvider {
        * into "the model returned coaching as strings instead of objects" —
        * which is the only fact that actually helps.
        */
+      /*
+       * Both attempts failed the strict shape. Salvage before giving up: a
+       * partial extraction the person can correct beats an error that discards
+       * their report.
+       */
+      if (lastResort) {
+        const salvaged = lastResort.safeParse(parsed);
+        if (salvaged.success) {
+          console.warn(
+            `[nexus:ai] ${label}: response did not match the schema after a retry; ` +
+              `kept what was usable.`,
+          );
+          return {
+            data: salvaged.data,
+            usage: { ...this.usage(lastUsage, startedAt), model: deployment },
+          };
+        }
+      }
+
       const detail = result.error.issues
         .slice(0, 3)
-        .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
+        .map((i) => {
+          const path = i.path.join(".") || "(root)";
+          /*
+           * And say what it actually sent.
+           *
+           * "updates.0.status: Invalid option" names the field and still leaves
+           * the only useful fact — WHICH option — to be guessed at or probed
+           * for with a throwaway script. Reading the offending value out of the
+           * parsed response costs nothing and turns a twenty-minute
+           * investigation into a line of log.
+           *
+           * Truncated, because this reaches logs: a model that returned a
+           * three-thousand-word string for a field expecting an enum should
+           * produce a readable error, not a wall.
+           */
+          const got = valueAt(parsed, i.path);
+          /*
+           * When the value is missing, show the object it was missing FROM.
+           * "got undefined" is the least useful sentence available — an omitted
+           * field and a misspelt one produce it identically, and only the parent
+           * distinguishes them.
+           */
+          const shown =
+            got !== undefined
+              ? ` (got ${JSON.stringify(got).slice(0, 120)})`
+              : i.path.length > 0
+                ? ` (missing from ${JSON.stringify(valueAt(parsed, i.path.slice(0, -1))).slice(0, 160)})`
+                : "";
+          return `${path}: ${i.message}${shown}`;
+        })
         .join("; ");
       throw new Error(`${label}: response failed validation — ${detail}`);
     }
@@ -451,6 +529,8 @@ export class AzureProvider implements AiProvider {
       extractionResult,
       "extract",
       "fast",
+      undefined,
+      extractionResultLenient,
     );
   }
 

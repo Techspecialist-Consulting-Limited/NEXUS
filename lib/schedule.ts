@@ -62,7 +62,7 @@ export type JobResult = {
  * digest now means now, and a control that silently declined because it was
  * Tuesday would be the worst button in the product.
  */
-async function currentCycles(job?: JobName, force = false) {
+async function currentCycles(job?: JobName, force = false, orgId?: string) {
   const rows = await asService(
     (sql) => sql<{
       org_id: string;
@@ -72,9 +72,31 @@ async function currentCycles(job?: JobName, force = false) {
       cycle_id: string;
       cycle_label: string;
       ends_on: string;
+      last_digest_at: string | null;
     }>`
       select o.id as org_id, o.name as org_name, o.timezone, o.settings,
-             cy.id as cycle_id, cy.label as cycle_label, cy.ends_on
+             cy.id as cycle_id, cy.label as cycle_label, cy.ends_on,
+             /*
+              * WHEN A BRIEF WAS LAST ACTUALLY DELIVERED.
+              *
+              * The gate needs this and cannot derive it. A repeating cadence is
+              * "has enough time passed since the last one", and without an
+              * answer the only expressible rule was "is it after Monday 9",
+              * which stays true all week.
+              *
+              * Two sources, whichever is later. exec_digest_last_at is
+              * written by runSendDigest and is the authority, because
+              * re-delivering a brief clears its row's sent_at and would
+              * otherwise erase the very fact the gate depends on. max(sent_at)
+              * is the fallback for organisations briefed before that key
+              * existed — without it, every one of them would be due for an
+              * immediate extra brief the moment this deploys.
+              */
+             greatest(
+               (o.settings ->> 'exec_digest_last_at')::timestamptz,
+               (select max(d.sent_at) from digests d
+                 where d.org_id = o.id and d.scope = 'executive')
+             ) as last_digest_at
       from organizations o
       join lateral (
         select cy.id, cy.label, cy.ends_on
@@ -85,11 +107,17 @@ async function currentCycles(job?: JobName, force = false) {
         order by cy.starts_on desc
         limit 1
       ) cy on true
+      where ${orgId ? sql`o.id = ${orgId}` : sql`true`}
     `,
   );
 
   if (!job || force) return rows;
-  return rows.filter((r) => gateFor(job, readRhythm(r.settings), r.timezone).due);
+  return rows.filter(
+    (r) =>
+      gateFor(job, readRhythm(r.settings), r.timezone, {
+        lastDigestAt: r.last_digest_at ? new Date(r.last_digest_at) : null,
+      }).due,
+  );
 }
 
 /**
@@ -201,7 +229,7 @@ export async function runRemind(force = false): Promise<JobResult> {
  * All three steps are idempotent, which they have to be — the tick fires
  * hourly and retries.
  */
-export async function runReconcile(): Promise<JobResult> {
+export async function runReconcile(orgId?: string): Promise<JobResult> {
   /*
    * 1. Recompute. The last three weeks rather than only the current one, so a
    *    late submission or a corrected commitment is picked up rather than
@@ -221,6 +249,7 @@ export async function runReconcile(): Promise<JobResult> {
         on cy.org_id = p.org_id
        and cy.kind = 'week'
       where p.status = 'active'
+        and ${orgId ? sql`p.org_id = ${orgId}` : sql`true`}
         -- The Chairman files nothing, so there is nothing of his to reconcile.
         and p.role <> 'executive'
         and cy.starts_on <= current_date
@@ -234,9 +263,31 @@ export async function runReconcile(): Promise<JobResult> {
          * weeks in which "nobody reported" is an artefact of the software not
          * existing yet rather than a fact about anybody.
          */
-        and cy.starts_on >= coalesce(
-          (o.settings ->> 'reporting_starts_on')::date,
-          o.created_at::date
+        and (
+          cy.starts_on >= coalesce(
+            (o.settings ->> 'reporting_starts_on')::date,
+            o.created_at::date
+          )
+          /*
+           * OR SOMEBODY ACTUALLY REPORTED IN IT.
+           *
+           * The floor exists to stop NEXUS manufacturing weeks in which
+           * "nobody reported" is an artefact of the software not existing yet.
+           * A week containing a real submission is definitionally not one of
+           * those, and excluding it loses somebody's actual work.
+           *
+           * That is not hypothetical. Techspecialist was created on 19 Aug and
+           * the first real report was filed against the week beginning 17 Aug,
+           * two days before the floor. It could never be reconciled, never
+           * settle, and never be briefed on — one person's entire week, invisible
+           * because of an inequality.
+           */
+          or exists (
+            select 1 from check_ins ci
+            where ci.cycle_id = cy.id
+              and ci.profile_id = p.id
+              and ci.responded_at is not null
+          )
         )
         /*
          * Never recompute a week that has settled. Its subject has seen those
@@ -255,25 +306,51 @@ export async function runReconcile(): Promise<JobResult> {
   );
 
   /*
-   * 2. Open the correction window on weeks that have ENDED.
+   * 2. Open the correction window.
    *
    * review_due_at is reset here rather than trusted from the insert. The row
    * is first written mid-week, so its original due time is mid-week too —
    * left alone, a week could auto-confirm before it had even finished. The
    * window has to start when the person is actually asked to look.
+   *
+   * WHICH WEEKS QUALIFY IS NOW A SETTING, AND THIS WAS THE REAL BLOCKER.
+   *
+   * By default, only a week that has ENDED — the correct rule for an
+   * organisation running a weekly rhythm, because a week still in progress has
+   * more work coming and settling it early reports on half a week as though it
+   * were the whole one.
+   *
+   * But it also meant no configuration anywhere could make a brief arrive
+   * sooner than the following Monday. An administrator could set the brief to
+   * "every ten minutes", NEXUS would agree, and nothing would ever be sent —
+   * because the chain feeding it could not produce a settled week to brief on.
+   * A control that cannot do what it says is worse than no control.
+   *
+   * With `brief_current_cycle`, the week in progress settles too, once its
+   * correction window elapses. Rule 2 survives intact: the subject still gets
+   * the whole window before anything rolls up. The window is shorter, and that
+   * is a decision the organisation makes deliberately rather than one the
+   * software makes for them.
    */
   const opened = await asService(
     (sql) => sql<{ id: string }>`
       update reconciliations r
          set status = 'awaiting_employee',
              review_due_at = now() + make_interval(
-               hours => coalesce((o.settings ->> 'review_window_hours')::integer, 24)
+               mins => coalesce(
+                 (o.settings ->> 'review_window_minutes')::integer,
+                 coalesce((o.settings ->> 'review_window_hours')::integer, 24) * 60
+               )
              )
         from cycles cy, organizations o
        where cy.id = r.cycle_id
          and o.id = r.org_id
          and r.status = 'draft'
-         and cy.ends_on < current_date
+         and ${orgId ? sql`r.org_id = ${orgId}` : sql`true`}
+         and (
+           cy.ends_on < current_date
+           or coalesce((o.settings ->> 'brief_current_cycle')::boolean, false)
+         )
       returning r.id
     `,
   );
@@ -292,6 +369,7 @@ export async function runReconcile(): Promise<JobResult> {
          set status = 'auto_confirmed',
              confirmed_at = now()
        where status = 'awaiting_employee'
+         and ${orgId ? sql`org_id = ${orgId}` : sql`true`}
          and review_due_at is not null
          and review_due_at <= now()
       returning id
@@ -429,13 +507,13 @@ export async function runCoordinate(): Promise<JobResult> {
  * numbers their subjects have not seen — which is the one promise this product
  * makes to the people it reports on.
  */
-export async function runDigest(force = false): Promise<JobResult> {
+export async function runDigest(force = false, orgId?: string): Promise<JobResult> {
   /*
    * Gated per organisation, like the prompt. The digest is the one thing here
    * that lands in somebody's inbox on a schedule they were told about, so
    * "Monday 9am" has to mean Monday 9am rather than whenever the tick ran.
    */
-  const due = await currentCycles("digest", force);
+  const due = await currentCycles("digest", force, orgId);
   if (due.length === 0) {
     return { job: "digest", ok: true, detail: "Not yet due for any organisation." };
   }
@@ -477,16 +555,72 @@ export async function runDigest(force = false): Promise<JobResult> {
 
   const written: string[] = [];
   const problems: string[] = [];
+  let waiting = 0;
 
   for (const row of settled) {
     try {
+      /*
+       * Do not pay to rebuild a briefing that is already waiting to go out.
+       *
+       * A failed send leaves the row generated and unsent, and the gate stays
+       * open until something is actually delivered — so without this check
+       * every tick after a mail outage would regenerate the same briefing from
+       * scratch, at model prices, to produce a row that already existed.
+       */
+      const pending = await asService(
+        (sql) => sql<{ id: string }>`
+          select id from digests
+           where org_id = ${row.org_id}
+             and scope = 'executive'
+             and period = 'weekly'
+             and cycle_id = ${row.cycle_id}
+             and sent_at is null
+             and coalesce(summary_json ->> 'headline', '') <> ''
+        `,
+      );
+      if (pending.length > 0) {
+        waiting++;
+        continue;
+      }
+
       const built = await generateDigest(row.cycle_id, "weekly");
       /*
        * generateDigest returns null when an organisation has no Chairman.
        * That is a configuration fact rather than a failure, and it must not
        * stop the remaining organisations from being briefed.
        */
-      if (built) written.push(`${built.orgName}: ${row.label}`);
+      if (!built) continue;
+      written.push(`${built.orgName}: ${row.label}`);
+
+      /*
+       * MAKE IT DELIVERABLE AGAIN.
+       *
+       * The digest table holds one row per (organisation, scope, period,
+       * cycle), so regenerating updates the existing row rather than making a
+       * second — which is what stops a double tick from briefing the Chairman
+       * twice. It also means a row that has already been delivered once keeps
+       * its sent_at, and runSendDigest only ever picks up rows where that is
+       * null. A second delivery of the same week was therefore impossible.
+       *
+       * That was invisible while the only cadence was weekly, because a new
+       * week brought a new row. It is the whole question for "every ten
+       * minutes" and for a one-off, where the cycle is deliberately the same
+       * one and the point is that the picture has moved on.
+       *
+       * Clearing sent_at here is safe precisely because getting here means the
+       * gate opened, and the gate reads exec_digest_last_at — a separate mark
+       * that a re-delivery does not disturb.
+       */
+      await asService(
+        (sql) => sql`
+          update digests
+             set status = 'generated', sent_at = null, error = null
+           where org_id = ${row.org_id}
+             and scope = 'executive'
+             and period = 'weekly'
+             and cycle_id = ${row.cycle_id}
+        `,
+      );
     } catch (error) {
       problems.push(
         `${row.label}: ${error instanceof Error ? error.message : String(error)}`,
@@ -494,17 +628,21 @@ export async function runDigest(force = false): Promise<JobResult> {
     }
   }
 
+  const detail =
+    written.length === 0
+      ? problems.length
+        ? `No briefing written. ${problems.join("; ")}`
+        : waiting > 0
+          ? `${waiting} briefing(s) already written and waiting to be sent.`
+          : "No organisation has a Chairman to brief."
+      : `Wrote ${written.length} briefing(s) — ${written.join(", ")}.` +
+        (problems.length ? ` ${problems.length} failed: ${problems.join("; ")}` : "");
+
   return {
     job: "digest",
     ok: problems.length === 0,
-    detail:
-      written.length === 0
-        ? problems.length
-          ? `No briefing written. ${problems.join("; ")}`
-          : "No organisation has a Chairman to brief."
-        : `Wrote ${written.length} briefing(s) — ${written.join(", ")}.` +
-          (problems.length ? ` ${problems.length} failed: ${problems.join("; ")}` : ""),
-    counts: { written: written.length, failed: problems.length },
+    detail,
+    counts: { written: written.length, waiting, failed: problems.length },
   };
 }
 
@@ -516,17 +654,47 @@ export async function runDigest(force = false): Promise<JobResult> {
  * hiccup; delivery is fast and must not be coupled to that. It also means a
  * failed send retries without paying to regenerate the same briefing.
  */
-export async function runSendDigest(appUrl: string): Promise<JobResult> {
+/**
+ * Record that this organisation has been briefed, and retire a fulfilled ask.
+ *
+ * `exec_digest_last_at` is what the gate compares a cadence against, and it
+ * lives outside the digest row on purpose: re-delivering a briefing clears that
+ * row's sent_at, which would otherwise erase the one fact that stops the next
+ * tick from sending it all over again.
+ *
+ * `exec_digest_next_at` is dropped once its moment has passed, so nobody opens
+ * the Reporting page and reads "a brief is pending" about one that has already
+ * arrived. Dropped only if the moment is in the past — an administrator can
+ * queue the next one while this one is going out, and that ask must survive.
+ */
+async function markDelivered(orgId: string): Promise<void> {
+  await asService(
+    (sql) => sql`
+      update organizations
+         set settings = (
+               case
+                 when (settings ->> 'exec_digest_next_at')::timestamptz <= now()
+                   then settings - 'exec_digest_next_at'
+                 else settings
+               end
+             ) || jsonb_build_object('exec_digest_last_at', now())
+       where id = ${orgId}
+    `,
+  );
+}
+
+export async function runSendDigest(appUrl: string, orgId?: string): Promise<JobResult> {
   const pending = await asService(
     (sql) => sql<{
       id: string;
+      org_id: string;
       cycle_id: string;
       subject: string;
       summary_json: Record<string, unknown>;
       org_name: string;
       cycle_label: string;
     }>`
-      select d.id, d.cycle_id, d.subject, d.summary_json,
+      select d.id, d.org_id, d.cycle_id, d.subject, d.summary_json,
              o.name as org_name, cy.label as cycle_label
       from digests d
       join organizations o on o.id = d.org_id
@@ -534,6 +702,7 @@ export async function runSendDigest(appUrl: string): Promise<JobResult> {
       where d.scope = 'executive'
         and d.status = 'generated'
         and d.sent_at is null
+        and ${orgId ? sql`d.org_id = ${orgId}` : sql`true`}
       order by d.created_at desc
       limit 5
     `,
@@ -669,6 +838,13 @@ export async function runSendDigest(appUrl: string): Promise<JobResult> {
            where id = ${digest.id}
         `,
       );
+      /*
+       * Counted as delivered for the gate's purposes even though no mail left
+       * the building. The briefing exists and the Chairman's page will show it;
+       * what failed is the transport, permanently, for these addresses. Leaving
+       * the gate open would regenerate this briefing on every tick forever.
+       */
+      await markDelivered(digest.org_id);
       problems.push(`no routable address for ${digest.org_name}`);
       continue;
     }
@@ -697,6 +873,7 @@ export async function runSendDigest(appUrl: string): Promise<JobResult> {
            where id = ${digest.id}
         `,
       );
+      await markDelivered(digest.org_id);
       sent += delivered.length;
     } else {
       /*
@@ -736,6 +913,7 @@ export async function runJob(
   job: JobName,
   appUrl: string,
   force = false,
+  orgId?: string,
 ): Promise<JobResult> {
   switch (job) {
     case "prompt":
@@ -743,14 +921,14 @@ export async function runJob(
     case "remind":
       return runRemind(force);
     case "reconcile":
-      return runReconcile();
+      return runReconcile(orgId);
     case "narrate":
       return runNarrate();
     case "coordinate":
       return runCoordinate();
     case "digest":
-      return runDigest(force);
+      return runDigest(force, orgId);
     case "send-digest":
-      return runSendDigest(appUrl);
+      return runSendDigest(appUrl, orgId);
   }
 }

@@ -833,8 +833,27 @@ export async function latestWeeklyBrief(actor: string): Promise<WeeklyBrief | nu
       left join cycles c on c.id = d.cycle_id
       where d.scope = 'executive'
         and d.period = 'weekly'
-        and d.status = 'sent'
-      order by d.sent_at desc nulls last, d.created_at desc
+        /*
+         * WRITTEN IS ENOUGH. It used to require 'sent', which tied the
+         * Chairman's own page to the mail transport: a Resend outage, an
+         * unroutable address or a stale sender domain meant the briefing
+         * existed, was correct, and was invisible to the one person it was
+         * written for.
+         *
+         * Email is a convenience — it lets him read the week without signing
+         * in. The page is the product. Nothing is shown before a briefing is
+         * written, and a briefing with no headline is still refused below, so
+         * relaxing this cannot surface an empty artefact.
+         */
+        and d.status in ('generated', 'sent')
+      /*
+       * Newest WEEK first, not newest send. Ordering by sent_at put every
+       * unsent briefing last — so the moment 'generated' was admitted above, a
+       * brief written seconds ago would have lost to one emailed a fortnight
+       * back, and the relaxation would have achieved nothing.
+       */
+      order by c.starts_on desc nulls last,
+               coalesce(d.sent_at, d.created_at) desc
       limit 1
     `,
   );
@@ -1005,13 +1024,109 @@ export async function weeklyPersonReports(
       left join submission_status ss
         on ss.profile_id = p.id and ss.cycle_id = ${cycleId}
       where p.status = 'active'
-        and p.role in ('staff', 'lead', 'hr')
+        /*
+         * Everybody but the Chairman, which is the rule migration 0015 settled:
+         * an administrator is a staff member with extra capability, not a
+         * different kind of person, and runPrompt opens a check-in for them
+         * on exactly that basis.
+         *
+         * This query was written later and reintroduced the old list, so an
+         * administrator could file a full week and appear nowhere — not in the
+         * Chairman's per-person view, not in a thread, and not in the silent
+         * column either. Diligent and invisible, which is the worst of both.
+         */
+        and p.role <> 'executive'
         and (${departmentId ?? null}::uuid is null
              or p.department_id = ${departmentId ?? null}::uuid)
       group by p.id, p.full_name, d.name
       order by d.name nulls last, p.full_name
     `,
   );
+}
+
+/**
+ * The organisation's totals for one cycle, counted from PEOPLE.
+ *
+ * WHY THIS EXISTS. Every figure in the executive briefing was a roll-up of
+ * `brief.departments` — summed across units, averaged across units. That is
+ * correct arithmetic over the wrong set: an organisation with no departments
+ * has no rows to roll up, so every count came out zero and every rate came out
+ * null.
+ *
+ * The consequence was not a blank space. Two people filed full reports and the
+ * Chairman's briefing opened with "No unit reports or findings this week" —
+ * the model faithfully describing figures that were wrong. That is precisely
+ * the inversion this codebase exists to prevent: numbers are supposed to come
+ * from the application so the model cannot be caught being wrong, and here the
+ * application was the one being wrong.
+ *
+ * Departments are a way of GROUPING people. People are the fact. So the totals
+ * are counted from profiles and their reconciliations directly, and work
+ * identically whether an organisation has twenty units or none.
+ *
+ * Read as the Chairman, through RLS, like everything else that reaches him.
+ */
+export async function cycleTotals(
+  actor: string,
+  cycleId: string,
+): Promise<{
+  peopleReporting: number;
+  peopleResponded: number;
+  deliveryRate: number | null;
+  signalIntegrity: number | null;
+  silentDropCount: number;
+  protectedCount: number;
+  unplannedCount: number;
+  carryoverCount: number;
+}> {
+  const rows = await asActor(
+    actor,
+    (sql) => sql<{
+      people_reporting: number;
+      people_responded: number;
+      delivery_rate: string | null;
+      signal_integrity: string | null;
+      silent_drop_count: number;
+      protected_count: number;
+      unplanned_count: number;
+      carryover_count: number;
+    }>`
+      select
+        count(p.id)::int                                as people_reporting,
+        count(*) filter (where r.responded)::int        as people_responded,
+        /*
+         * Averaged over people who actually reported. Including a silent week
+         * as a zero would make "nobody filed" indistinguishable from "everybody
+         * filed and delivered nothing", and only one of those is about effort.
+         */
+        avg(r.delivery_rate) filter (where r.responded)     as delivery_rate,
+        avg(r.signal_integrity) filter (where r.responded)  as signal_integrity,
+        coalesce(sum(r.silent_drop_count), 0)::int      as silent_drop_count,
+        coalesce(sum(r.protected_count), 0)::int        as protected_count,
+        coalesce(sum(r.unplanned_count), 0)::int        as unplanned_count,
+        coalesce(sum(r.carryover_count), 0)::int        as carryover_count
+      from profiles p
+      left join reconciliations r
+        on r.profile_id = p.id and r.cycle_id = ${cycleId}
+      where p.org_id = (select org_id from cycles where id = ${cycleId})
+        and p.status = 'active'
+        -- Same rule as everywhere else: everybody but the Chairman.
+        and p.role <> 'executive'
+    `,
+  );
+
+  const r = rows[0];
+  const num = (v: string | null) => (v === null ? null : Math.round(Number(v)));
+  return {
+    peopleReporting: r?.people_reporting ?? 0,
+    peopleResponded: r?.people_responded ?? 0,
+    deliveryRate: num(r?.delivery_rate ?? null),
+    signalIntegrity: num(r?.signal_integrity ?? null),
+    silentDropCount: r?.silent_drop_count ?? 0,
+    protectedCount: r?.protected_count ?? 0,
+    unplannedCount: r?.unplanned_count ?? 0,
+    carryoverCount: r?.carryover_count ?? 0,
+  };
 }
 
 /**

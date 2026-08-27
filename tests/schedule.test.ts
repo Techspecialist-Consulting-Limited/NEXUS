@@ -17,7 +17,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { PGlite } from "@electric-sql/pglite";
 import { createSeededDb, actAsService } from "../scripts/db-harness.mjs";
-import { gateFor, momentHasArrived, readRhythm } from "../lib/rhythm";
+import { RHYTHM_DEFAULTS, gateFor, momentHasArrived, readRhythm } from "../lib/rhythm";
+import { digestDue, nextCadenceMoment } from "../lib/rhythm-vocabulary";
 
 let db: PGlite;
 
@@ -322,30 +323,136 @@ describe("the stored briefing", () => {
  * Now each job is gated per organisation, in that organisation's timezone, and
  * these are the cases that decide whether that is trustworthy.
  */
+/*
+ * A week marked "did not report" has to be able to change its mind.
+ *
+ * refresh_reconciliation writes 'skipped' when nobody has answered and, on
+ * every later recompute, updates the counts but deliberately not the status -
+ * because a recompute must never reset a correction window or un-confirm a week
+ * somebody has already seen.
+ *
+ * Right for every status except 'skipped', which is not a decision anybody
+ * made. It is the absence of a report, and it stops being true the moment one
+ * arrives. Nothing promoted it, so a person who reported at 14:00 after the
+ * 08:00 run stayed 'skipped' forever: the week never settled, and the digest -
+ * which briefs on the most recent SETTLED cycle - had nothing to say about a
+ * week in which people had genuinely reported.
+ *
+ * Found in production, where Techspecialist had two 'skipped' rows for the open
+ * week and no executive digest had ever been generated for the organisation at
+ * all.
+ */
+describe("reconciling a report that arrived late", () => {
+  /** A person and an open week with no check-in between them. */
+  async function subject() {
+    const [row] = await q(`
+      select p.id as profile_id, p.org_id, cy.id as cycle_id
+      from profiles p
+      join cycles cy on cy.org_id = p.org_id and cy.kind = 'week'
+      where p.status = 'active' and p.role <> 'executive'
+        and not exists (
+          select 1 from check_ins ci
+          where ci.profile_id = p.id and ci.cycle_id = cy.id
+        )
+        and not exists (
+          select 1 from reconciliations r
+          where r.profile_id = p.id and r.cycle_id = cy.id
+        )
+      limit 1`);
+    return row;
+  }
+
+  async function statusOf(profileId: unknown, cycleId: unknown) {
+    const [row] = await q(
+      `select status, responded from reconciliations
+        where profile_id = $1 and cycle_id = $2`,
+      [profileId, cycleId],
+    );
+    return row;
+  }
+
+  it("marks a week nobody answered as skipped", async () => {
+    const s = await subject();
+    expect(s).toBeTruthy();
+    await q(`select refresh_reconciliation($1, $2)`, [s.profile_id, s.cycle_id]);
+    expect((await statusOf(s.profile_id, s.cycle_id)).status).toBe("skipped");
+  });
+
+  it("promotes it to draft once the report actually arrives", async () => {
+    const s = await subject();
+    await q(`select refresh_reconciliation($1, $2)`, [s.profile_id, s.cycle_id]);
+    expect((await statusOf(s.profile_id, s.cycle_id)).status).toBe("skipped");
+
+    // The person files their week, hours after the rhythm ran.
+    await q(
+      `insert into check_ins (org_id, profile_id, cycle_id, channel, status,
+                              prompted_at, responded_at, raw_text)
+       values ($1, $2, $3, 'in_app', 'responded', now(), now(), 'Shipped the reporting endpoint.')`,
+      [s.org_id, s.profile_id, s.cycle_id],
+    );
+
+    await q(`select refresh_reconciliation($1, $2)`, [s.profile_id, s.cycle_id]);
+    const after = await statusOf(s.profile_id, s.cycle_id);
+    expect(after.responded).toBe(true);
+    // Without this, the week could never settle and could never be briefed on.
+    expect(after.status).toBe("draft");
+  });
+
+  it("leaves a settled week exactly where its subject left it", async () => {
+    /*
+     * The reason status was excluded from the upsert in the first place, and it
+     * still has to hold: recomputing must not un-confirm a week somebody has
+     * already seen and accepted.
+     */
+    const s = await subject();
+    await q(
+      `insert into check_ins (org_id, profile_id, cycle_id, channel, status,
+                              prompted_at, responded_at, raw_text)
+       values ($1, $2, $3, 'in_app', 'responded', now(), now(), 'Finished the design tokens.')`,
+      [s.org_id, s.profile_id, s.cycle_id],
+    );
+    await q(`select refresh_reconciliation($1, $2)`, [s.profile_id, s.cycle_id]);
+    await q(
+      `update reconciliations set status = 'auto_confirmed', confirmed_at = now()
+        where profile_id = $1 and cycle_id = $2`,
+      [s.profile_id, s.cycle_id],
+    );
+
+    await q(`select refresh_reconciliation($1, $2)`, [s.profile_id, s.cycle_id]);
+    expect((await statusOf(s.profile_id, s.cycle_id)).status).toBe("auto_confirmed");
+  });
+});
+
 describe("the rhythm gate", () => {
   const rhythm = {
+    ...RHYTHM_DEFAULTS,
     promptDay: 5, // Friday
     promptHour: 15,
     reminderHour: 17,
-    digestDay: 1, // Monday
-    digestHour: 9,
-    reviewWindowHours: 24,
-    maxNudgesPerDay: 2,
-      reportingStartsOn: null,
+    digestCadence: { kind: "weekly" as const, day: 1, hour: 9, minute: 0 },
   };
 
   it("is at-or-after, so a late tick catches up rather than skipping a week", () => {
-    // Friday 14:00 — not yet.
-    expect(momentHasArrived({ day: 5, hour: 14 }, 5, 15)).toBe(false);
-    // Friday 15:00 — exactly.
-    expect(momentHasArrived({ day: 5, hour: 15 }, 5, 15)).toBe(true);
-    // Saturday — late, and still due. A week nobody was asked about is worse
+    // Friday 14:00 - not yet.
+    expect(momentHasArrived({ day: 5, hour: 14, minute: 0 }, 5, 15)).toBe(false);
+    // Friday 15:00 - exactly.
+    expect(momentHasArrived({ day: 5, hour: 15, minute: 0 }, 5, 15)).toBe(true);
+    // Saturday - late, and still due. A week nobody was asked about is worse
     // than a prompt that arrives a day behind.
-    expect(momentHasArrived({ day: 6, hour: 2 }, 5, 15)).toBe(true);
+    expect(momentHasArrived({ day: 6, hour: 2, minute: 0 }, 5, 15)).toBe(true);
   });
 
   it("holds a job whose day has not come", () => {
-    expect(momentHasArrived({ day: 3, hour: 23 }, 5, 15)).toBe(false);
+    expect(momentHasArrived({ day: 3, hour: 23, minute: 0 }, 5, 15)).toBe(false);
+  });
+
+  it("respects minutes, not just the hour", () => {
+    /*
+     * The whole rhythm was hour-grained, so the shortest honest answer to
+     * "when does this happen?" was "sometime in the next sixty minutes".
+     */
+    expect(momentHasArrived({ day: 5, hour: 15, minute: 29 }, 5, 15, 30)).toBe(false);
+    expect(momentHasArrived({ day: 5, hour: 15, minute: 30 }, 5, 15, 30)).toBe(true);
   });
 
   it("never gates the jobs nobody receives", () => {
@@ -362,7 +469,7 @@ describe("the rhythm gate", () => {
   it("reads the organisation's own settings, and falls back rather than throwing", () => {
     const fromNothing = readRhythm({});
     expect(fromNothing.promptDay).toBe(5);
-    expect(fromNothing.digestHour).toBe(9);
+    expect(fromNothing.digestCadence).toEqual({ kind: "weekly", day: 1, hour: 9, minute: 0 });
 
     // Junk in the column must not take the rhythm down with it.
     const fromJunk = readRhythm({
@@ -371,15 +478,200 @@ describe("the rhythm gate", () => {
       max_nudges_per_day: -1,
     });
     expect(fromJunk.promptDay).toBe(5);
-    expect(fromJunk.digestHour).toBe(9);
+    expect(fromJunk.digestCadence).toEqual({ kind: "weekly", day: 1, hour: 9, minute: 0 });
     expect(fromJunk.maxNudgesPerDay).toBe(2);
   });
 
   it("names when a held job will run, so the reason is reportable", () => {
     const held = gateFor("prompt", rhythm, "UTC");
     if (!held.due) expect(held.reason).toMatch(/Friday/);
-    expect(gateFor("digest", { ...rhythm, digestDay: 1, digestHour: 9 }, "UTC").reason).toMatch(
-      /^$|Monday/,
-    );
+  });
+});
+
+/*
+ * The brief's cadence.
+ *
+ * Every organisation could only be told "a day and an hour", which made three
+ * perfectly ordinary requests inexpressible: brief him every morning, brief him
+ * every twenty minutes while we pilot this, and never brief him unless I ask.
+ * It also meant the gate stayed open for the rest of the week once its moment
+ * passed, which only ever looked correct because the digests table has a unique
+ * key per cycle and quietly absorbed the repeats.
+ */
+describe("when the Chairman's brief is due", () => {
+  const at = (iso: string) => new Date(iso);
+  const weekly = { kind: "weekly" as const, day: 1, hour: 9, minute: 0 };
+  const base = { ...RHYTHM_DEFAULTS, digestCadence: weekly };
+
+  // 2026-08-31 is a Monday.
+  const MON_08 = at("2026-08-31T08:00:00Z");
+  const MON_09 = at("2026-08-31T09:00:00Z");
+  const WED = at("2026-09-02T14:00:00Z");
+
+  /** The Monday before the one every case below is written around. */
+  const LAST_MON = at("2026-08-24T09:00:00Z");
+
+  it("holds until the weekly moment arrives", () => {
+    expect(digestDue(base, "UTC", { lastDigestAt: LAST_MON }, MON_08).due).toBe(false);
+    expect(digestDue(base, "UTC", { lastDigestAt: LAST_MON }, MON_09).due).toBe(true);
+  });
+
+  it("briefs an organisation that has never been briefed, without waiting a week", () => {
+    /*
+     * The moment already passed, last week, and nothing went out. Making it
+     * wait for the next one would mean an organisation that turns NEXUS on
+     * midweek sees nothing until the following Monday - and the whole reason
+     * this gate is at-or-after is that a week nobody was briefed about is worse
+     * than a brief that arrives late.
+     *
+     * This is not theoretical. Techspecialist ran for eight days without a
+     * single briefing ever being generated, and "wait for the next moment"
+     * would have made day nine look identical.
+     */
+    expect(digestDue(base, "UTC", { lastDigestAt: null }, MON_08).due).toBe(true);
+    expect(digestDue(base, "UTC", { lastDigestAt: null }, WED).due).toBe(true);
+  });
+
+  it("closes behind itself once one has actually gone out", () => {
+    /*
+     * THE BUG THIS REPLACES. At-or-after stayed true all week, so the gate said
+     * "due" on Wednesday for a brief delivered on Monday. Nothing sent twice
+     * only because regenerating updated one row rather than making a second -
+     * accidental idempotency, and the reason a repeating cadence expressed
+     * itself as "once, then silence".
+     */
+    expect(digestDue(base, "UTC", { lastDigestAt: MON_09 }, WED).due).toBe(false);
+    // The following Monday it opens again.
+    expect(
+      digestDue(base, "UTC", { lastDigestAt: MON_09 }, at("2026-09-07T09:00:00Z")).due,
+    ).toBe(true);
+  });
+
+  it("still catches up when a tick was missed", () => {
+    // Nothing ran on Monday. Wednesday's tick must send, not skip the week.
+    expect(
+      digestDue(base, "UTC", { lastDigestAt: at("2026-08-24T09:00:00Z") }, WED).due,
+    ).toBe(true);
+  });
+
+  it("counts an interval from the last delivery", () => {
+    const every30 = { ...base, digestCadence: { kind: "interval" as const, minutes: 30 } };
+    const t0 = at("2026-08-27T10:00:00Z");
+    expect(digestDue(every30, "UTC", { lastDigestAt: null }, t0).due).toBe(true);
+    expect(
+      digestDue(every30, "UTC", { lastDigestAt: t0 }, at("2026-08-27T10:29:00Z")).due,
+    ).toBe(false);
+    expect(
+      digestDue(every30, "UTC", { lastDigestAt: t0 }, at("2026-08-27T10:30:00Z")).due,
+    ).toBe(true);
+  });
+
+  it("says how long is left, rather than only refusing", () => {
+    const every30 = { ...base, digestCadence: { kind: "interval" as const, minutes: 30 } };
+    const t0 = at("2026-08-27T10:00:00Z");
+    expect(
+      digestDue(every30, "UTC", { lastDigestAt: t0 }, at("2026-08-27T10:10:00Z")).reason,
+    ).toMatch(/20 min/);
+  });
+
+  it("never fires on a schedule when the cadence is manual", () => {
+    const manual = { ...base, digestCadence: { kind: "manual" as const } };
+    expect(digestDue(manual, "UTC", { lastDigestAt: null }, MON_09).due).toBe(false);
+  });
+
+  it("honours a one-off, even against a manual cadence", () => {
+    /*
+     * "I need him briefed in ten minutes" is the request this exists for, and
+     * the cadence having no answer is exactly why somebody is asking.
+     */
+    const manual = {
+      ...base,
+      digestCadence: { kind: "manual" as const },
+      nextDigestAt: "2026-08-27T10:10:00Z",
+    };
+    expect(
+      digestDue(manual, "UTC", { lastDigestAt: null }, at("2026-08-27T10:05:00Z")).due,
+    ).toBe(false);
+    expect(
+      digestDue(manual, "UTC", { lastDigestAt: null }, at("2026-08-27T10:10:00Z")).due,
+    ).toBe(true);
+  });
+
+  it("does not fire a one-off twice", () => {
+    const withAsk = { ...base, nextDigestAt: "2026-08-27T10:10:00Z" };
+    expect(
+      digestDue(
+        withAsk,
+        "UTC",
+        { lastDigestAt: at("2026-08-27T10:11:00Z") },
+        at("2026-08-27T10:20:00Z"),
+      ).due,
+    ).toBe(false);
+  });
+
+  it("does not let an urgent ask cost the organisation its regular brief", () => {
+    /*
+     * Somebody asking for an extra brief on Thursday has said nothing about
+     * Monday. Swallowing the cadence because a one-off is pending would make
+     * every urgent request quietly cancel the rhythm.
+     */
+    const withAsk = { ...base, nextDigestAt: "2026-09-03T10:00:00Z" };
+    expect(digestDue(withAsk, "UTC", { lastDigestAt: null }, MON_09).due).toBe(true);
+  });
+
+  it("reads the moment in the organisation's timezone, not the server's", () => {
+    // Lagos is UTC+1, so Monday 09:00 there is 08:00Z. The previous week's
+    // moment - and therefore the last delivery - is 2026-08-24T08:00Z.
+    const lastDigestAt = at("2026-08-24T09:30:00Z");
+
+    // Same instant, same state, opposite answer - which is the whole point.
+    // In Lagos it is Monday 09:00 and this week's brief is due; in UTC it is
+    // only 08:00, so the last moment to have passed is still last Monday's,
+    // which was already delivered.
+    expect(digestDue(base, "Africa/Lagos", { lastDigestAt }, MON_08).due).toBe(true);
+    expect(digestDue(base, "UTC", { lastDigestAt }, MON_08).due).toBe(false);
+
+    // 07:00Z is 08:00 in Lagos: an hour early there too, and held.
+    expect(
+      digestDue(base, "Africa/Lagos", { lastDigestAt }, at("2026-08-31T07:00:00Z")).due,
+    ).toBe(false);
+  });
+
+  it("can name the next moment, so the page is not guessing", () => {
+    const next = nextCadenceMoment(weekly, "UTC", at("2026-08-27T10:00:00Z"));
+    expect(next?.toISOString()).toBe("2026-08-31T09:00:00.000Z");
+    expect(nextCadenceMoment({ kind: "manual" }, "UTC")).toBeNull();
+  });
+});
+
+/*
+ * Reading an organisation configured before any of this existed.
+ *
+ * Every row in production carries exec_digest_day / exec_digest_hour and
+ * review_window_hours. A rename that reset them would move somebody's brief to
+ * a different morning without telling them, which is the kind of change nobody
+ * connects to a deployment three days later.
+ */
+describe("an organisation configured before the cadence existed", () => {
+  it("reads its old two keys as a weekly cadence", () => {
+    const r = readRhythm({ exec_digest_day: 3, exec_digest_hour: 17 });
+    expect(r.digestCadence).toEqual({ kind: "weekly", day: 3, hour: 17, minute: 0 });
+  });
+
+  it("keeps the correction window it was given, in minutes", () => {
+    expect(readRhythm({ review_window_hours: 48 }).reviewWindowMinutes).toBe(2880);
+    // An explicit minutes value wins, and can go below the old one-hour floor.
+    expect(
+      readRhythm({ review_window_hours: 48, review_window_minutes: 10 }).reviewWindowMinutes,
+    ).toBe(10);
+  });
+
+  it("prefers a stored cadence over the superseded keys", () => {
+    const r = readRhythm({
+      exec_digest_day: 3,
+      exec_digest_hour: 17,
+      exec_digest_cadence: { kind: "interval", minutes: 15 },
+    });
+    expect(r.digestCadence).toEqual({ kind: "interval", minutes: 15 });
   });
 });

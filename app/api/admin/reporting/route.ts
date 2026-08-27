@@ -3,7 +3,7 @@ import { z } from "zod";
 import { currentViewer } from "@/lib/auth";
 import { hasAdministration } from "@/lib/capabilities";
 import { rhythmFor, updateRhythm } from "@/lib/rhythm";
-import { DAY_NAME } from "@/lib/rhythm-vocabulary";
+import { DAY_NAME, describeCadence, durationLabel } from "@/lib/rhythm-vocabulary";
 import { record } from "@/lib/audit";
 
 /*
@@ -14,13 +14,40 @@ import { record } from "@/lib/audit";
  * `org_admin_write` decides whether it lands.
  */
 
+const cadence = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("weekly"),
+    day: z.number().int().min(1).max(7),
+    hour: z.number().int().min(0).max(23),
+    minute: z.number().int().min(0).max(59),
+  }),
+  z.object({
+    kind: z.literal("daily"),
+    hour: z.number().int().min(0).max(23),
+    minute: z.number().int().min(0).max(59),
+  }),
+  /*
+   * Five minutes is the floor, and it is a fact about the scheduler rather
+   * than a preference. The tick fires every five minutes; a cadence shorter
+   * than that would promise a precision nothing can deliver, and the setting
+   * would be quietly wrong rather than loudly refused.
+   */
+  z.object({
+    kind: z.literal("interval"),
+    minutes: z.number().int().min(5).max(10080),
+  }),
+  z.object({ kind: z.literal("manual") }),
+]);
+
 const body = z.object({
   promptDay: z.number().int().min(1).max(7),
   promptHour: z.number().int().min(0).max(23),
+  promptMinute: z.number().int().min(0).max(59).default(0),
   reminderHour: z.number().int().min(0).max(23),
-  digestDay: z.number().int().min(1).max(7),
-  digestHour: z.number().int().min(0).max(23),
-  reviewWindowHours: z.number().int().min(1).max(168),
+  reminderMinute: z.number().int().min(0).max(59).default(0),
+  digestCadence: cadence,
+  briefCurrentCycle: z.boolean().default(false),
+  reviewWindowMinutes: z.number().int().min(5).max(7 * 24 * 60),
   maxNudgesPerDay: z.number().int().min(1).max(20),
   /*
    * The first week to report on. Null means "since the organisation was
@@ -50,7 +77,9 @@ export async function PATCH(request: Request) {
    * chase yet. Refused here as well as in the form, because a form check is
    * not a rule, it is a courtesy.
    */
-  if (parsed.data.reminderHour <= parsed.data.promptHour) {
+  const opensAt = parsed.data.promptHour * 60 + parsed.data.promptMinute;
+  const chasesAt = parsed.data.reminderHour * 60 + parsed.data.reminderMinute;
+  if (chasesAt <= opensAt) {
     return NextResponse.json(
       { error: "The chase has to come after the week opens, or it would never fire." },
       { status: 422 },
@@ -70,7 +99,17 @@ export async function PATCH(request: Request) {
 
   const actor = viewer.membership.profileId;
   const before = await rhythmFor(actor);
-  const ok = await updateRhythm(actor, parsed.data);
+
+  /*
+   * A pending one-off is not part of this form and must survive it. Asking for
+   * an extra brief on Thursday, then changing the correction window on Friday,
+   * must not silently cancel Thursday's ask — the two are different decisions
+   * and the form only carries one of them.
+   */
+  const ok = await updateRhythm(actor, {
+    ...parsed.data,
+    nextDigestAt: before.nextDigestAt,
+  });
   if (!ok) {
     return NextResponse.json(
       { error: "The reporting rhythm could not be updated." },
@@ -84,23 +123,46 @@ export async function PATCH(request: Request) {
    * answers the question they actually came with.
    */
   const n = parsed.data;
+  const clock = (h: number, m: number) =>
+    `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
   const changes: string[] = [];
-  if (before.promptDay !== n.promptDay || before.promptHour !== n.promptHour) {
-    changes.push(`moved the week's opening to ${DAY_NAME[n.promptDay]} ${n.promptHour}:00`);
-  }
-  if (before.reminderHour !== n.reminderHour) {
-    changes.push(`moved the chase to ${n.reminderHour}:00`);
-  }
-  if (before.digestDay !== n.digestDay || before.digestHour !== n.digestHour) {
+
+  if (
+    before.promptDay !== n.promptDay ||
+    before.promptHour !== n.promptHour ||
+    before.promptMinute !== n.promptMinute
+  ) {
     changes.push(
-      `moved the Chairman's brief to ${DAY_NAME[n.digestDay]} ${n.digestHour}:00`,
+      `moved the week's opening to ${DAY_NAME[n.promptDay]} ${clock(n.promptHour, n.promptMinute)}`,
     );
   }
-  if (before.reviewWindowHours !== n.reviewWindowHours) {
-    changes.push(`set the correction window to ${n.reviewWindowHours} hours`);
+  if (before.reminderHour !== n.reminderHour || before.reminderMinute !== n.reminderMinute) {
+    changes.push(`moved the chase to ${clock(n.reminderHour, n.reminderMinute)}`);
+  }
+  if (
+    JSON.stringify(before.digestCadence) !== JSON.stringify(n.digestCadence)
+  ) {
+    changes.push(`set the Chairman's brief to go out ${describeCadence(n.digestCadence)}`);
+  }
+  if (before.briefCurrentCycle !== n.briefCurrentCycle) {
+    changes.push(
+      n.briefCurrentCycle
+        ? "allowed the week in progress to settle and be briefed on"
+        : "restricted briefing to weeks that have ended",
+    );
+  }
+  if (before.reviewWindowMinutes !== n.reviewWindowMinutes) {
+    changes.push(`set the correction window to ${durationLabel(n.reviewWindowMinutes)}`);
   }
   if (before.maxNudgesPerDay !== n.maxNudgesPerDay) {
     changes.push(`set the daily message budget to ${n.maxNudgesPerDay}`);
+  }
+  if (before.reportingStartsOn !== n.reportingStartsOn) {
+    changes.push(
+      n.reportingStartsOn
+        ? `set reporting to start from ${n.reportingStartsOn}`
+        : "reset reporting to start from when the organisation was created",
+    );
   }
 
   if (changes.length > 0) {

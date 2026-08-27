@@ -27,6 +27,131 @@ export const commitmentStatus = z.enum([
   "superseded",
 ]);
 
+/*
+ * Status words a model reaches for that are not in the enum.
+ *
+ * Only unambiguous ones. "completed" can mean exactly one thing and dropping it
+ * would lose a delivered commitment; "reviewed" could mean half a dozen things
+ * and is deliberately absent, because guessing wrong here writes a false fact
+ * about somebody's week into the record.
+ */
+const STATUS_SYNONYM: Record<string, string> = {
+  complete: "delivered",
+  completed: "delivered",
+  done: "delivered",
+  finished: "delivered",
+  shipped: "delivered",
+  closed: "delivered",
+  ongoing: "in_progress",
+  "in progress": "in_progress",
+  started: "in_progress",
+  "partially complete": "partial",
+  "partially completed": "partial",
+  "partially delivered": "partial",
+  postponed: "deferred",
+  delayed: "deferred",
+  rescheduled: "deferred",
+  stuck: "blocked",
+  waiting: "blocked",
+  cancelled: "dropped",
+  canceled: "dropped",
+  abandoned: "dropped",
+};
+
+/**
+ * The status the model gave, normalised — or nothing.
+ *
+ * Nothing is a real answer here and it is the important one. A deployment
+ * returns update objects carrying `commitment_title` and `source_quote` and NO
+ * `status` at all, on roughly a quarter of reports that have open commitments:
+ * the model has noticed the work was mentioned and has declined to say what
+ * became of it.
+ *
+ * That is not a defect to paper over with a default. There is no honest default
+ * — `in_progress` invents progress nobody claimed, `delivered` invents a
+ * delivery, and `promised` silently erases a mention. NEXUS already has the
+ * right answer for this case: the commitment stays unmentioned, the person is
+ * shown it as drift, and THEY say what happened. The system asks rather than
+ * assumes, which is the whole reason `declared` exists two fields below.
+ *
+ * So: undefined, which fails `commitmentStatus` and drops the whole update.
+ *
+ * The inner schema is deliberately NOT `.optional()`. Wrapping it made the key
+ * optional on the enclosing object, so an update with no `status` at all was
+ * skipped by the validator entirely and sailed through with the field simply
+ * missing — the exact response this exists to catch.
+ */
+const looseStatus = z.preprocess((raw) => {
+  if (typeof raw !== "string") return raw;
+  const t = raw.trim().toLowerCase().replace(/[-\s]+/g, "_");
+  const direct = commitmentStatus.safeParse(t);
+  if (direct.success) return direct.data;
+  return STATUS_SYNONYM[t] ?? STATUS_SYNONYM[t.replace(/_/g, " ")] ?? raw;
+}, commitmentStatus);
+
+/**
+ * An array whose bad elements are dropped rather than failing the whole result.
+ *
+ * THE LESSON, GENERALISED. Migration 0020 and the `blockers` repair both came
+ * from one shape of failure: a model answers correctly and packages one field
+ * differently, Zod rejects the array, the provider throws, and a person loses
+ * their entire week's report to the least important thing in the response.
+ *
+ * `sentenceList` fixed that for two string fields. This fixes it for every
+ * structured list: parse each element on its own, keep what stands up, and say
+ * out loud what was discarded. A partial extraction the person can correct is
+ * strictly better than no extraction and an error message.
+ *
+ * `label` is only for the warning. Silent data loss is its own bug.
+ */
+function salvage<T extends z.ZodTypeAny>(element: T, label: string, max: number) {
+  return z.preprocess(
+    (raw) => {
+      if (!Array.isArray(raw)) return raw;
+      const kept: unknown[] = [];
+      let dropped = 0;
+      let why = "";
+      for (const item of raw) {
+        const parsed = element.safeParse(item);
+        if (parsed.success) kept.push(parsed.data);
+        else {
+          dropped++;
+          /*
+           * Keep the first reason. "Dropped 2 commitments" is a log line that
+           * tells whoever reads it to go and reproduce the problem; "dropped 2
+           * — source_quote: too small" tells them what to change.
+           */
+          if (!why) {
+            const issue = parsed.error.issues[0];
+            why = `${issue?.path.join(".") || "(root)"}: ${issue?.message ?? "unknown"}`;
+            /*
+             * NEXUS_AI_DUMP=1 prints the whole offending item.
+             *
+             * Off by default because model output can carry somebody's own
+             * words, and a debug flag should not be the reason a check-in ends
+             * up in a log aggregator. On, it is the difference between knowing
+             * a field was missing and knowing the model answered with an
+             * entirely different shape — which is how {person, week, text} was
+             * found where {title, source_quote} was expected.
+             */
+            if (process.env.NEXUS_AI_DUMP) {
+              console.warn(`[nexus:ai] dropped ${label} item: ${JSON.stringify(item)}`);
+            }
+          }
+        }
+      }
+      if (dropped > 0) {
+        console.warn(
+          `[nexus:ai] dropped ${dropped} unusable ${label} from a model response; ` +
+            `kept ${kept.length} — ${why}. The report itself is unaffected.`,
+        );
+      }
+      return kept.slice(0, max);
+    },
+    z.array(element).max(max),
+  );
+}
+
 /** A promise found in someone's own words. */
 export const extractedCommitment = z.object({
   title: z.string().min(3).max(200),
@@ -49,11 +174,17 @@ export const extractedCommitment = z.object({
   confidence: z.number().min(0).max(1).default(0.8),
 });
 
-/** A report about a commitment that already exists. */
+/**
+ * A report about a commitment that already exists.
+ *
+ * `status` is required, and an update that arrives without a usable one is
+ * dropped by `salvage` rather than defaulted — see `looseStatus`. An update
+ * with no status is not a status update.
+ */
 export const statusUpdate = z.object({
   /** Matches an open commitment by title; the caller resolves it to an id. */
   commitment_title: z.string().min(3).max(200),
-  status: commitmentStatus,
+  status: looseStatus,
 
   /**
    * Did the person actually SAY this was changing, or is the model inferring
@@ -121,6 +252,24 @@ function sentenceList(maxLen: number, maxItems: number) {
     );
 }
 
+/*
+ * TWO SHAPES, AND THE ORDER THEY ARE TRIED IN MATTERS.
+ *
+ * The strict one is what a correct response looks like, and it is what the
+ * provider asks for FIRST. When it fails, the validation error is fed back to
+ * the model and it tries again — which recovers the item far more often than
+ * not, because "source_quote is required" is a fixable instruction.
+ *
+ * Salvaging on the first attempt would silently throw that away: a single
+ * malformed commitment would be dropped without ever asking the model to
+ * correct it, and the person would quietly lose a promise that one more call
+ * would have retrieved.
+ *
+ * So the lenient shape is the LAST resort, used only after the retry has also
+ * failed. At that point the choice is between a partial extraction and none at
+ * all — and none at all destroys the whole submission, which is the failure
+ * that reached real people.
+ */
 const extractionShape = z.object({
   commitments: z.array(extractedCommitment).max(30).default([]),
   updates: z.array(statusUpdate).max(30).default([]),
@@ -155,6 +304,24 @@ export const extractionResult = z.preprocess((raw) => {
   }
   return raw;
 }, extractionShape);
+
+/**
+ * The same result, keeping whatever stands up.
+ *
+ * Used only on the provider's final attempt. See the note above
+ * `extractionShape` for why this is not simply the schema.
+ */
+export const extractionResultLenient = z.preprocess((raw) => {
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) return raw;
+  const keys = Object.keys(raw as Record<string, unknown>);
+  if (!EXTRACTION_KEYS.some((k) => keys.includes(k))) {
+    return Symbol("not-an-extraction-result");
+  }
+  return raw;
+}, extractionShape.extend({
+  commitments: salvage(extractedCommitment, "commitments", 30).default([]),
+  updates: salvage(statusUpdate, "status updates", 30).default([]),
+}));
 
 export type ExtractionResult = z.infer<typeof extractionResult>;
 export type ExtractedCommitment = z.infer<typeof extractedCommitment>;
@@ -421,7 +588,7 @@ export const checkInDraft = z.preprocess(
       .array(
         z.object({
           title: z.string().max(200),
-          status: commitmentStatus,
+          status: looseStatus,
           /*
            * Did they actually SAY this changed, or is it inferred from silence?
            * The whole integrity score turns on this distinction, so it is

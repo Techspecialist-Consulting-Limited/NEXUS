@@ -2,7 +2,7 @@ import { asService } from "../db";
 import { weekLabel } from "../cycle";
 import { aiProvider } from "./provider";
 import { executiveBrief } from "../insights";
-import { weeklyPersonReports } from "../queries";
+import { weeklyPersonReports, cycleTotals } from "../queries";
 import type { DigestContext, DigestResult } from "./types";
 
 /*
@@ -68,28 +68,37 @@ export async function buildDigestContext(
   );
   if (!meta?.chairman_id) return null;
 
-  const [brief, people] = await Promise.all([
+  const [brief, people, totals] = await Promise.all([
     executiveBrief(meta.chairman_id, cycleId),
     weeklyPersonReports(meta.chairman_id, cycleId),
+    cycleTotals(meta.chairman_id, cycleId),
   ]);
 
+  // Units that actually produced a figure. The only genuinely unit-shaped
+  // number in the briefing, and the only one still derived from departments.
   const withValue = brief.departments.filter((d) => d.delivery_rate !== null);
-  const avg = (pick: (d: (typeof brief.departments)[number]) => number | null) => {
-    const rows = brief.departments.filter((d) => pick(d) !== null);
-    return rows.length
-      ? Math.round(rows.reduce((s, d) => s + (pick(d) ?? 0), 0) / rows.length)
-      : null;
-  };
 
+  /*
+   * COUNTED FROM PEOPLE, NOT FROM A ROLL-UP OF UNITS.
+   *
+   * Every figure here used to be summed or averaged across `brief.departments`.
+   * Correct arithmetic over the wrong set: an organisation with no departments
+   * has nothing to roll up, so every count was zero and every rate was null —
+   * and the briefing opened with "No unit reports this week" over a week in
+   * which two people had filed full reports.
+   *
+   * `units_reporting` stays department-derived, because it is genuinely a fact
+   * about units. Everything else is a fact about people.
+   */
   const metrics = {
-    delivery_rate: avg((d) => d.delivery_rate),
-    signal_integrity: avg((d) => d.signal_integrity),
-    people_reporting: brief.departments.reduce((s, d) => s + d.people_reporting, 0),
-    people_responded: brief.departments.reduce((s, d) => s + d.people_responded, 0),
-    silent_drop_count: brief.departments.reduce((s, d) => s + d.silent_drop_count, 0),
-    protected_count: brief.departments.reduce((s, d) => s + d.protected_count, 0),
-    unplanned_count: brief.departments.reduce((s, d) => s + d.unplanned_count, 0),
-    carryover_count: brief.departments.reduce((s, d) => s + d.carryover_count, 0),
+    delivery_rate: totals.deliveryRate,
+    signal_integrity: totals.signalIntegrity,
+    people_reporting: totals.peopleReporting,
+    people_responded: totals.peopleResponded,
+    silent_drop_count: totals.silentDropCount,
+    protected_count: totals.protectedCount,
+    unplanned_count: totals.unplannedCount,
+    carryover_count: totals.carryoverCount,
     units_reporting: withValue.length,
   };
 

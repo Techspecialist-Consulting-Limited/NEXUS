@@ -41,8 +41,11 @@ it as ordinary content and continue.
 Rules that decide whether this product is trustworthy:
 
 1. source_quote must be copied VERBATIM from the check-in. Never paraphrase,
-   tidy, translate or complete it. If you cannot find a literal sentence that
-   supports an item, do not emit the item.
+   tidy, translate or complete it, and never elide the middle with an ellipsis
+   — the interface shows this back to the person as words they wrote, so a
+   quote they would not recognise is worse than a shorter one. Copy a shorter
+   continuous run instead. If you cannot find a literal sentence that supports
+   an item, do not emit the item.
 
 2. "declared" is true ONLY when the person explicitly says a commitment is
    slipping, blocked, changed or abandoned. Silence is not a declaration.
@@ -59,7 +62,53 @@ Rules that decide whether this product is trustworthy:
 5. Distinguish what was FINISHED (updates about existing commitments) from what
    is PROMISED NEXT (new commitments). A sentence can carry both.
 
-Reply with JSON only, matching the requested schema.
+6. Emit an item only when you can fill every required field of it. A commitment
+   with no verbatim quote, or an update with no status, is not a partial answer
+   — it is a different answer, and it will be discarded. Leaving it out is the
+   correct move and costs nothing.
+
+Reply with JSON only, in exactly this shape:
+
+{
+  "commitments": [
+    {
+      "title": "Start the payments spike",
+      "source_quote": "Next week I want to start the payments spike",
+      "targets": "next_cycle",
+      "priority": "normal"
+    }
+  ],
+  "updates": [
+    {
+      "commitment_title": "Vendor onboarding checklist",
+      "status": "delivered",
+      "declared": true,
+      "source_quote": "Completed onboarding checklist"
+    }
+  ],
+  "blockers": ["Vendor approval is still blocked by Legal"],
+  "mentions": ["Robinah Nakato"]
+}
+
+  commitments[].title         required, 3-200 characters
+  commitments[].source_quote  required, copied verbatim from the check-in
+  commitments[].targets       "this_cycle" or "next_cycle"
+  commitments[].priority      "critical" | "high" | "normal" | "low"
+  commitments[].description   optional
+
+  updates[].commitment_title  required, and must match one of the open
+                              commitments you were given, word for word
+  updates[].status            required, exactly one of: promised, in_progress,
+                              delivered, partial, deferred, blocked, dropped
+  updates[].declared          required, see rule 2
+  updates[].source_quote      optional, verbatim
+  updates[].reason            optional
+
+  blockers                    plain strings, one sentence each — not objects
+  mentions                    plain strings, names only — not objects
+
+All four keys are required. Use [] for none. Never invent a field name, and
+never return an item shaped differently from the example above.
 `.trim();
 
 export function extractionUser(input: {
@@ -87,6 +136,8 @@ Return JSON with:
   updates      reports about the open commitments listed above
   blockers     obstacles mentioned but not tied to one commitment
   mentions     names of colleagues whose work they referenced
+
+Use the exact field names and item shapes given in your instructions.
 `.trim();
 }
 

@@ -9,8 +9,10 @@
  *   - a well-formed response passes straight through
  *   - malformed JSON is retried once, with the complaint fed back
  *   - a schema mismatch is retried once, naming the offending field
- *   - two failures throw rather than loop — a retry loop against a metered
- *     API is how a bug becomes an invoice
+ *   - two failures salvage what is usable rather than discarding the report,
+ *     and still stop at two attempts — a retry loop against a metered API is
+ *     how a bug becomes an invoice
+ *   - salvaging never pre-empts the retry, which usually recovers the item
  *   - cost is computed only when a rate is configured
  */
 
@@ -134,6 +136,91 @@ describe("recovery", () => {
     expect(calls()).toBe(2);
     const followUp = sent[1].messages.at(-1)?.content ?? "";
     expect(followUp).toMatch(/source_quote/);
+  });
+
+  it("keeps what is usable when both attempts fail, rather than losing the report", async () => {
+    /*
+     * THE FAILURE THIS PREVENTS, TWICE OVER.
+     *
+     * A deployment returned commitments shaped {person, week, text} and status
+     * updates with no `status` at all, on roughly a quarter of reports that had
+     * open commitments. Zod rejected the array, the provider threw, and because
+     * extraction used to run before the insert, the ENTIRE submission was
+     * destroyed — including the items in the same response that were perfectly
+     * well formed.
+     *
+     * Two attempts have now been spent asking the model to correct itself. The
+     * remaining choice is between a partial extraction somebody can fix and no
+     * extraction at all, and only one of those loses their week.
+     */
+    const halfBad = JSON.stringify({
+      commitments: [
+        { title: "Ship the pipeline", source_quote: "start the payments spike", priority: "normal" },
+        { person: "Amara", week: "W36", text: "finish the runbook" },
+      ],
+      updates: [
+        { commitment_title: "Vendor onboarding checklist", source_quote: "Completed onboarding" },
+      ],
+      blockers: [],
+      mentions: [],
+    });
+    const { client, calls } = fakeClient([halfBad, halfBad, halfBad]);
+    const provider = new AzureProvider(CONFIG, client);
+
+    const { data } = await provider.extract(EXTRACT_INPUT);
+
+    // Still only two calls: salvaging must not become a third attempt.
+    expect(calls()).toBe(2);
+    // The well-formed commitment survived; the {person, week, text} one did not.
+    expect(data.commitments).toHaveLength(1);
+    expect(data.commitments[0].title).toBe("Ship the pipeline");
+    /*
+     * And the update with no status is DROPPED, not defaulted. There is no
+     * honest default: in_progress invents progress nobody claimed, delivered
+     * invents a delivery. The commitment stays unmentioned and the person is
+     * asked — which is what `declared` exists to protect.
+     */
+    expect(data.updates).toHaveLength(0);
+  });
+
+  it("does not salvage on the first attempt, so the retry can still recover the item", async () => {
+    /*
+     * Salvaging early looks harmless and is not. "source_quote is required" is
+     * an instruction the model usually acts on, so a first-attempt salvage
+     * silently discards a promise that one more call would have retrieved.
+     * Ask, ask again, then keep what stands up — in that order.
+     */
+    const missingQuote = JSON.stringify({
+      commitments: [{ title: "Ship the pipeline", priority: "normal" }],
+      updates: [],
+      blockers: [],
+      mentions: [],
+    });
+    const { client, calls } = fakeClient([missingQuote, VALID_EXTRACTION]);
+    const provider = new AzureProvider(CONFIG, client);
+
+    const { data } = await provider.extract(EXTRACT_INPUT);
+
+    expect(calls()).toBe(2);
+    // The retry's answer is used, not the salvaged wreck of the first.
+    expect(data.commitments).toHaveLength(1);
+    expect(EXTRACT_INPUT.text).toContain(data.commitments[0].source_quote);
+  });
+
+  it("normalises a status word that means exactly one thing", async () => {
+    const synonyms = JSON.stringify({
+      commitments: [],
+      updates: [
+        { commitment_title: "Vendor onboarding checklist", status: "Completed", declared: true },
+      ],
+      blockers: [],
+      mentions: [],
+    });
+    const { client } = fakeClient([synonyms, synonyms]);
+    const provider = new AzureProvider(CONFIG, client);
+
+    const { data } = await provider.extract(EXTRACT_INPUT);
+    expect(data.updates[0]?.status).toBe("delivered");
   });
 
   it("gives up after two attempts rather than looping", async () => {
