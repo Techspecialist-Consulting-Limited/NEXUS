@@ -470,21 +470,67 @@ export function TeamManager({
 
                       <GlassBadge tone={ROLE_TONE[p.role]}>{ROLE_LABEL[p.role]}</GlassBadge>
                       {p.profile_id !== selfId && (
-                        <select
-                          value={p.role}
-                          disabled={pending}
-                          onChange={(e) =>
-                            patchMember(p.profile_id, { role: e.target.value })
-                          }
-                          aria-label={`Role for ${p.full_name}`}
-                          className="h-11 rounded-lg border border-white/[0.12] bg-white/[0.05] px-2 text-xs text-white/85 focus:border-white/25 focus:outline-none"
-                        >
-                          {ROLES.map((r) => (
-                            <option key={r} value={r}>
-                              {ROLE_LABEL[r]}
-                            </option>
-                          ))}
-                        </select>
+                        <>
+                          <select
+                            value={p.role}
+                            disabled={pending}
+                            onChange={(e) =>
+                              patchMember(p.profile_id, { role: e.target.value })
+                            }
+                            aria-label={`Role for ${p.full_name}`}
+                            className="h-11 rounded-lg border border-white/[0.12] bg-white/[0.05] px-2 text-xs text-white/85 focus:border-white/25 focus:outline-none"
+                          >
+                            {ROLES.map((r) => (
+                              <option key={r} value={r}>
+                                {ROLE_LABEL[r]}
+                              </option>
+                            ))}
+                          </select>
+
+                          {/*
+                            TAKING SOMEBODY OFF THE ROSTER.
+
+                            "Decline" existed for a person still waiting to be
+                            approved, and nothing existed for a person already
+                            in. So an organisation could be joined and never
+                            left: somebody who moved on stayed on every
+                            compliance figure, was chased every week, and was
+                            counted as not reporting forever.
+
+                            Suspension rather than deletion, and no confirmation
+                            step. Nothing is destroyed — their weeks, their
+                            commitments and their reconciliations all stay
+                            exactly where they are, which is what makes the
+                            Restore beside it a real undo rather than a promise.
+                            A confirmation dialogue for a reversible action is a
+                            question nobody reads.
+                          */}
+                          <GlassButton
+                            size="sm"
+                            variant="ghost"
+                            disabled={pending}
+                            onClick={() =>
+                              patchMember(p.profile_id, {
+                                status: p.status === "suspended" ? "active" : "suspended",
+                              })
+                            }
+                            aria-label={
+                              p.status === "suspended"
+                                ? `Restore ${p.full_name}`
+                                : `Remove ${p.full_name} from reporting`
+                            }
+                          >
+                            {p.status === "suspended" ? (
+                              <>
+                                <Check size={13} /> Restore
+                              </>
+                            ) : (
+                              <>
+                                <X size={13} /> Remove
+                              </>
+                            )}
+                          </GlassButton>
+                        </>
                       )}
                     </div>
                   </div>
