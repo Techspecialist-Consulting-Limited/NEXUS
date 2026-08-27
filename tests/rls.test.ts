@@ -177,6 +177,90 @@ describe("the employee sees it first", () => {
   });
 });
 
+/*
+ * A unit exists because the organisation said so, not because somebody was
+ * placed in it.
+ *
+ * department_cycle_health INNER JOINED profiles, so a unit nobody had been
+ * assigned to contributed no rows and vanished from every surface built on the
+ * view — the Chairman's Units page, unit health, and the per-unit section of
+ * the executive briefing.
+ *
+ * Found in production: four units created in Techspecialist Consulting
+ * Limited, zero rows in the view. The administrator's reasonable conclusion was
+ * that creating them had failed. Every unit passes through this state on the
+ * day it is made, which makes it the first thing a new organisation sees.
+ */
+describe("a unit with nobody in it", () => {
+  it("still appears, with honest zeroes rather than not at all", async () => {
+    await actAsService(db);
+
+    const [{ org_id, cycle_id }] = await q(
+      `select cy.org_id, cy.id as cycle_id
+         from cycles cy
+        where cy.kind = 'week' and cy.starts_on <= current_date
+        order by cy.starts_on desc limit 1`,
+    );
+
+    const [{ id: deptId }] = await q(
+      `insert into departments (org_id, name, slug, color)
+       values ($1, 'Empty On Purpose', 'empty-on-purpose', '#7d8590')
+       returning id`,
+      [org_id],
+    );
+
+    const rows = await q(
+      `select people_reporting::int as people_reporting,
+              people_responded::int as people_responded,
+              delivery_rate
+         from department_cycle_health
+        where department_id = $1 and cycle_id = $2`,
+      [deptId, cycle_id],
+    );
+
+    expect(rows).toHaveLength(1);
+    /*
+     * Zero, not one. Under a LEFT JOIN the null-profile row is still a row, so
+     * count(*) would report one expected reporter who never files — the unit
+     * would sit at 0/1 forever and every compliance figure above it would be
+     * wrong by one per empty unit.
+     */
+    expect(rows[0].people_reporting).toBe(0);
+    expect(rows[0].people_responded).toBe(0);
+    // No rate is honest. A made-up 0% would read as a unit that failed.
+    expect(rows[0].delivery_rate).toBeNull();
+
+    // And an archived unit stops being listed, which is what archiving is for.
+    await q(`update departments set archived_at = now() where id = $1`, [deptId]);
+    const afterArchive = await q(
+      `select 1 from department_cycle_health where department_id = $1`,
+      [deptId],
+    );
+    expect(afterArchive).toHaveLength(0);
+
+    await q(`delete from departments where id = $1`, [deptId]);
+  });
+
+  it("does not distort the counts of a unit that does have people", async () => {
+    /*
+     * The guard on the fix above. A LEFT JOIN that quietly changed the numbers
+     * for populated units would trade a missing row for wrong figures, which is
+     * the worse of the two.
+     */
+    await actAsService(db);
+    const rows = await q(
+      `select people_reporting::int as people_reporting,
+              people_responded::int as people_responded
+         from department_cycle_health
+        where people_reporting > 0`,
+    );
+    expect(rows.length).toBeGreaterThan(0);
+    for (const r of rows) {
+      expect(r.people_responded).toBeLessThanOrEqual(r.people_reporting);
+    }
+  });
+});
+
 describe("views do not launder data around the policies", () => {
   /*
    * A PostgreSQL view runs as its OWNER unless created WITH

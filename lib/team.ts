@@ -92,6 +92,17 @@ export async function listDepartments(actor: string) {
       select id, name, color
       from departments
       where org_id = (select org_id from profiles where id = ${actor})
+        /*
+         * Live units only. Migration 0017 says what archiving is for in as
+         * many words — "an archived unit stops appearing in the places people
+         * pick a unit" — and this is one of those places, for both the
+         * invitation form and the unit picker on each member.
+         *
+         * It reads every unit including retired ones until now, which was
+         * harmless while nothing but an invitation used it and becomes a way
+         * to quietly refill a unit somebody deliberately retired.
+         */
+        and archived_at is null
       order by name
     `,
   );

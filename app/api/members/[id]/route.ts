@@ -21,23 +21,31 @@ export async function PATCH(
     return NextResponse.json({ error: "Not allowed." }, { status: 403 });
   }
 
+  const parsed = body.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) {
+    return NextResponse.json({ error: "That request was not valid." }, { status: 400 });
+  }
+
   /*
-   * An administrator cannot demote or suspend themselves.
+   * An administrator cannot demote or suspend THEMSELVES.
    *
    * Not paternalism — it is the only thing standing between a misclick and an
    * organisation with no one able to administer it, which nobody inside the
    * product can then repair.
+   *
+   * Scoped to role and status, which are the two fields that can produce that
+   * state. It used to reject any self-directed change at all, and the field it
+   * caught in practice was `departmentId`: an administrator could place every
+   * colleague in a unit and had no way to place themselves in one, so the
+   * person configuring the organisation was the only person permanently
+   * outside it. Which unit somebody belongs to cannot lock anybody out of
+   * anything — it decides who their week is grouped with.
    */
-  if (id === membership.profileId) {
+  if (id === membership.profileId && (parsed.data.role || parsed.data.status)) {
     return NextResponse.json(
       { error: "You cannot change your own role or access." },
       { status: 400 },
     );
-  }
-
-  const parsed = body.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) {
-    return NextResponse.json({ error: "That request was not valid." }, { status: 400 });
   }
 
   try {

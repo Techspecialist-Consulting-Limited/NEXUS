@@ -232,8 +232,14 @@ export function TeamManager({
               onChange={(e) => setDepartmentId(e.target.value)}
               className="mt-1 h-11 w-full rounded-lg border border-white/[0.10] bg-white/[0.04] px-2.5 text-sm text-white/90 focus:border-white/25 focus:outline-none"
             >
+              {/*
+                "No unit yet" read as "this organisation has no units yet",
+                which is a different sentence from "do not place them in one".
+                Said either way depending on which is actually true, and it
+                matches the picker on each member below.
+              */}
               <option value="">
-                No unit yet
+                {departments.length === 0 ? "No units yet" : "No unit"}
               </option>
               {departments.map((d) => (
                 <option key={d.id} value={d.id}>
@@ -420,13 +426,48 @@ export function TeamManager({
                           )}
                         </p>
                         <p className="truncate text-2xs text-tertiary">
-                          {p.department_name ?? "No unit"}
+                          {p.email}
                           {p.status === "suspended" ? " · suspended" : ""}
                         </p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      {/*
+                        WHICH UNIT SOMEBODY IS IN, AS A CONTROL.
+
+                        This was a line of grey text reading "No unit", and the
+                        only place a unit could ever be set was the invitation
+                        form — so anybody already in the organisation was stuck
+                        wherever they had landed, and somebody who joined before
+                        the units existed could never be placed at all. The API
+                        has always accepted `departmentId`; nothing offered it.
+
+                        Offered for yourself too. An administrator creates the
+                        units, and being the one person who cannot join one is
+                        the wrong way round.
+                      */}
+                      <select
+                        value={p.department_id ?? ""}
+                        disabled={pending || departments.length === 0}
+                        onChange={(e) =>
+                          patchMember(p.profile_id, {
+                            departmentId: e.target.value || null,
+                          })
+                        }
+                        aria-label={`Unit for ${p.full_name}`}
+                        className="h-11 max-w-[11rem] rounded-lg border border-white/[0.12] bg-white/[0.05] px-2 text-xs text-white/85 focus:border-white/25 focus:outline-none disabled:opacity-40"
+                      >
+                        <option value="">
+                          {departments.length === 0 ? "No units yet" : "No unit"}
+                        </option>
+                        {departments.map((d) => (
+                          <option key={d.id} value={d.id}>
+                            {d.name}
+                          </option>
+                        ))}
+                      </select>
+
                       <GlassBadge tone={ROLE_TONE[p.role]}>{ROLE_LABEL[p.role]}</GlassBadge>
                       {p.profile_id !== selfId && (
                         <select
