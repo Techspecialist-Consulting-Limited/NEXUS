@@ -363,3 +363,62 @@ Correctness issues not currently hurting users.
 - **Client cache / stale render** (§13) — `router.refresh()` genuinely re-reads;
   it displays an unchanged screen because the data is unchanged.
 - **Raw text mutation** (§15) — append-only verified.
+
+---
+
+## Second incident, 27 Aug — "successful, then empty"
+
+A real submission by Abbas Taofeeq (`admin`) succeeded, and `/my-week`,
+`/commitments` and `/check-in` all showed nothing.
+
+**Nothing was lost. The read asked for the wrong week.**
+
+Traced against production:
+
+```
+HIS CHECK-INS
+  W34 · 17 Aug–23 Aug    parsed     responded=Thu Aug 27 2026
+  W35 · 24 Aug–30 Aug    prompted   responded=no
+
+HIS COMMITMENTS (3)
+  targets=W35 · 24 Aug–30 Aug   promised   Finalize the Smart Reporting System…
+  targets=W35 · 24 Aug–30 Aug   promised   Continue defining the Credicorp solution…
+  targets=W35 · 24 Aug–30 Aug   promised   Work with Robinah to update…
+
+page showed W34 -> commitmentsFor(target_cycle_id = W34) -> 0 rows
+his plans target                                        -> W35
+```
+
+He reported **on** W34; his plans are **for** W35. The page displayed W34 and
+asked only for commitments targeting W34, of which a first-time reporter has
+none — because those would have come from a previous week's plan he never made.
+
+### Already fixed, partly
+
+`openCheckInCycle` (commit `09b94a4`, deployed ~20 minutes after his
+screenshots) makes the page follow the week the rhythm opened. Verified against
+production with his real records:
+
+```
+openCheckInCycle -> W35 · 24 Aug–30 Aug
+page will show   -> W35
+commitmentsFor   -> 3 rows   ← his plans, visible
+```
+
+### The gap that remains
+
+That fix holds only while a check-in is open. Once he answers W35, the query
+returns null, the page falls back to the newest settled week, and his W36 plans
+disappear from view again.
+
+**The page shows ONE cycle and a report spans TWO.** What was planned FOR this
+week and what is planned FOR next week are different cycles by design — the
+schema is right, the read is too narrow. `/my-week` has to show both, which is
+also what §14 of the brief describes.
+
+### Not a candidate
+
+Ruled out by the same trace: identity (one profile id throughout), organisation
+(`org_id` matches the owner on every row), RLS (his own rows are readable by
+him), duplicates (none), and persistence (the check-in and all three
+commitments are present and correct).

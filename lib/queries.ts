@@ -1050,3 +1050,36 @@ export async function openCheckInCycle(
   );
   return rows[0] ?? null;
 }
+
+/**
+ * The weeks this person actually has work in, newest first.
+ *
+ * WHY NOT `recentCycles`. That returns a WINDOW of the calendar and excludes
+ * the current week, so a page built on it can only show work that happens to
+ * fall inside the window it guessed. Somebody who reported on the week that
+ * just ended has plans targeting the week they are now in — outside the
+ * window, and therefore invisible. Their Tasks page said "Nothing recorded
+ * yet" while three commitments sat in the database.
+ *
+ * This asks the question the page is actually asking: which weeks does this
+ * person have commitments in? No window, no guess, and it cannot omit a week
+ * that has work in it.
+ */
+export async function cyclesWithWork(
+  actor: string,
+  profileId: string,
+  limit = 6,
+): Promise<Cycle[]> {
+  return asActor(
+    actor,
+    (sql) => sql<Cycle>`
+      select distinct cy.id, cy.label, cy.starts_on, cy.ends_on, cy.seq
+      from cycles cy
+      join commitments c on c.target_cycle_id = cy.id
+      where c.profile_id = ${profileId}
+        and c.deleted_at is null
+      order by cy.starts_on desc
+      limit ${limit}
+    `,
+  );
+}

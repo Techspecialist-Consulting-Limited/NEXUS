@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
 import { currentActorId } from "@/lib/session";
-import { commitmentsFor, getPerson, recentCycles } from "@/lib/queries";
+import { commitmentsFor, cyclesWithWork, getPerson } from "@/lib/queries";
 import { CommitmentList } from "@/components/employee/commitment-list";
 import { TaskBoard } from "@/components/staff/task-board";
+import { hasPersonalWorkspace } from "@/lib/capabilities";
 
 export const dynamic = "force-dynamic";
 
@@ -12,25 +13,35 @@ export default async function CommitmentsPage() {
   const me = await getPerson(actor);
   if (!me) redirect("/");
 
-  const cycles = await recentCycles(actor, 4);
+  /*
+   * The weeks this person HAS work in, rather than a guessed window of the
+   * calendar.
+   *
+   * recentCycles excludes the current week, so this page could not see work
+   * targeting it — and a report filed on the week that just ended puts its
+   * plans in exactly that week. Somebody submitted successfully and then found
+   * "Nothing recorded yet" while three commitments sat in the database,
+   * because the page had asked about four weeks that were not the one holding
+   * their work.
+   */
+  const cycles = await cyclesWithWork(actor, me.id, 6);
   const weeks = await Promise.all(
-    cycles
-      .slice()
-      .reverse()
-      .map(async (c) => ({
-        cycle: c,
-        commitments: await commitmentsFor(actor, me.id, c.id),
-      })),
+    cycles.map(async (c) => ({
+      cycle: c,
+      commitments: await commitmentsFor(actor, me.id, c.id),
+    })),
   );
 
   const filled = weeks.filter((w) => w.commitments.length > 0);
 
   /*
-   * `weeks` is already newest-first — the map above reverses recentCycles,
-   * which returns oldest-first. Reversing again put W30 at the top and the
-   * only week anybody can still act on at the bottom.
+   * An administrator is a staff member with extra capability, not a different
+   * kind of user, so they get the staff board like everybody else who files a
+   * check-in. This branched on role and sent admins to the read-only list —
+   * inconsistent with /my-week, which has always used hasPersonalWorkspace.
+   * Only the Chairman, who files nothing, gets the other view.
    */
-  if (me.role !== "executive" && me.role !== "admin") {
+  if (hasPersonalWorkspace(me.role)) {
     return <TaskBoard weeks={filled} />;
   }
 
