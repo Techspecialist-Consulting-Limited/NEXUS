@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { m } from "motion/react";
 import { CornerDownRight, Quote, Repeat2, ShieldCheck } from "lucide-react";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -65,7 +67,7 @@ export function TaskBoard({
         cycleLabel={current ? weekLabel(current.cycle.label) : "—"}
         standfirst={
           all.length === 0 ? (
-            "Nothing recorded yet. Your next check-in creates it."
+            "You haven't given an update for this reporting week yet."
           ) : (
             <>
               {open} {open === 1 ? "commitment is" : "commitments are"} still open across{" "}
@@ -77,10 +79,30 @@ export function TaskBoard({
       />
 
       {weeks.length === 0 ? (
+        /*
+          An empty state has to say what is empty, why, and what to do about
+          it. "No commitments on record yet" managed only the first, and gave
+          somebody who had just filed a report nothing to check against.
+        */
         <GlassCard level={2} className="p-8">
-          <p className="text-center text-sm text-tertiary">
-            No commitments on record yet.
-          </p>
+          <div className="mx-auto max-w-md text-center">
+            <p className="text-sm text-white/85">
+              Nothing here yet — you have not given an update for this
+              reporting week.
+            </p>
+            <p className="note mt-2">
+              Whatever you say you are working on becomes the list on this
+              page, alongside the sentence it came from.
+            </p>
+            <Link
+              href="/check-in"
+              className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-lg
+                         bg-[var(--dept-techspecialist)] px-4 text-sm font-medium
+                         text-white transition-opacity hover:opacity-90"
+            >
+              Give an update
+            </Link>
+          </div>
         </GlassCard>
       ) : (
         weeks.map(({ cycle, commitments }, wi) => {

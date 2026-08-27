@@ -19,7 +19,7 @@ export function CommitmentList({
 }) {
   return (
     <div className="mx-auto max-w-2xl pt-2">
-      <h1 className="text-2xl font-medium tracking-tight">My commitments</h1>
+      <h1 className="text-2xl font-medium tracking-tight">Things I said I&rsquo;d do</h1>
       <p className="mt-0.5 text-xs text-tertiary">
         Picked up from your own words — never typed into a form.
       </p>
@@ -28,8 +28,8 @@ export function CommitmentList({
         <GlassCard level={1} className="mt-4">
           <EmptyState
             icon={ListTodo}
-            title="Nothing recorded yet"
-            body="Once you check in, whatever you commit to appears here alongside the sentence it came from."
+            title="You haven't given an update for this week yet"
+            body="Tell NEXUS what you worked on and what you are planning, and it appears here alongside the sentence it came from."
           />
         </GlassCard>
       ) : (

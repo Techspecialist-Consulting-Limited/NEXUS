@@ -555,7 +555,7 @@ function MobileWizard(props: {
 
             {planned.length > 0 && (
               <div className="mt-6">
-                <p className="eyebrow">Commitments NEXUS heard</p>
+                <p className="eyebrow">Here&rsquo;s what I understood</p>
                 <ul className="mt-2 space-y-2">
                   {planned.map((t) => (
                     <li
@@ -685,9 +685,18 @@ function DesktopWorkspace(props: Shared) {
     <div className="mx-auto flex max-w-[1400px] flex-col gap-5 pb-2">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="page-title">Weekly reconciliation</h1>
+          {/*
+            Plain language, not the operating model. "Weekly reconciliation",
+            "cycle archive" and "reconciliation stats" describe how NEXUS
+            works internally; nobody filing a report should have to learn the
+            database's vocabulary to say what they did. The technical terms
+            stay in the code, the schema and the executive surfaces, where
+            they are precise and the reader wants precision.
+          */}
+          <h1 className="page-title">Let&rsquo;s wrap up your week</h1>
           <p className="standfirst mt-1.5">
-            Resolve last week, say what changed, and set next week — all on one page.
+            What happened to what you planned, what changed, and what you are doing
+            next — all on one page.
           </p>
         </div>
         <Stages answered={answered} total={open.length} hasUnderstood={Boolean(understood)} />
@@ -697,17 +706,17 @@ function DesktopWorkspace(props: Shared) {
         {/* ---- left: what was promised ---------------------------------- */}
         <div className="flex flex-col gap-4">
           <GlassCard level={2} className="p-5">
-            <p className="eyebrow">Cycle archive</p>
-            <h2 className="card-title mt-1">{weekLabel(cycleLabel)} context</h2>
+            <p className="eyebrow">This reporting week</p>
+            <h2 className="card-title mt-1">{weekLabel(cycleLabel)}</h2>
             <p className="body-sm mt-1.5">
-              Reconciling what you committed to for {cycleLabel}. Every answer here feeds
-              this week&rsquo;s brief.
+              What you said you would do for this week. Whatever you answer here is
+              what your lead and the Chairman see.
             </p>
           </GlassCard>
 
           <GlassCard level={2} className="p-5">
             <div className="flex items-baseline justify-between gap-3">
-              <p className="eyebrow">Last week&rsquo;s commitments</p>
+              <p className="eyebrow">What you planned</p>
               <span className="metric text-2xs text-white/30">
                 {answered}/{open.length}
               </span>
@@ -816,7 +825,7 @@ function DesktopWorkspace(props: Shared) {
         {/* ---- right: what it adds up to --------------------------------- */}
         <div className="flex flex-col gap-4">
           <GlassCard level={2} className="p-5">
-            <p className="eyebrow">Planned commitments (next week)</p>
+            <p className="eyebrow">Next week&rsquo;s plan</p>
             {planned.length === 0 ? (
               <p className="note mt-2.5">
                 Nothing yet. What you write on the left appears here.
@@ -854,7 +863,7 @@ function DesktopWorkspace(props: Shared) {
           )}
 
           <GlassCard level={2} className="p-5">
-            <p className="eyebrow">Reconciliation stats</p>
+            <p className="eyebrow">How the week went</p>
             <dl className="mt-2.5">
               <Stat
                 label="Last settled delivery"
@@ -1196,7 +1205,7 @@ function Review({
       )}
 
       <div className="mt-5">
-        <p className="eyebrow">Your commitments next week</p>
+        <p className="eyebrow">What you&rsquo;re planning next</p>
         {planned.length === 0 && (
           /*
             Said, not left blank. An empty region here reads as something that

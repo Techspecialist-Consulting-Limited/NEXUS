@@ -222,6 +222,8 @@ export function InlineCheckIn({
       const result = (await res.json().catch(() => ({}))) as {
         processingFailed?: string | null;
         understoodNothing?: boolean;
+        extracted?: { title: string }[];
+        updates?: { title: string; status: string }[];
       };
 
       if (result.processingFailed) {
@@ -247,10 +249,27 @@ export function InlineCheckIn({
             "naming what you finished and what you plan next usually helps.",
         });
       } else {
+        /*
+          Say what was captured, not just that something was.
+          "Filed" told somebody an action succeeded; it did not tell them what
+          NEXUS now believes, which is the only thing they can correct. Naming
+          it turns a receipt into a chance to catch a misheard sentence.
+        */
+        const captured = [
+          result.updates?.length
+            ? `${result.updates.length} ${result.updates.length === 1 ? "update" : "updates"} to what you had planned`
+            : null,
+          result.extracted?.length
+            ? `${result.extracted.length} for next week`
+            : null,
+        ].filter(Boolean);
+
         toast({
           variant: "success",
-          title: "Filed",
-          description: "Your week is recorded. You can add to it any time.",
+          title: "Your update is saved",
+          description: captured.length
+            ? `NEXUS captured ${captured.join(" and ")}. It is all on this page — check anything it misheard.`
+            : "Your week is recorded. You can add to it any time.",
         });
       }
 

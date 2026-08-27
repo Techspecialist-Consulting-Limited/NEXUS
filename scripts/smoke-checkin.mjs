@@ -86,9 +86,24 @@ for (const [label, width] of [["mobile", 390], ["desktop", 1440]]) {
    * nothing. Asserting only the cheerful wording would pin the dishonest
    * version in place.
    */
-  const filed = await page.getByText(/^(Filed|Saved)$/).first()
+  const filed = await page.getByText(/^(Filed|Saved|Your update is saved)$/).first()
     .waitFor({ state: "visible", timeout: 20_000 }).then(() => true).catch(() => false);
   log(filed, `${label}  filing confirms in place`);
+
+  /*
+   * THE CHECK THAT MATTERED. A submission is not filed because a toast said
+   * so — it is filed when it is still there after the page has been thrown
+   * away and rebuilt from the database.
+   *
+   * Real users saw "successful" and then an empty screen, and every automated
+   * check passed throughout, because nothing reloaded and asked the database
+   * what it actually held. This does.
+   */
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(1200);
+  const afterReload = await page.locator("body").innerText();
+  const survived = /payments spike|design token/i.test(afterReload);
+  log(survived, `${label}  the report is still there after a reload`);
   log(page.url() === urlBefore, `${label}  still on the same page after filing`);
 
   log(errors.length === 0, `${label}  no client errors${errors.length ? ` — ${errors[0]}` : ""}`);

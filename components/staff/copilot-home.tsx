@@ -185,7 +185,7 @@ export function CopilotHome({
 
           <GlassCard level={2} className="p-5">
             <div className="flex items-baseline justify-between gap-3">
-              <p className="eyebrow">Active commitments</p>
+              <p className="eyebrow">What I&rsquo;m working on</p>
               <Link
                 href="/commitments"
                 className="-mr-2 inline-flex min-h-11 items-center gap-1 px-2 text-xs text-[var(--dept-techspecialist)] transition-opacity hover:opacity-80"
@@ -196,7 +196,7 @@ export function CopilotHome({
 
             {commitments.length === 0 ? (
               <p className="note mt-3">
-                Nothing recorded for {weekLabel(cycleLabel)}. Your next check-in creates it.
+                Nothing here yet for {weekLabel(cycleLabel)} — tell NEXUS what you worked on and it appears here.
               </p>
             ) : (
               <ul className="mt-3 space-y-2">
