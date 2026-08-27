@@ -8,111 +8,134 @@
 > was produced by executing the real code paths against a seeded database and
 > reading the resulting rows directly, not by reading source and inferring.
 >
-> Method: one real user (Amara Okonkwo, `lead`), one real organisation, the
-> actual `submitCheckIn()` entry point with the exact payload the UI sends, then
-> direct SQL against `check_ins`, `commitments` and `reconciliations`.
+> Method, in two passes:
+>
+> 1. **Local** — one real user (Amara Okonkwo, `lead`), one real organisation,
+>    the actual `submitCheckIn()` entry point with the exact payload the UI
+>    sends, then direct SQL against `check_ins`, `commitments` and
+>    `reconciliations`.
+> 2. **Production** — the live Azure deployment (`gpt-4.1-mini`, fast tier),
+>    called through the product's own provider and prompts, with the rejected
+>    payload captured via temporary instrumentation that was reverted
+>    immediately (`git diff` clean).
+>
+> The second pass overturned the conclusion of the first. The local run pointed
+> at how plans are phrased; against the real model that turned out to be an
+> artefact of the offline provider, and the actual production failure is
+> something the mock cannot produce at all.
 
 ---
 
 ## Root cause
 
-**The employee's plan is discarded before it ever becomes a commitment,
-because the two labelled fields are concatenated into one blob and the
-distinction between *achieved* and *planned* is thrown away at the boundary.**
+**The live model returns a correct extraction, and the application throws all
+of it away because one secondary field came back as objects instead of
+strings.**
 
-`components/staff/inline-checkin.tsx` collects two separate, clearly labelled
-fields and posts them as two separate keys:
-
-```ts
-body: JSON.stringify({ cycleId, progress, plan, dictated, resolutions })
-```
-
-`lib/checkin.ts:94-96` then merges them:
+`lib/ai/types.ts:76` requires:
 
 ```ts
-const rawText = [draft.progress.trim(), draft.plan.trim()]
-  .filter(Boolean)
-  .join("\n\n");
+blockers: z.array(z.string().max(300)).max(10).default([]),
 ```
 
-and `lib/ai/types.ts:210` gives the extractor no way to recover the difference:
-
-```ts
-extract(input: {
-  text: string;                       // <- one blob. Which half was the plan?
-  openCommitments: { id: string; title: string }[];
-  personName: string;
-  cycleLabel: string;
-}): Promise<AiResult<ExtractionResult>>;
-```
-
-So the extractor must re-infer "this sentence is a future intention" from
-**tense alone**. When somebody writes a plan the way a field labelled *"what
-are you planning"* invites them to — as a bare imperative list — that
-inference fails and **zero commitments are created**.
-
-### Evidence
-
-Submitting the exact text from §19 of the brief, through the real code path:
-
-```
-progress: "Completed onboarding checklist. Vendor approval is still blocked by Legal."
-plan:     "Complete vendor launch. Finish API documentation. Resolve Legal approval."
-
-submit ok. checkInId: 7f43eb41-60bb-45d6-b91b-e78401f77c8a
-extracted commitments: 0
-COMMITMENTS CREATED:   0
-```
-
-The check-in row itself is **perfect**:
+The deployment returns:
 
 ```json
-{ "id": "7f43eb41-…", "profile_id": "cdfbcd2b-…", "org_id": "896aec23-…",
-  "cycle_id": "e4f3038b-…", "status": "parsed", "chars": 149,
-  "responded_at": "2026-08-27T08:47:02.048Z" }
+"blockers": [
+  { "description": "Vendor approval is still blocked by Legal",
+    "source_quote": "Vendor approval is still blocked by Legal." }
+]
 ```
 
-Right person, right organisation, right cycle, text saved, `responded_at` set.
-**The save is not the problem.** Nothing downstream was produced from it.
+Zod rejects it, `lib/ai/azure.ts:398` throws, and because `extract()` runs
+BEFORE the insert (`lib/checkin.ts:98` vs `:122`) **nothing is persisted at
+all**. The user is told "Could not file that".
 
-Isolating the trigger — same extractor, four phrasings:
+### What is actually lost
 
-| Text | Commitments |
-|---|---|
-| progress + plan, as the UI sends it | **0** |
-| `"Complete vendor launch. Finish API documentation."` (imperative) | **0** |
-| `"I will complete vendor launch. I will finish API documentation."` | 2 |
-| `"Next week I will complete the vendor launch…"` | 1 |
+The captured payload from the failing call — the model had done the job
+perfectly:
 
-The differentiator is an explicit future marker. `lib/ai/mock.ts:36` makes this
-explicit for the offline provider:
-
-```ts
-const FUTURE = /\b(will|going to|plan to|planning|next week|aim to|intend to|i'?ll)\b/i;
+```json
+"commitments": [
+  { "title": "Complete vendor launch",     "source_quote": "Complete vendor launch." },
+  { "title": "Finish API documentation",   "source_quote": "Finish API documentation." },
+  { "title": "Resolve Legal approval",     "source_quote": "Resolve Legal approval." }
+],
+"updates": [],
+"blockers": [ { "description": "...", "source_quote": "..." } ],
+"mentions": []
 ```
 
-**This is not only a mock artefact.** The live Azure provider receives the same
-single blob with the same missing signal. It may infer better from tense, but
-it is being asked to reconstruct information the application already had and
-deliberately destroyed. §1 of the brief states the rule this violates: *"These
-must never be treated as the same thing."* The code merges them one line before
-extraction.
+**Three correctly extracted commitments are discarded over the shape of
+`blockers`** — the least important field in the result, documented in
+`lib/ai/types.ts:76` as "free-text obstacles worth surfacing even if not tied
+to a commitment".
 
-### Why the user sees "Successful, then nothing"
+### Rate, measured against the real deployment
 
-The client is well behaved, which is what makes this so confusing to a user:
+The exact text from §19 of the brief, eight consecutive calls:
 
 ```
-POST /api/check-in  →  200 OK
-toast: "Filed — Your week is recorded."
-setProgress(""); setPlan("");        // the text is cleared
-router.refresh();                    // server components re-read
+1..8: FAILED — blockers.0: Invalid input: expected string, received object
+
+8/8 lost entirely.
 ```
 
-The refresh is real and correct. It re-reads the database and finds **exactly
-what was there before**, because nothing new was created. The user is told the
-truth ("it was filed") and shown the truth ("nothing new"), and the two
-together read as data loss.
+Deterministic for this input. Shorter texts that mention a blocker succeeded
+8/8 in a separate run, which is why the symptom looked intermittent to users:
+**it depends on the shape of what somebody wrote, not on luck.** A report with
+several achievements, a blocker and several plans — the normal shape of a real
+weekly update — fails every time. A one-line update usually does not.
+
+That is precisely the reported pattern: *"One submission displayed Failed.
+Another displayed Successful. After retries, some appeared to succeed."* The
+ones that succeeded were the shorter ones.
+
+### Why no test caught it
+
+The mock provider constructs `blockers` as strings by rule, so it can never
+produce this. Every test, the whole visual sweep and every local trace run
+against the mock (`vitest.config.mts` sets `NEXUS_FORCE_MOCK_AI: "1"`
+deliberately, so CI never bills a metered API). The failure exists only on the
+path nothing automated exercises.
+
+`npm run check:assistant` tests the live model against the assistant, not the
+extractor.
+
+### The precedent this ignores
+
+`narrativeResult.coaching` already solves exactly this class of problem, in the
+same file (`lib/ai/types.ts:137-152`): it accepts an object **or** a bare
+string and normalises, with the comment —
+
+> "models reliably return a plain list of sentences instead, and a schema that
+> only accepts the richer form turns that into a 500 on somebody's own week
+> page."
+
+`blockers` has the inverse mismatch and no such tolerance. The lesson was
+learned once and not generalised.
+
+---
+
+## A local finding that did NOT survive production
+
+The first pass concluded that plans written as imperatives — "Complete vendor
+launch." rather than "I will complete vendor launch." — produced no
+commitments, because `lib/checkin.ts:94-96` merges the two labelled fields into
+one blob and `extract()` takes a single `text: string`, so the achieved/planned
+distinction has to be re-inferred from tense.
+
+Against the mock that is exactly what happens: `lib/ai/mock.ts:36` requires an
+explicit future marker, and imperatives yield zero commitments.
+
+**Against the live model it does not.** The captured payload above shows Azure
+extracting all three imperative plans correctly, with verbatim source quotes.
+
+The merge is still a real weakness — the application destroys information it
+already had, and relies on the model to reconstruct it — but it is **not** the
+cause of the reported incident, and fixing it would not have helped anybody.
+Recorded here so the wrong lead is not re-followed.
 
 ---
 
@@ -215,8 +238,8 @@ Every way a submission can currently fail, and what the user is told:
 
 | # | Failure | Persisted? | User sees | Correct? |
 |---|---|---|---|---|
-| 1 | Azure extract throws / times out | **No** | "Could not file that" + their text kept | Honest, but the save should not depend on the model |
-| 2 | Plan written as imperatives | **Check-in yes, commitments no** | "Filed" then an unchanged screen | **No — this is the bug** |
+| 1 | **Model returns `blockers` as objects** | **No — nothing at all** | "Could not file that" + their text kept | **No — this is the bug.** A valid extraction is discarded |
+| 2 | Azure times out or errors | **No** | "Could not file that" + their text kept | Honest, but the save should not depend on the model |
 | 3 | Invalid body (bad `cycleId`) | No | 400 → generic failure | Adequate |
 | 4 | Unknown cycle id | No | 404 → generic failure | Adequate |
 | 5 | No session | No | 401 | Adequate |
@@ -243,10 +266,11 @@ route: resolve cycle + next cycle       ✅ correct
         │
         ▼
 submitCheckIn()
-   ├─ merge progress + plan → rawText   ❌ THE LABELS ARE LOST HERE
-   ├─ aiProvider().extract(rawText)     ❌ fails ⇒ nothing saved at all (C1)
-   ├─ insert check_ins                  ✅ correct, idempotent, append-only
-   ├─ insert commitments                ❌ zero, when plans are imperative
+   ├─ merge progress + plan → rawText   ⚠️  labels discarded (weakness, not the bug)
+   ├─ aiProvider().extract(rawText)     ❌ VALID result rejected on blockers shape
+   │                                    ❌ throws ⇒ NOTHING below ever runs
+   ├─ insert check_ins                  ✅ correct when reached — never reached here
+   ├─ insert commitments                ✅ correct when reached — never reached here
    └─ update resolutions                ✅ correct
         │
         ▼
@@ -278,52 +302,55 @@ readable. **No record is hidden by RLS.** The records genuinely do not exist.
 
 ## Data integrity risk
 
-Assessed honestly; **not** a claim that data is safe.
+Assessed against the production failure. **Not** a claim that data is safe.
 
 | Risk | Verdict |
 |---|---|
-| **Lost** | **Yes, in effect.** Every plan submitted as an imperative list exists only as free text in `check_ins.raw_text`. It was never structured into commitments, so nothing tracks, reconciles or reports it. The words are recoverable; the meaning was never captured. |
-| **Duplicated** | **Likely.** Retries after "Failed" duplicate commitments (C2 measured). Users retried repeatedly, so production probably holds duplicates that will inflate delivery figures exactly as GUIDE §14 records. |
-| **Wrong cycle** | **No.** Write and read agree; `cycle_id` was correct in every trace. |
-| **Wrong organisation** | **No.** `org_id` is derived from the profile row inside the insert (`from profiles p where p.id = …`), never passed in. The hypothesis in §6 of the brief is disproven. |
-| **Hidden by RLS** | **No.** Verified read-back above. |
+| **Lost** | **Yes, outright.** Every submission whose extraction hit the `blockers` mismatch was never written. `extract()` runs before the insert, so there is no `check_ins` row, no `raw_text`, nothing. The words survived only in the browser, and only until the person gave up or navigated away. This is worse than the local pass suggested: not "saved but unstructured" — **not saved at all**. |
+| **Which submissions** | Longer, realistic reports — several achievements, a blocker, several plans. Exactly the people who wrote the most. A one-line update usually got through. |
+| **Duplicated** | **Likely.** Retries duplicate commitments (C2, measured). Users retried repeatedly against a deterministic failure, so any report that eventually succeeded may have left duplicates behind. |
+| **Wrong cycle** | **No.** Verified: write and read agree, `cycle_id` correct in every trace. |
+| **Wrong organisation** | **No.** `org_id` is derived inside the insert from the profile row; it cannot be passed in wrong. |
+| **Hidden by RLS** | **No.** Verified by read-back: the author can read their own row, a colleague cannot. |
 | **Orphaned** | **No.** Every commitment carries `source_check_in_id`. |
-| **Raw text overwritten** | **No.** Append-only holds — measured 400 chars after two submissions. |
+| **Raw text overwritten** | **No.** Append-only holds — 400 chars measured after two submissions. |
 
-**Nothing needs recovering from backups. What needs repairing is that
-submissions were never converted into records**, plus duplicate commitments
-created by retries.
+**Nothing can be recovered from backups, because nothing was ever written.**
+The only record that a person tried to report is their own memory and whatever
+they can retype. Anyone who reported a blocker in a substantial update should be
+asked to re-submit once the fix is in.
 
 ---
 
 ## Repair plan, by severity
 
-### P1 — Tell the extractor which half is the plan
-Give `extract()` the two fields separately rather than one merged blob, so
-"achieved" and "planned" are structural rather than inferred from grammar. This
-is the root cause and fixes the reported symptom. Requires changing the
-`AiProvider` interface, both providers, and the prompt.
+### P1 — Accept the shape the model actually returns
+Make `blockers` tolerate an object as well as a string and normalise, exactly
+as `narrativeResult.coaching` already does for the inverse mismatch in the same
+file. Root cause; fixes the incident. Small and contained.
 
-### P2 — Do not let a failed model call discard a saved report
-Persist the check-in first, then extract. A model failure should leave the
-report saved and re-processable, and the response should distinguish
-`SAVE_FAILED` from `PROCESSING_FAILED` (brief §11, §14).
+### P2 — Never let a model response cost somebody their report
+Persist the check-in **before** extraction, then process. A model failure should
+leave the report saved and re-processable, and the API should distinguish
+`SAVE_FAILED` from `PROCESSING_FAILED` (brief §11, §14). Then no future schema
+drift can ever silently delete a submission again — which matters more than any
+single field, because this class of bug will recur.
 
-### P3 — Make commitments idempotent per retry
+### P3 — Test the live extractor, not only the mock
+Nothing automated exercises the real model's extraction, which is why a
+deterministic 8/8 failure reached real users. A `check:extract` script
+alongside `check:assistant`, run against realistic multi-part reports.
+
+### P4 — Make commitments idempotent per retry
 Uniqueness on `(profile_id, target_cycle_id, lower(title))` so a retry updates
-rather than inserts. Then audit production for duplicates already created.
+rather than inserts, then audit production for duplicates already created.
 
-### P4 — Tell the user when a report saved but produced nothing
-The route already knows `extracted.length === 0`. Saying so — "filed, but I did
-not find any commitments in that" — converts a silent failure into a correctable
-one.
+### P5 — Tell the user when a report saved but produced nothing
+The route knows `extracted.length === 0`. Saying so turns a silent no-op into
+something correctable.
 
-### P5 — Reconcile which cycle the rhythm opens (C4)
-Align `runPrompt` with the cycle the UI files against, or make the discrepancy
-explicit, so compliance answers "did they report" against the same week.
-
-### P6 — One check-in row per person per cycle (C3)
-Revisit the `channel` component of the uniqueness constraint.
+### P6 — Reconcile which cycle the rhythm opens (C4), and one check-in row per person per cycle (C3)
+Correctness issues not currently hurting users.
 
 ---
 
