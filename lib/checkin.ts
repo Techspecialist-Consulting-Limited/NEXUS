@@ -73,7 +73,62 @@ export type CheckInOutcome = {
   extraction: ExtractionResult;
   /** Commitments that were never mentioned in the free text — the drift. */
   unmentioned: { id: string; title: string }[];
+  /**
+   * The report was SAVED but could not be understood.
+   *
+   * Saving and understanding are different operations and they now fail
+   * separately. A model that errors, drifts in shape, or times out costs the
+   * reader their structure — it must never cost the writer their words.
+   */
+  processingFailed?: string;
 };
+
+/**
+ * Persist the report itself. Nothing here depends on a model.
+ *
+ * Idempotent per (profile, cycle, channel), and `raw_text` is APPENDED rather
+ * than replaced — migration 0002 makes rewriting what somebody typed
+ * impossible, and a retry is an addition to the record, not a correction of it.
+ *
+ * Status is `'responded'`: the human has replied and nothing has been parsed
+ * yet. It becomes `'parsed'` once extraction lands, or `'failed'` if it does
+ * not.
+ */
+async function saveCheckIn(
+  actor: string,
+  profileId: string,
+  cycleId: string,
+  rawText: string,
+  dictated: boolean,
+): Promise<string> {
+  const rows = await asActor(
+    actor,
+    (sql) => sql<{ id: string }>`
+      insert into check_ins (org_id, profile_id, cycle_id, channel, status,
+                             raw_text, raw_payload, responded_at, parsed_at)
+      select p.org_id, p.id, ${cycleId}, 'in_app', 'responded', ${rawText},
+             -- ::text is load-bearing. jsonb_build_object is variadic "any", so
+             -- Postgres has nothing to infer a bare parameter's type from and
+             -- rejects the whole statement with 42P18 "could not determine data
+             -- type of parameter". Every check-in submission failed on it.
+             jsonb_build_object('capture', ${dictated ? "dictated" : "typed"}::text),
+             now(), null
+      from profiles p where p.id = ${profileId}
+      on conflict (profile_id, cycle_id, channel) do update
+        set raw_text = case
+              when check_ins.raw_text is null then excluded.raw_text
+              -- Appending is permitted; rewriting is not (migration 0002).
+              else check_ins.raw_text || E'\n\n' || excluded.raw_text
+            end,
+            status = 'responded',
+            raw_payload = excluded.raw_payload,
+            responded_at = now(),
+            parsed_at = null
+      returning id
+    `,
+  );
+  return rows[0].id;
+}
 
 /**
  * Record a check-in and run extraction. Returns what the AI understood so the
@@ -95,12 +150,51 @@ export async function submitCheckIn(
     .filter(Boolean)
     .join("\n\n");
 
-  const { data: extraction } = await aiProvider().extract({
-    text: rawText,
-    openCommitments: open.map((c) => ({ id: c.id, title: c.title })),
-    personName,
-    cycleLabel,
-  });
+  /*
+   * SAVE FIRST, UNDERSTAND SECOND.
+   *
+   * Extraction used to run here, before the insert. When the model returned
+   * `blockers` as objects rather than strings the schema rejected it, this
+   * threw, and the entire submission was discarded — no row, no raw_text,
+   * nothing to retry from. People lost real reports to the shape of the least
+   * important field in the response.
+   *
+   * The order is now the one migration 0002 assumed when it defined
+   * `'responded'` ("human replied, not yet parsed") and `'failed'`
+   * ("extraction errored; raw_text still intact, safe to retry"). Those states
+   * existed from the beginning and nothing ever wrote them.
+   *
+   * A model is a third party over a network. It must never sit between a
+   * person and the durability of their own words.
+   */
+  const checkInId = await saveCheckIn(actor, profileId, cycleId, rawText, draft.dictated ?? false);
+
+  let extraction: ExtractionResult;
+  try {
+    ({ data: extraction } = await aiProvider().extract({
+      text: rawText,
+      openCommitments: open.map((c) => ({ id: c.id, title: c.title })),
+      personName,
+      cycleLabel,
+    }));
+  } catch (error) {
+    /*
+     * Recorded, not swallowed. `raw_text` is intact and the row is marked
+     * retryable, so the words survive and the failure is visible rather than
+     * being reported to the person as success.
+     */
+    await asActor(actor, (sql) => sql`
+      update check_ins set status = 'failed', parsed_at = null where id = ${checkInId}
+    `);
+    const detail = error instanceof Error ? error.message : String(error);
+    console.error(`[nexus] check-in ${checkInId} saved but extraction failed: ${detail}`);
+    return {
+      checkInId,
+      extraction: { commitments: [], updates: [], blockers: [], mentions: [] },
+      unmentioned: [],
+      processingFailed: detail,
+    };
+  }
 
   /*
    * Drift detection. A commitment the person neither resolved with a tap nor
@@ -119,31 +213,11 @@ export async function submitCheckIn(
     .filter((c) => !touched.has(c.id))
     .map((c) => ({ id: c.id, title: c.title }));
 
-  const checkInId = await asActor(actor, async (sql) => {
-    const rows = await sql<{ id: string }>`
-      insert into check_ins (org_id, profile_id, cycle_id, channel, status,
-                             raw_text, raw_payload, responded_at, parsed_at)
-      select p.org_id, p.id, ${cycleId}, 'in_app', 'parsed', ${rawText},
-             -- ::text is load-bearing. jsonb_build_object is variadic "any", so
-             -- Postgres has nothing to infer a bare parameter's type from and
-             -- rejects the whole statement with 42P18 "could not determine data
-             -- type of parameter". Every check-in submission failed on it.
-             jsonb_build_object('capture', ${draft.dictated ? "dictated" : "typed"}::text),
-             now(), now()
-      from profiles p where p.id = ${profileId}
-      on conflict (profile_id, cycle_id, channel) do update
-        set raw_text = case
-              when check_ins.raw_text is null then excluded.raw_text
-              -- Appending is permitted; rewriting is not (migration 0002).
-              else check_ins.raw_text || E'\n\n' || excluded.raw_text
-            end,
-            status = 'parsed',
-            raw_payload = excluded.raw_payload,
-            responded_at = now(),
-            parsed_at = now()
-      returning id
-    `;
-    const id = rows[0].id;
+  /*
+   * Now that the words are safe, record what was understood. A failure from
+   * here leaves the report saved and re-processable rather than destroyed.
+   */
+  await asActor(actor, async (sql) => {
 
     // Tap resolutions are explicit declarations — that is what makes them
     // count as good signal rather than silent drift.
@@ -168,16 +242,39 @@ export async function submitCheckIn(
            extraction_confidence, title, description, category, priority,
            estimated_effort_hours, created_cycle_id, target_cycle_id,
            status, was_planned)
-        select p.org_id, p.id, p.department_id, ${id}, ${c.source_quote},
+        select p.org_id, p.id, p.department_id, ${checkInId}, ${c.source_quote},
                ${c.confidence}, ${c.title}, ${c.description ?? null},
                ${c.category ?? null}, ${c.priority}::commitment_priority,
                ${c.estimated_effort_hours ?? null}, ${cycleId}, ${target},
                'promised', true
         from profiles p where p.id = ${profileId}
+        /*
+         * A retry refreshes the promise; it does not make a second one.
+         * Migration 0020 added the matching partial index, and the WHERE
+         * clause here has to mirror it exactly or Postgres cannot infer which
+         * index to use.
+         *
+         * Status is deliberately NOT reset. If the person has since marked
+         * this delivered or blocked, a re-submission of the same words must
+         * not quietly drag it back to 'promised' — the later statement about
+         * the work is the truer one.
+         */
+        on conflict (profile_id, target_cycle_id, (lower(btrim(title))))
+          where deleted_at is null and status not in ('superseded', 'dropped')
+        do update set
+          source_quote          = excluded.source_quote,
+          source_check_in_id    = excluded.source_check_in_id,
+          description           = coalesce(excluded.description, commitments.description),
+          category              = coalesce(excluded.category, commitments.category),
+          priority              = excluded.priority,
+          extraction_confidence = excluded.extraction_confidence,
+          updated_at            = now()
       `;
     }
 
-    return id;
+    await sql`
+      update check_ins set status = 'parsed', parsed_at = now() where id = ${checkInId}
+    `;
   });
 
   return { checkInId, extraction, unmentioned };

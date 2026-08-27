@@ -66,8 +66,33 @@ export async function POST(request: Request) {
     { progress, plan, resolutions, dictated },
   );
 
+  /*
+   * Saving and understanding are reported separately.
+   *
+   * A 200 used to mean both, so a response the model mangled looked identical
+   * to a clean one and the person was told "Filed" over an empty screen. The
+   * report is saved in every branch that reaches here — what varies is whether
+   * anything was understood, and the client says so rather than implying more
+   * than happened.
+   */
   return NextResponse.json({
     ok: true,
+    saved: true,
+    processed: !outcome.processingFailed,
+    /** Saved and readable, but nothing was extracted from it yet. */
+    processingFailed: outcome.processingFailed ?? null,
+    /*
+     * True only when the submission recorded NOTHING AT ALL.
+     *
+     * Tap resolutions count. Somebody who marks three commitments delivered
+     * and writes no prose has told the system a great deal, and answering
+     * that with "nothing was recognised" would be both wrong and insulting.
+     */
+    understoodNothing:
+      !outcome.processingFailed &&
+      outcome.extraction.commitments.length === 0 &&
+      outcome.extraction.updates.length === 0 &&
+      resolutions.length === 0,
     checkInId: outcome.checkInId,
     extracted: outcome.extraction.commitments.map((c) => ({
       title: c.title,

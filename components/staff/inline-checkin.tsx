@@ -210,11 +210,49 @@ export function InlineCheckIn({
       });
       if (!res.ok) throw new Error(filingFailure(res.status));
 
-      toast({
-        variant: "success",
-        title: "Filed",
-        description: "Your week is recorded. You can add to it any time.",
-      });
+      /*
+       * "Filed" used to be said for every 2xx, including responses where the
+       * model had failed and nothing was extracted — so somebody was told
+       * their week was recorded and then shown an unchanged screen, which
+       * reads as data loss. The report IS saved in all three branches; what
+       * differs is whether anything was understood, and saying so is the
+       * difference between a system that seems broken and one that is honest
+       * about where it got to.
+       */
+      const result = (await res.json().catch(() => ({}))) as {
+        processingFailed?: string | null;
+        understoodNothing?: boolean;
+      };
+
+      if (result.processingFailed) {
+        toast({
+          variant: "error",
+          title: "Saved, but not yet read",
+          description:
+            "Your report is stored exactly as you wrote it. NEXUS could not " +
+            "process it just now and will pick it up again — nothing you " +
+            "typed has been lost.",
+        });
+      } else if (result.understoodNothing) {
+        /*
+         * A success, with a caveat — not an error. The report is stored and
+         * nothing was lost; it simply produced no commitments. Painting that
+         * red would tell somebody their week failed when it did not.
+         */
+        toast({
+          variant: "success",
+          title: "Saved",
+          description:
+            "Your words are recorded. No commitments were found in them — " +
+            "naming what you finished and what you plan next usually helps.",
+        });
+      } else {
+        toast({
+          variant: "success",
+          title: "Filed",
+          description: "Your week is recorded. You can add to it any time.",
+        });
+      }
 
       setPhase("idle");
       setRaw("");

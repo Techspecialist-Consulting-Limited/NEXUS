@@ -20,7 +20,8 @@
     "check:assistant": "node --env-file-if-exists=.env.local --import tsx scripts/check-assistant.mts",
     "smoke:assistant": "node scripts/smoke-assistant.mjs",
     "smoke:checkin": "node scripts/smoke-checkin.mjs",
-    "check:intelligence": "node --env-file-if-exists=.env.local --import tsx scripts/check-intelligence.mts"
+    "check:intelligence": "node --env-file-if-exists=.env.local --import tsx scripts/check-intelligence.mts",
+    "check:extract": "node --env-file-if-exists=.env.local --import tsx scripts/check-extract.mts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
@@ -38,6 +39,7 @@
     "recharts": "^3.10.1",
     "resend": "^6.20.0",
     "tailwind-merge": "^3.6.0",
+    "workflow": "^4.8.4",
     "zod": "^4.4.3"
   },
   "devDependencies": {

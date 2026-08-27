@@ -69,13 +69,65 @@ export const statusUpdate = z.object({
   confidence: z.number().min(0).max(1).default(0.8),
 });
 
+/**
+ * A list of short strings — however the model chose to wrap them.
+ *
+ * WHY THIS EXISTS. `blockers` was `z.array(z.string())`. The live deployment
+ * returns objects:
+ *
+ *   "blockers": [{ "description": "Vendor approval is blocked by Legal",
+ *                  "source_quote": "Vendor approval is still blocked by Legal." }]
+ *
+ * Zod rejected the array, the provider threw, and because extraction ran
+ * before the insert the ENTIRE submission was discarded — including three
+ * perfectly extracted commitments in the same response. Real people lost real
+ * reports to the shape of the least important field in the result.
+ *
+ * `narrativeResult.coaching` already solved this exact class of problem in the
+ * other direction and the lesson was left there. It is generalised here: a
+ * model that answers the question correctly but packages it differently must
+ * not cost somebody their week's work.
+ *
+ * Strictly a normaliser, not a parser. It reads the obvious text key and drops
+ * anything with no text at all, rather than inventing a value.
+ */
+const TEXT_KEYS = ["description", "text", "title", "blocker", "summary", "detail", "name"];
+
+function sentenceList(maxLen: number, maxItems: number) {
+  return z
+    .array(
+      z.union([
+        z.string(),
+        z
+          .looseObject({})
+          .transform((o) => {
+            const rec = o as Record<string, unknown>;
+            for (const k of TEXT_KEYS) {
+              const v = rec[k];
+              if (typeof v === "string" && v.trim()) return v;
+            }
+            return "";
+          }),
+      ]),
+    )
+    // Trim to the schema's limit rather than rejecting: an over-long blocker
+    // is still a blocker, and refusing it would restore the failure this
+    // exists to prevent.
+    .transform((list) =>
+      list
+        .map((v) => v.trim().slice(0, maxLen))
+        .filter(Boolean)
+        .slice(0, maxItems),
+    );
+}
+
 const extractionShape = z.object({
   commitments: z.array(extractedCommitment).max(30).default([]),
   updates: z.array(statusUpdate).max(30).default([]),
   /** Free-text obstacles worth surfacing even if not tied to a commitment. */
-  blockers: z.array(z.string().max(300)).max(10).default([]),
+  blockers: sentenceList(300, 10).default([]),
   /** Colleagues whose work the writer referenced — cheap peer evidence. */
-  mentions: z.array(z.string().max(80)).max(20).default([]),
+  mentions: sentenceList(80, 20).default([]),
 });
 
 const EXTRACTION_KEYS = ["commitments", "updates", "blockers", "mentions"];

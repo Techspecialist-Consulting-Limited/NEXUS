@@ -76,7 +76,17 @@ for (const [label, width] of [["mobile", 390], ["desktop", 1440]]) {
 
   await page.getByRole("button", { name: /file my week/i }).first().click();
 
-  const filed = await page.getByText(/^Filed$/).first()
+  /*
+   * "Filed" OR "Saved". Both mean the report reached the database, which is
+   * what this check is for — it asserts the person gets confirmation without
+   * leaving the page.
+   *
+   * The two differ in whether anything was extracted, and the interface now
+   * says which rather than claiming "Filed" over a submission that produced
+   * nothing. Asserting only the cheerful wording would pin the dishonest
+   * version in place.
+   */
+  const filed = await page.getByText(/^(Filed|Saved)$/).first()
     .waitFor({ state: "visible", timeout: 20_000 }).then(() => true).catch(() => false);
   log(filed, `${label}  filing confirms in place`);
   log(page.url() === urlBefore, `${label}  still on the same page after filing`);
