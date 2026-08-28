@@ -6,6 +6,7 @@ import { weeklyBrief } from "@/lib/coach";
 import { AdviceFeed } from "@/components/advice/advice-feed";
 import { InsightBoard } from "@/components/executive/insight-board";
 import { CoachBoard } from "@/components/staff/coach-board";
+import { reportingCompliance } from "@/lib/team";
 
 export const dynamic = "force-dynamic";
 
@@ -23,10 +24,23 @@ export default async function AdvicePage() {
 
   const week = await latestVisibleCycle(actor);
   if (!week) {
+    /*
+     * Says what is missing, why it matters and what changes it. "Nothing to
+     * advise on yet" managed only the first, centred on an otherwise blank
+     * page — which is the first thing a Chairman invited during setup saw
+     * when he opened Insights.
+     */
     return (
-      <p className="py-16 text-center text-sm text-secondary">
-        Nothing to advise on yet.
-      </p>
+      <div className="mx-auto max-w-2xl py-16 text-center">
+        <p className="text-sm font-medium text-white/90">
+          No reporting week has settled yet
+        </p>
+        <p className="mt-1.5 text-sm leading-relaxed text-secondary">
+          {me.role === "executive"
+            ? "Findings are read from what people report, after a week closes and its reconciliations confirm. Nothing is missing — it is simply early."
+            : "Your coaching is written after a week settles. The first one arrives once you have reported and the week has closed."}
+        </p>
+      </div>
     );
   }
 
@@ -38,8 +52,21 @@ export default async function AdvicePage() {
    * only ever return nothing.
    */
   if (me.role === "executive") {
-    const org = await executiveBrief(actor, week.id);
-    return <InsightBoard cycleLabel={week.label} insights={org.insights} />;
+    const [org, compliance] = await Promise.all([
+      executiveBrief(actor, week.id),
+      // What separates a clean week from one nobody has filed for.
+      reportingCompliance(actor, week.id),
+    ]);
+    return (
+      <InsightBoard
+        cycleLabel={week.label}
+        insights={org.insights}
+        reporting={{
+          expected: compliance.length,
+          submitted: compliance.filter((r) => r.submitted).length,
+        }}
+      />
+    );
   }
 
   /*

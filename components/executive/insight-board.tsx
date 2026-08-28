@@ -2,6 +2,7 @@
 
 import { m } from "motion/react";
 import {
+  Hourglass,
   CircleCheck,
   CircleSlash,
   Rocket,
@@ -56,9 +57,20 @@ const TYPE_ICON = {
 export function InsightBoard({
   cycleLabel,
   insights,
+  reporting,
 }: {
   cycleLabel: string;
   insights: AIInsight[];
+  /**
+   * Who was expected to file this week, and who has.
+   *
+   * An empty finding list means the model found nothing IN WHAT IT WAS
+   * GIVEN. On the day a Chairman is invited it was given nothing, and this
+   * page told him every unit had reported and no commitment had slipped —
+   * a green tick over a week nobody had filed for. These two numbers are
+   * what separates a clean week from an empty one.
+   */
+  reporting: { expected: number; submitted: number };
 }) {
   const urgent = insights.filter((i) => i.severity !== "normal").length;
 
@@ -69,7 +81,9 @@ export function InsightBoard({
         cycleLabel={weekLabel(cycleLabel)}
         standfirst={
           insights.length === 0 ? (
-            "Nothing needs your attention this week."
+            reporting.submitted === 0
+              ? "Nothing has been reported yet."
+              : "Nothing needs your attention this week."
           ) : urgent === 0 ? (
             <>
               {insights.length} {insights.length === 1 ? "finding" : "findings"}, none
@@ -87,22 +101,63 @@ export function InsightBoard({
 
       {insights.length === 0 ? (
         <GlassCard level={2} className="p-8">
+          {/*
+            A tick is a claim. It is only drawn when somebody actually
+            reported and the week came back clean — the other two states are
+            waiting, not good news, and a green circle over "nobody has filed"
+            is the interface congratulating an organisation for silence.
+          */}
           <div className="mx-auto max-w-md text-center">
             <span
               aria-hidden="true"
-              className="mx-auto grid size-11 place-items-center rounded-full
-                         bg-[var(--color-healthy)]/12 text-[var(--color-healthy)]"
+              className={
+                reporting.submitted > 0
+                  ? "mx-auto grid size-11 place-items-center rounded-full bg-[var(--color-healthy)]/12 text-[var(--color-healthy)]"
+                  : "mx-auto grid size-11 place-items-center rounded-full bg-white/[0.06] text-white/55"
+              }
             >
-              <CircleCheck size={20} />
+              {reporting.submitted > 0 ? <CircleCheck size={20} /> : <Hourglass size={20} />}
             </span>
-            <p className="mt-3 text-sm font-medium text-white/90">
-              Nothing needs your attention
-            </p>
-            <p className="mt-1 text-sm leading-relaxed text-tertiary">
-              Every unit reported for {cycleLabel} and no commitment slipped without
-              being declared. This page stays empty when the week is clean — it does
-              not manufacture a concern to look useful.
-            </p>
+
+            {reporting.expected === 0 ? (
+              <>
+                <p className="mt-3 text-sm font-medium text-white/90">
+                  Nobody has been added yet
+                </p>
+                <p className="mt-1 text-sm leading-relaxed text-secondary">
+                  Findings are read from what people report. Once the
+                  organisation has people in it and they start filing, what is
+                  blocked between units, what keeps carrying over and who needs
+                  support all appear here — each one traceable to the records
+                  behind it.
+                </p>
+              </>
+            ) : reporting.submitted === 0 ? (
+              <>
+                <p className="mt-3 text-sm font-medium text-white/90">
+                  Nothing reported for {cycleLabel} yet
+                </p>
+                <p className="mt-1 text-sm leading-relaxed text-secondary">
+                  {reporting.expected}{" "}
+                  {reporting.expected === 1 ? "person is" : "people are"} expected
+                  to file. This page fills in as they do — it reads what they
+                  wrote rather than asking them anything extra.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="mt-3 text-sm font-medium text-white/90">
+                  Nothing needs your attention
+                </p>
+                <p className="mt-1 text-sm leading-relaxed text-secondary">
+                  {reporting.submitted} of {reporting.expected} reported for{" "}
+                  {cycleLabel} and nothing came back blocked between units,
+                  carried without explanation, or dropped without being
+                  declared. This page stays empty when the week is clean — it
+                  does not manufacture a concern to look useful.
+                </p>
+              </>
+            )}
           </div>
         </GlassCard>
       ) : (

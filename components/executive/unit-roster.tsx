@@ -1,7 +1,16 @@
+import Link from "next/link";
 import { Building2, UserRound } from "lucide-react";
 import type { UnitMember, UnitRoster as Roster } from "@/lib/queries";
-import { ROLE_LABEL } from "@/lib/auth";
-import type { OrgRole } from "@/lib/roles";
+/*
+ * From lib/roles, NOT lib/auth.
+ *
+ * lib/auth re-exports ROLE_LABEL, and importing it from there drags
+ * next/headers and the Postgres driver into the bundle. This component is
+ * now rendered inside the Chairman's dashboard, which is a client
+ * component, and the build fails outright: "You're importing a module that
+ * depends on next/headers". lib/roles is the definition and is pure data.
+ */
+import { ROLE_LABEL, type OrgRole } from "@/lib/roles";
 
 /*
  * The organisation's shape: every unit, and who is in it.
@@ -27,9 +36,18 @@ export function UnitRoster({
   roster,
   /** Whether to draw the section heading. Off when this is the whole page. */
   heading = true,
+  /**
+   * Dense: names and headcounts, no member lists.
+   *
+   * For the Chairman's dashboard, where the question is "what units exist and
+   * is anybody in them" rather than "who exactly". Each tile opens the unit,
+   * which is where the second question is properly answered.
+   */
+  dense = false,
 }: {
   roster: Roster;
   heading?: boolean;
+  dense?: boolean;
 }) {
   const { units, unassigned } = roster;
   const placed = units.reduce((n, u) => n + u.members.length, 0);
@@ -60,46 +78,69 @@ export function UnitRoster({
         </p>
       ) : (
         <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {units.map((u) => (
-            <div
-              key={u.department_id}
-              className="rounded-xl border border-white/[0.13] bg-white/[0.04] p-4"
-            >
-              <div className="flex items-start gap-2.5">
-                <span
-                  aria-hidden="true"
-                  className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg"
-                  style={{
-                    background: `color-mix(in oklab, ${u.color} 22%, transparent)`,
-                    color: u.color,
-                  }}
-                >
-                  <Building2 size={16} />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[15px] font-medium leading-tight text-white/90">
-                    {u.name}
-                  </p>
-                  <p className="truncate text-xs text-secondary">
-                    {u.members.length === 0
-                      ? "Nobody in it yet"
-                      : `${u.members.length} ${u.members.length === 1 ? "person" : "people"}`}
-                    {u.lead_name && ` · led by ${u.lead_name}`}
-                  </p>
+          {units.map((u) => {
+            const inner = (
+              <>
+                <div className="flex items-start gap-2.5">
+                  <span
+                    aria-hidden="true"
+                    className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg"
+                    style={{
+                      background: `color-mix(in oklab, ${u.color} 22%, transparent)`,
+                      color: u.color,
+                    }}
+                  >
+                    <Building2 size={16} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[15px] font-medium leading-tight text-white/90">
+                      {u.name}
+                    </p>
+                    <p className="truncate text-xs text-secondary">
+                      {u.members.length === 0
+                        ? "Nobody in it yet"
+                        : `${u.members.length} ${u.members.length === 1 ? "person" : "people"}`}
+                      {u.lead_name && ` · led by ${u.lead_name}`}
+                    </p>
+                  </div>
                 </div>
-              </div>
 
-              {u.members.length > 0 && (
-                <ul className="mt-3 space-y-1.5">
-                  {u.members.map((m) => (
-                    <li key={m.id}>
-                      <Person member={m} />
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          ))}
+                {!dense && u.members.length > 0 && (
+                  <ul className="mt-3 space-y-1.5">
+                    {u.members.map((m) => (
+                      <li key={m.id}>
+                        <Person member={m} />
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            );
+
+            const shell =
+              "block rounded-xl border border-white/[0.13] bg-white/[0.04] p-4";
+
+            /*
+              A tile is a link only where it leads somewhere useful. On the
+              dashboard it opens the unit; on the Units page the members are
+              already listed underneath it, so a link would take somebody to
+              what they are looking at.
+            */
+            return dense ? (
+              <Link
+                key={u.department_id}
+                href={`/departments/${u.department_id}`}
+                aria-label={`Open ${u.name}`}
+                className={`${shell} transition-colors hover:border-white/[0.22] hover:bg-white/[0.07]`}
+              >
+                {inner}
+              </Link>
+            ) : (
+              <div key={u.department_id} className={shell}>
+                {inner}
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -119,13 +160,15 @@ export function UnitRoster({
             reaches no unit&rsquo;s delivery figures and no unit&rsquo;s digest.
             Put them in a unit under People in Administration.
           </p>
-          <ul className="mt-3 space-y-1.5">
-            {unassigned.map((m) => (
-              <li key={m.id}>
-                <Person member={m} />
-              </li>
-            ))}
-          </ul>
+          {!dense && (
+            <ul className="mt-3 space-y-1.5">
+              {unassigned.map((m) => (
+                <li key={m.id}>
+                  <Person member={m} />
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
     </section>

@@ -14,6 +14,7 @@ import {
   pendingReview,
   recentCycles,
   recentStaffUpdates,
+  unitRoster,
 } from "@/lib/queries";
 import { reportingCompliance } from "@/lib/team";
 import { executiveBrief } from "@/lib/insights";
@@ -135,10 +136,23 @@ export default async function DashboardPage() {
      * plain props. Null when none has been sent, which is the whole of the
      * empty state: no brief, no modal.
      */
-    const [brief, updates, weekly] = await Promise.all([
+    const [brief, updates, weekly, roster, compliance] = await Promise.all([
       executiveBrief(actor, week.id),
       recentStaffUpdates(actor, week.id),
       latestWeeklyBrief(actor),
+      /*
+       * The organisation's shape, read without a cycle. Units exist from the
+       * moment somebody creates them, which is long before the first check-in
+       * — and a Chairman invited during setup should see what has been built
+       * rather than a page of blanks.
+       */
+      unitRoster(actor),
+      /*
+       * Who was expected to file and who has. Without these two numbers the
+       * page cannot tell "nothing needed you" from "nobody reported", and it
+       * used to render the first sentence for both.
+       */
+      reportingCompliance(actor, week.id),
     ]);
 
     return (
@@ -154,6 +168,11 @@ export default async function DashboardPage() {
         cycleLabel={week.label}
         insights={brief.insights}
         updates={updates}
+        roster={roster}
+        reporting={{
+          expected: compliance.length,
+          submitted: compliance.filter((r) => r.submitted).length,
+        }}
         weeklyBrief={weekly}
       />
     );

@@ -17,7 +17,8 @@ import {
 import { GlassCard } from "@/components/ui/glass-card";
 import { VoiceConsole } from "@/components/assistant/voice-console";
 import { WeeklyBriefModal } from "@/components/executive/weekly-brief-modal";
-import type { StaffUpdate, WeeklyBrief } from "@/lib/queries";
+import { UnitRoster } from "@/components/executive/unit-roster";
+import type { StaffUpdate, UnitRoster as Roster, WeeklyBrief } from "@/lib/queries";
 import type { AIInsight } from "@/lib/insights";
 
 /*
@@ -39,6 +40,25 @@ import type { AIInsight } from "@/lib/insights";
  * Every figure on this screen was counted by SQL upstream. The assistant
  * explains those same numbers rather than producing its own, so the screen and
  * the answer can never disagree.
+ *
+ * THE FIRST DAY IS A REAL STATE, NOT A DEGRADED ONE.
+ *
+ * A Chairman is invited before anybody has reported, so the first thing this
+ * page ever shows him is the empty version of itself — and it was showing him
+ * blanks. Worse, "Nothing needs your attention this week. Every unit reported
+ * and no commitment slipped" was rendered whenever the insight list came back
+ * empty, which on day one is a claim about a week nobody has filed for. It was
+ * not reassurance; it was a false statement about an organisation that had not
+ * started reporting.
+ *
+ * So every empty state here is derived from counted facts and says which of
+ * three situations he is actually in: nobody added yet, nobody reported yet,
+ * or reported and clean. `reporting` carries the two numbers that decide it.
+ *
+ * The units band exists for the same reason. Units are created during setup,
+ * long before the first check-in, and he should be able to see the shape of
+ * his organisation on the day he arrives — including a unit nobody is in yet,
+ * which is a fact he can act on rather than an absence he has to infer.
  *
  * ON THE CONTRAST OF THIS PAGE.
  *
@@ -136,6 +156,8 @@ export function ExecutiveHome({
   cycleLabel,
   insights,
   updates,
+  roster,
+  reporting,
   weeklyBrief = null,
 }: {
   firstName: string;
@@ -144,10 +166,18 @@ export function ExecutiveHome({
   cycleLabel: string;
   insights: AIInsight[];
   updates: StaffUpdate[];
+  /** Every unit and who is in it. Shown whether or not anybody has reported. */
+  roster: Roster;
+  /**
+   * Who was expected to file this week, and who has. The two numbers that
+   * decide which empty state is the true one.
+   */
+  reporting: { expected: number; submitted: number };
   weeklyBrief?: WeeklyBrief | null;
 }) {
   const priority = insights.slice(0, 3);
   const needsAttention = insights.filter((i) => i.severity !== "normal").length;
+  const nothingYet = reporting.submitted === 0;
 
   return (
     <div className="mx-auto flex max-w-[1400px] flex-col gap-4 pb-2">
@@ -226,8 +256,11 @@ export function ExecutiveHome({
           </div>
 
           {updates.length === 0 ? (
-            <p className="mt-4 text-sm text-secondary">
-              Nothing published yet for {cycleLabel}.
+            /* Says what will fill it, and when. */
+            <p className="mt-4 text-sm leading-relaxed text-secondary">
+              {reporting.expected === 0
+                ? "Nobody has been added to the organisation yet. Once people are invited and start reporting, what they say appears here in their own words."
+                : `Nobody has filed for ${cycleLabel} yet. As each person reports, their update appears here — their own sentence, not a summary of it.`}
             </p>
           ) : (
             <ul className="mt-3 flex flex-col gap-2">
@@ -341,9 +374,19 @@ export function ExecutiveHome({
         </div>
 
         {priority.length === 0 ? (
-          <p className="mt-4 text-sm text-secondary">
-            Nothing needs your attention this week. Every unit reported and no
-            commitment slipped without being declared.
+          /*
+            THREE DIFFERENT SITUATIONS, AND ONLY ONE OF THEM IS GOOD NEWS.
+            The old copy said "every unit reported and no commitment slipped"
+            for all three — including a week nobody had filed for. An empty
+            insight list means the model found nothing IN WHAT IT WAS GIVEN,
+            and on day one it was given nothing.
+          */
+          <p className="mt-4 max-w-2xl text-sm leading-relaxed text-secondary">
+            {reporting.expected === 0
+              ? "Nobody has been added to the organisation yet. When people are invited and start reporting, NEXUS reads every check-in and what needs a decision from you appears here — what is blocked between units, what keeps carrying over, and who needs support."
+              : nothingYet
+                ? `Nobody has reported for ${cycleLabel} yet, so there is nothing to read. As check-ins arrive, NEXUS flags what is blocked between units, what has carried without explanation, and who needs support.`
+                : `${reporting.submitted} of ${reporting.expected} reported for ${cycleLabel}, and nothing came back blocked across units, carried without explanation, or dropped without being declared.`}
           </p>
         ) : (
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -407,7 +450,12 @@ export function ExecutiveHome({
         )}
       </GlassCard>
 
-      {/* ---- 4: where to go --------------------------------------------- */}
+      {/* ---- 4: the shape of the organisation --------------------------- */}
+      <GlassCard level={2} className="p-5">
+        <UnitRoster roster={roster} dense />
+      </GlassCard>
+
+      {/* ---- 5: where to go --------------------------------------------- */}
       <GlassCard level={2} className="p-5">
         <h2 className="text-base font-medium tracking-tight">Executive Shortcuts</h2>
 
