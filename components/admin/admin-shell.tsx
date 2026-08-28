@@ -101,4 +101,14 @@ export const ADMIN_PAGES = [
     blurb: "What NEXUS is connected to",
   },
   { href: "/admin/audit", label: "Audit log", blurb: "Who changed what, and when" },
+  /*
+   * Last, and it is the only entry here that destroys anything. Every
+   * other page in Administration configures; this one removes an
+   * organisation and everything under it.
+   */
+  {
+    href: "/admin/organizations",
+    label: "Organizations",
+    blurb: "Every organisation here, and how to delete one",
+  },
 ];

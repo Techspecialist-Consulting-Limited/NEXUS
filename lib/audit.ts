@@ -28,7 +28,13 @@ export type AuditAction =
   | "department.created"
   | "department.renamed"
   | "department.archived"
-  | "department.lead_assigned";
+  | "department.lead_assigned"
+  /*
+   * The only irreversible one. Recorded in the CALLER's organisation,
+   * because the target's audit log is inside the cascade that is about to
+   * remove it — see app/api/admin/organizations/route.ts.
+   */
+  | "organization.deleted";
 
 export type AuditEvent = {
   id: string;
