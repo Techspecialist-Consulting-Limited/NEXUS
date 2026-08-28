@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { startSession } from "./voice-session";
+import type { Session, SpeechRecognitionCtor } from "./voice-session";
 
 /*
  * Dictation, via the browser's own speech recognition.
@@ -8,6 +10,13 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
  * GUIDE Corrective Brief: "Start with browser speech recognition where
  * available for prototype speed. Provide a fallback text composer if voice is
  * unavailable. Never auto-send voice output without review."
+ *
+ * This file is the React half: capability, state, and the four callbacks a
+ * session reports through. The session itself — restarts, tolerated errors,
+ * the recogniser's own quirks — lives in lib/voice-session.ts, which has no
+ * React in it and is covered by tests/voice-session.test.ts. Everything that
+ * was ever wrong with dictation was in that half, and none of it could be
+ * tested while it lived in here.
  *
  * Two things worth knowing before relying on this.
  *
@@ -23,35 +32,6 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
  * dictated, so a disputed quote can be understood as a transcription error
  * rather than an accusation of lying.
  */
-
-// The prefixed constructor is absent from lib.dom, and the unprefixed one is
-// only present in newer typings. Declared narrowly rather than pulling in a
-// dependency for two call sites.
-type SpeechRecognitionAlternativeLike = { transcript: string };
-type SpeechRecognitionResultLike = {
-  isFinal: boolean;
-  0: SpeechRecognitionAlternativeLike;
-  length: number;
-};
-type SpeechRecognitionEventLike = {
-  resultIndex: number;
-  results: {
-    length: number;
-    [index: number]: SpeechRecognitionResultLike;
-  };
-};
-type SpeechRecognitionLike = {
-  lang: string;
-  continuous: boolean;
-  interimResults: boolean;
-  start(): void;
-  stop(): void;
-  abort(): void;
-  onresult: ((e: SpeechRecognitionEventLike) => void) | null;
-  onerror: ((e: { error?: string }) => void) | null;
-  onend: (() => void) | null;
-};
-type SpeechRecognitionCtor = new () => SpeechRecognitionLike;
 
 /*
  * Stable references for useSyncExternalStore.
@@ -102,6 +82,40 @@ function getConstructor(): SpeechRecognitionCtor | null {
  */
 export type Availability = "ready" | "unsupported-browser" | "insecure-context";
 
+/** The sentence to show when dictation cannot run here. Null when it can. */
+export function reasonFor(availability: Availability): string | null {
+  if (availability === "ready") return null;
+  return availability === "insecure-context"
+    ? "Dictation needs a secure page. Open NEXUS on localhost or over https."
+    : "This browser cannot record speech — Chrome or Edge can.";
+}
+
+/**
+ * Can this browser dictate, without setting anything up to find out.
+ *
+ * Split out of useDictation for the surfaces that need to know BEFORE they
+ * offer the button: the check-in chooser used to present "Voice check-in —
+ * speak to NEXUS" on every browser, and on Firefox or Safari pressing it
+ * swapped in a composer that then sat there in silence. A door that opens onto
+ * nothing is worse than a door marked closed.
+ */
+export function useDictationAvailability(): {
+  availability: Availability;
+  supported: boolean;
+  unavailableReason: string | null;
+} {
+  const availability = useSyncExternalStore(
+    NO_SUBSCRIPTION,
+    getClientSnapshot,
+    getServerSnapshot,
+  );
+  return {
+    availability,
+    supported: availability === "ready",
+    unavailableReason: reasonFor(availability),
+  };
+}
+
 export type DictationState = {
   /** Whether this browser can do it at all. */
   supported: boolean;
@@ -113,6 +127,21 @@ export type DictationState = {
   transcript: string;
   /** The current, still-changing guess. Shown greyed so it reads as provisional. */
   interim: string;
+  /**
+   * EVERYTHING SAID SO FAR — settled words plus the guess still in flight.
+   *
+   * This is what to read when harvesting a dictation, and what to show while
+   * one is running. Six call sites were reading `transcript` alone, and every
+   * one of them threw away the last thing the person said: the browser does
+   * not mark a phrase final until it has heard a pause, so pressing Stop
+   * mid-flow dropped the tail. The words were on screen, and then they were
+   * not.
+   *
+   * Reported as one value rather than left to each caller to join, because
+   * "remember to concatenate the interim" is a rule five of six callers
+   * forgot.
+   */
+  spoken: string;
   error: string | null;
   start: () => void;
   stop: () => void;
@@ -126,37 +155,16 @@ export function useDictation(options?: { lang?: string }): DictationState {
    * The server cannot know whether the browser has speech recognition, so this
    * has to differ between the server render and the first client render — and
    * setting state in an effect to bridge that causes a cascading re-render on
-   * every mount. useSyncExternalStore is built for exactly this shape: a
-   * client snapshot, a server snapshot, and no subscription, because a
-   * browser does not grow the API halfway through a session.
+   * every mount. useSyncExternalStore is built for exactly this shape.
    */
-  const availability = useSyncExternalStore(
-    NO_SUBSCRIPTION,
-    getClientSnapshot,
-    getServerSnapshot,
-  );
-  const supported = availability === "ready";
-
-  const unavailableReason =
-    availability === "ready"
-      ? null
-      : availability === "insecure-context"
-        ? "Dictation needs a secure page. Open NEXUS on localhost or over https."
-        : "This browser cannot record speech — Chrome or Edge can.";
+  const { availability, supported, unavailableReason } = useDictationAvailability();
 
   const [listening, setListening] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [interim, setInterim] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const recognition = useRef<SpeechRecognitionLike | null>(null);
-  /*
-   * Whether the user asked to stop, as opposed to the recogniser stopping on
-   * its own. Chrome ends the session after a few seconds of silence, and
-   * somebody mid-thought has not finished talking — so an unrequested end is
-   * restarted rather than treated as "done".
-   */
-  const wantsToListen = useRef(false);
+  const session = useRef<Session | null>(null);
 
   const start = useCallback(() => {
     const Ctor = getConstructor();
@@ -166,68 +174,40 @@ export function useDictation(options?: { lang?: string }): DictationState {
     }
 
     setError(null);
-    wantsToListen.current = true;
+    session.current?.abort();
 
-    const r = new Ctor();
-    r.lang = options?.lang ?? "en-GB";
-    r.continuous = true;
-    r.interimResults = true;
+    session.current = startSession(
+      Ctor,
+      { lang: options?.lang ?? "en-GB" },
+      {
+        onStart: () => {
+          setListening(true);
+          setError(null);
+        },
+        onSettled: (text) =>
+          setTranscript((prev) => (prev ? `${prev} ${text}` : text)),
+        onInterim: setInterim,
+        onFinish: (message) => {
+          setListening(false);
+          setInterim("");
+          if (message) setError(message);
+        },
+      },
+    );
 
-    r.onresult = (event) => {
-      let settled = "";
-      let pending = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const result = event.results[i];
-        const text = result[0]?.transcript ?? "";
-        if (result.isFinal) settled += text;
-        else pending += text;
-      }
-      if (settled) {
-        setTranscript((prev) => (prev ? `${prev} ${settled.trim()}` : settled.trim()));
-      }
-      setInterim(pending);
-    };
-
-    r.onerror = (event) => {
-      const code = event.error ?? "unknown";
-      wantsToListen.current = false;
-      setListening(false);
-      setError(
-        code === "not-allowed" || code === "service-not-allowed"
-          ? "Microphone access was refused. Allow it in your browser, or type instead."
-          : code === "no-speech"
-            ? "Nothing was picked up. Try again, or type instead."
-            : "Speech recognition stopped unexpectedly. Your text is safe — carry on typing.",
-      );
-    };
-
-    r.onend = () => {
-      setInterim("");
-      if (wantsToListen.current) {
-        // Silence timeout, not a decision. Pick the thread back up.
-        try {
-          r.start();
-          return;
-        } catch {
-          // Restart refused; fall through and stop cleanly.
-        }
-      }
-      setListening(false);
-    };
-
-    recognition.current = r;
-    try {
-      r.start();
-      setListening(true);
-    } catch {
-      setError("Could not start the microphone.");
-      setListening(false);
-    }
+    /*
+     * Optimistic, and corrected by onStart above.
+     *
+     * The flag is set here as well because the browser can take a second or
+     * two to decide about permission, and a microphone button that does
+     * nothing visible for two seconds is a button people press again — which
+     * aborts the session they just started.
+     */
+    setListening(true);
   }, [options?.lang]);
 
   const stop = useCallback(() => {
-    wantsToListen.current = false;
-    recognition.current?.stop();
+    session.current?.stop();
     setListening(false);
   }, []);
 
@@ -237,11 +217,11 @@ export function useDictation(options?: { lang?: string }): DictationState {
     setError(null);
   }, []);
 
-  // Never leave a microphone open behind a closed page.
+  // Never leave a microphone open — or a resume pending — behind a closed page.
   useEffect(() => {
     return () => {
-      wantsToListen.current = false;
-      recognition.current?.abort();
+      session.current?.abort();
+      session.current = null;
     };
   }, []);
 
@@ -252,6 +232,7 @@ export function useDictation(options?: { lang?: string }): DictationState {
     listening,
     transcript,
     interim,
+    spoken: [transcript, interim].filter(Boolean).join(" ").trim(),
     error,
     start,
     stop,

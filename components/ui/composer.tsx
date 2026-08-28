@@ -75,6 +75,19 @@ export function Composer({
   function toggle() {
     if (dictation.listening) {
       dictation.stop();
+      /*
+       * FLUSH THE TAIL.
+       *
+       * The effect above commits words as the recogniser marks them final,
+       * which leaves whatever is still interim in the air — and Chrome does
+       * not settle a phrase until it hears a pause, so the last thing said was
+       * dropped every time somebody stopped mid-flow. `spoken` is settled plus
+       * in-flight; see lib/voice.ts.
+       */
+      const said = dictation.spoken.trim();
+      if (said) {
+        onChange([baseline.current.trim(), said].filter(Boolean).join(" "));
+      }
       return;
     }
     baseline.current = value;

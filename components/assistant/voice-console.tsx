@@ -151,7 +151,9 @@ export function VoiceConsole({
    */
   const stopAndAsk = useCallback(() => {
     dictation.stop();
-    const said = dictation.transcript.trim();
+    // spoken, not transcript: the last phrase is usually still interim
+    // when somebody presses Stop. See lib/voice.ts.
+    const said = dictation.spoken.trim();
     if (said) void send(said);
     else setPhase("idle");
   }, [dictation, send]);
@@ -226,7 +228,7 @@ export function VoiceConsole({
 
   const listening = phaseNow === "listening";
   const thinking = phaseNow === "thinking";
-  const live = [dictation.transcript, dictation.interim].filter(Boolean).join(" ");
+  const live = dictation.spoken;
 
   return (
     <div className="flex flex-col gap-6 md:flex-row md:items-center md:gap-8">
@@ -457,9 +459,9 @@ export function VoiceConsole({
           </form>
         </div>
 
-        {(error || dictation.unavailableReason) && (
+        {(error || dictation.error || dictation.unavailableReason) && (
           <p className="mt-2 text-2xs leading-snug text-[var(--color-warning)]">
-            {error ?? dictation.unavailableReason}
+            {error ?? dictation.error ?? dictation.unavailableReason}
           </p>
         )}
       </div>
