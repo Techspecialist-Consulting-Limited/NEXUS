@@ -39,6 +39,19 @@ import type { AIInsight } from "@/lib/insights";
  * Every figure on this screen was counted by SQL upstream. The assistant
  * explains those same numbers rather than producing its own, so the screen and
  * the answer can never disagree.
+ *
+ * ON THE CONTRAST OF THIS PAGE.
+ *
+ * The structure below is unchanged; the values it is painted in are not. This
+ * screen had drifted to the bottom of the ink range — 11px metadata at white
+ * 55%, timestamps at white 30%, severity washes at 10% alpha and card borders
+ * at 8% — and read as a grey page with a few coloured dots on it.
+ *
+ * globals.css [FIX 1] already records the arithmetic: white/30 over #070A15
+ * measures about 2.6:1 and fails GUIDE §17 outright. The offenders were
+ * decoration in some places and load-bearing information in others, and the
+ * ones carrying information have been raised until they clear 4.5:1. Nothing
+ * moved, nothing was added, nothing was taken away.
  */
 
 /*
@@ -50,10 +63,16 @@ import type { AIInsight } from "@/lib/insights";
  * urgent"; type answers "what am I looking at", and they are not the same
  * question.
  */
+/*
+ * The wash was 10% on all three, which over the void is very nearly nothing:
+ * three findings of three different severities arrived as three grey cards.
+ * Severity is the only thing that orders this band, so it has to be visible
+ * before the words are read.
+ */
 const TONE = {
-  critical: { ring: "var(--color-critical)", wash: "rgba(242,120,159,0.10)" },
-  warning: { ring: "var(--color-warning)", wash: "rgba(245,185,66,0.10)" },
-  normal: { ring: "var(--color-healthy)", wash: "rgba(72,201,169,0.10)" },
+  critical: { ring: "var(--color-critical)", wash: "rgba(242,120,159,0.15)" },
+  warning: { ring: "var(--color-warning)", wash: "rgba(245,185,66,0.15)" },
+  normal: { ring: "var(--color-healthy)", wash: "rgba(72,201,169,0.13)" },
 } as const;
 
 const TYPE_ICON = {
@@ -171,7 +190,7 @@ export function ExecutiveHome({
               </h1>
               <p className="metric hidden shrink-0 text-xs text-tertiary md:block">{today}</p>
             </div>
-            <p className="mt-1 text-sm text-secondary">
+            <p className="mt-1 text-[15px] text-secondary">
               Your organisation at a glance — settled through {cycleLabel}.
             </p>
 
@@ -199,15 +218,15 @@ export function ExecutiveHome({
                 without pushing the label off the card's optical edge. A 16px
                 link is a link nobody can hit on a phone.
               */
-              className="-mr-2 inline-flex min-h-11 shrink-0 items-center gap-1 px-2 text-xs
+              className="-mr-2 inline-flex min-h-11 shrink-0 items-center gap-1 px-2 text-sm
                          text-[var(--dept-techspecialist)] transition-opacity hover:opacity-80"
             >
-              View all <ArrowRight size={12} aria-hidden="true" />
+              View all <ArrowRight size={14} aria-hidden="true" />
             </Link>
           </div>
 
           {updates.length === 0 ? (
-            <p className="mt-4 text-sm text-tertiary">
+            <p className="mt-4 text-sm text-secondary">
               Nothing published yet for {cycleLabel}.
             </p>
           ) : (
@@ -227,8 +246,8 @@ export function ExecutiveHome({
                   <Link
                     href={`/people/${u.profile_id}`}
                     aria-label={`Open ${u.full_name}'s week`}
-                    className="block rounded-lg border border-white/[0.08] bg-white/[0.03] p-3
-                               transition-colors hover:border-white/[0.16] hover:bg-white/[0.06]
+                    className="block rounded-lg border border-white/[0.13] bg-white/[0.05] p-3
+                               transition-colors hover:border-white/[0.22] hover:bg-white/[0.09]
                                focus-visible:outline focus-visible:outline-2 focus-visible:outline-white/40"
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -238,12 +257,22 @@ export function ExecutiveHome({
                           <p className="truncate text-sm font-medium leading-tight text-white/90">
                             {u.full_name}
                           </p>
-                          <p className="truncate text-2xs text-tertiary">
+                          {/*
+                            12px, not 11px, and secondary rather than tertiary.
+                            Which unit somebody belongs to is how a Chairman
+                            reads this list at all.
+                          */}
+                          <p className="truncate text-xs text-secondary">
                             {u.department_name ?? "Unassigned"}
                           </p>
                         </div>
                       </div>
-                      <span className="metric shrink-0 pt-0.5 text-2xs text-white/30">
+                      {/*
+                        white/30 measures about 2.6:1 over the void — see
+                        globals.css [FIX 1], which raised the tertiary token
+                        for exactly this reason and left the literals behind.
+                      */}
+                      <span className="metric shrink-0 pt-0.5 text-2xs text-white/55">
                         {ago(u.at)}
                       </span>
                     </div>
@@ -264,7 +293,8 @@ export function ExecutiveHome({
                         paraphrase: this reads as "what Sarah said", and it has
                         to actually be that.
                       */}
-                      <p className="min-w-0 text-sm leading-snug text-white/70">
+                      {/* What the person actually said. The content of the row. */}
+                      <p className="min-w-0 text-sm leading-snug text-white/85">
                         {u.source_quote ?? u.title}
                       </p>
                     </div>
@@ -290,24 +320,28 @@ export function ExecutiveHome({
               Plain text. It was an outlined pill, which gave a COUNT the same
               visual weight as the three findings below that actually need
               acting on — and the cards already say how many there are.
+
+              Amber and 12px, though, rather than an 11px grey note. It is a
+              count of things waiting on the reader; the palette should agree
+              with the words.
             */}
             {needsAttention > 0 && (
-              <span className="note">
+              <span className="text-xs font-medium text-[var(--color-warning)]">
                 {needsAttention} {needsAttention === 1 ? "needs" : "need"} your attention
               </span>
             )}
           </div>
           <Link
             href="/advice"
-            className="-mr-2 inline-flex min-h-11 items-center gap-1 px-2 text-xs
+            className="-mr-2 inline-flex min-h-11 items-center gap-1 px-2 text-sm
                        text-[var(--dept-techspecialist)] transition-opacity hover:opacity-80"
           >
-            View full report <ArrowRight size={12} aria-hidden="true" />
+            View full report <ArrowRight size={14} aria-hidden="true" />
           </Link>
         </div>
 
         {priority.length === 0 ? (
-          <p className="mt-4 text-sm text-tertiary">
+          <p className="mt-4 text-sm text-secondary">
             Nothing needs your attention this week. Every unit reported and no
             commitment slipped without being declared.
           </p>
@@ -328,7 +362,7 @@ export function ExecutiveHome({
                     className="group flex h-full items-start gap-3 rounded-xl border p-4
                                transition-colors"
                     style={{
-                      borderColor: `color-mix(in oklab, ${tone.ring} 26%, transparent)`,
+                      borderColor: `color-mix(in oklab, ${tone.ring} 45%, transparent)`,
                       background: tone.wash,
                     }}
                   >
@@ -336,7 +370,7 @@ export function ExecutiveHome({
                       aria-hidden="true"
                       className="grid size-10 shrink-0 place-items-center rounded-full"
                       style={{
-                        background: `color-mix(in oklab, ${tone.ring} 18%, transparent)`,
+                        background: `color-mix(in oklab, ${tone.ring} 26%, transparent)`,
                         color: tone.ring,
                       }}
                     >
@@ -347,7 +381,12 @@ export function ExecutiveHome({
                       <p className="text-sm font-medium leading-snug text-white/90">
                         {insight.title}
                       </p>
-                      <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-tertiary">
+                      {/*
+                        The action, at white/78 rather than the tertiary 55%.
+                        It is the half of a finding that says what to do about
+                        it, and it was the faintest text on the card.
+                      */}
+                      <p className="mt-1 line-clamp-2 text-[13px] leading-relaxed text-white/78">
                         {insight.recommendedAction}
                       </p>
                     </div>
@@ -355,8 +394,8 @@ export function ExecutiveHome({
                     <span
                       aria-hidden="true"
                       className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-full
-                                 border border-white/[0.10] bg-white/[0.04] text-white/50
-                                 transition-colors group-hover:text-white/90"
+                                 border border-white/[0.16] bg-white/[0.06] text-white/75
+                                 transition-colors group-hover:text-white/95"
                     >
                       <ArrowRight size={14} />
                     </span>
@@ -377,26 +416,26 @@ export function ExecutiveHome({
             <Link
               key={title}
               href={href}
-              className="group flex items-center gap-3 rounded-xl border border-white/[0.08]
-                         bg-white/[0.03] p-4 transition-colors hover:border-white/[0.16]
-                         hover:bg-white/[0.06]"
+              className="group flex items-center gap-3 rounded-xl border border-white/[0.13]
+                         bg-white/[0.05] p-4 transition-colors hover:border-white/[0.22]
+                         hover:bg-white/[0.09]"
             >
               <span
                 aria-hidden="true"
                 className="grid size-11 shrink-0 place-items-center rounded-xl
-                           bg-[var(--dept-techspecialist)]/12 text-[var(--dept-techspecialist)]"
+                           bg-[var(--dept-techspecialist)]/20 text-[var(--dept-techspecialist)]"
               >
                 <Icon size={19} />
               </span>
               <div className="min-w-0 flex-1">
                 {/* Wraps rather than truncates: "Department Overvi…" is not a label. */}
                 <p className="text-sm font-medium leading-snug text-white/90">{title}</p>
-                <p className="mt-0.5 truncate text-xs text-tertiary">{blurb}</p>
+                <p className="mt-0.5 truncate text-xs text-secondary">{blurb}</p>
               </div>
               <ArrowRight
                 size={15}
                 aria-hidden="true"
-                className="shrink-0 text-white/25 transition-colors group-hover:text-white/70"
+                className="shrink-0 text-white/45 transition-colors group-hover:text-white/85"
               />
             </Link>
           ))}
