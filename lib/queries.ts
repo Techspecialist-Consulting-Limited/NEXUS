@@ -83,6 +83,40 @@ export async function recentCycles(actor: string, limit = 8): Promise<Cycle[]> {
   });
 }
 
+/**
+ * The week we are actually in, for this person's organisation.
+ *
+ * WHY `recentCycles` COULD NOT ANSWER THIS. It excludes the current week on
+ * purpose — `starts_on < date_trunc('week', current_date)` — because it exists
+ * for the executive view, where the interesting week is the most recent SETTLED
+ * one. Correct there, and wrong as a fallback anywhere a person is looking at
+ * their own week: on Friday 28 August it answered "17–23 August", a week that
+ * had ended five days earlier.
+ *
+ * Which week it is, is a calendar fact. It does not depend on whether the
+ * rhythm has opened a check-in, whether anybody has reported, or whether the
+ * week has settled — and a page that reports a different one is wrong in the
+ * way people notice first.
+ *
+ * Null only when the organisation has no cycle covering today, which means the
+ * calendar has run out and is worth falling back from rather than inventing.
+ */
+export async function currentCycle(actor: string): Promise<Cycle | null> {
+  const rows = await asActor(
+    actor,
+    (sql) => sql<Cycle>`
+      select cy.id, cy.label, cy.starts_on, cy.ends_on, cy.seq
+      from cycles cy
+      where cy.kind = 'week'
+        and cy.org_id = (select org_id from profiles where id = ${actor})
+        and cy.starts_on <= current_date
+        and cy.ends_on   >= current_date
+      limit 1
+    `,
+  );
+  return rows[0] ?? null;
+}
+
 // ---------------------------------------------------------------------------
 // Executive view
 // ---------------------------------------------------------------------------
@@ -163,6 +197,90 @@ export async function departmentHealth(
       order by delivery_rate nulls last
     `,
   );
+}
+
+export type UnitMember = {
+  id: string;
+  full_name: string;
+  role: string;
+  title: string | null;
+};
+
+export type Unit = {
+  department_id: string;
+  name: string;
+  color: string;
+  lead_name: string | null;
+  members: UnitMember[];
+};
+
+export type UnitRoster = {
+  units: Unit[];
+  /** People in the organisation who are in no unit at all. */
+  unassigned: UnitMember[];
+};
+
+/**
+ * The organisation's shape: every unit, and who is in it.
+ *
+ * NO CYCLE. `departmentHealth` is the other question — how each unit is
+ * doing — and it can only be answered for a week that has settled. So on a
+ * new organisation the Units page said "No settled weeks yet" and showed
+ * nothing at all: the Chairman could not see the units he had just created,
+ * or that nobody had been put in them.
+ *
+ * Whether a unit is reporting and whether a unit exists are different facts,
+ * and the second one is true from the moment it is created.
+ *
+ * Archived units are excluded; inactive people are not counted. Read through
+ * asActor, so this returns exactly what row-level security already allows.
+ */
+export async function unitRoster(actor: string): Promise<UnitRoster> {
+  const [units, unassigned] = await Promise.all([
+    asActor(
+      actor,
+      (sql) => sql<Unit>`
+        select d.id as department_id,
+               d.name,
+               d.color,
+               lead.full_name as lead_name,
+               coalesce(
+                 jsonb_agg(
+                   jsonb_build_object(
+                     'id', p.id,
+                     'full_name', p.full_name,
+                     'role', p.role::text,
+                     'title', p.title
+                   )
+                   order by p.full_name
+                 ) filter (where p.id is not null),
+                 '[]'::jsonb
+               ) as members
+        from departments d
+        left join profiles lead on lead.id = d.lead_id
+        left join profiles p
+               on p.department_id = d.id
+              and p.status = 'active'
+        where d.org_id = (select org_id from profiles where id = ${actor})
+          and d.archived_at is null
+        group by d.id, d.name, d.color, lead.full_name
+        order by d.name
+      `,
+    ),
+    asActor(
+      actor,
+      (sql) => sql<UnitMember>`
+        select p.id, p.full_name, p.role::text as role, p.title
+        from profiles p
+        where p.org_id = (select org_id from profiles where id = ${actor})
+          and p.status = 'active'
+          and p.department_id is null
+        order by p.full_name
+      `,
+    ),
+  ]);
+
+  return { units, unassigned };
 }
 
 export type BlockingEdge = {
@@ -493,6 +611,41 @@ export async function reconciliationFor(
   return rows[0] ?? null;
 }
 
+/**
+ * The most recent coaching already written for this person.
+ *
+ * READ-ONLY, and deliberately so. `weeklyBrief` will call a model when the
+ * cache is cold; this is rendered by the app shell on EVERY page, and a
+ * sidebar is not a good enough reason to spend 20-30 seconds and a model call.
+ * If nothing has been written yet the sidebar simply has nothing to say, which
+ * is a true statement and the one the card makes.
+ *
+ * Newest settled week first. ai_coaching is written by weeklyBrief and
+ * survives refresh_reconciliation() by design (migration 0004).
+ */
+export async function latestCoaching(
+  actor: string,
+  profileId: string,
+): Promise<{ title: string; body: string; based_on: string }[]> {
+  const rows = await asActor(
+    actor,
+    (sql) => sql<{ ai_coaching: { title: string; body: string; based_on: string }[] | null }>`
+      select r.ai_coaching
+      from reconciliations r
+      join cycles cy on cy.id = r.cycle_id
+      where r.profile_id = ${profileId}
+        -- typeof before length: jsonb_array_length raises on a non-array, and
+        -- this query runs inside the app shell, where a raise is every page.
+        and jsonb_typeof(r.ai_coaching) = 'array'
+        and jsonb_array_length(r.ai_coaching) > 0
+      order by cy.starts_on desc
+      limit 1
+    `,
+  );
+  const found = rows[0]?.ai_coaching;
+  return Array.isArray(found) ? found : [];
+}
+
 export type CommitmentRow = {
   id: string;
   title: string;
@@ -787,6 +940,19 @@ export async function recentStaffUpdates(
        * repeatedly tells an executive nothing about the organisation, and
        * looks broken even when it is not.
        */
+      /*
+       * THE UNIT UNDER A NAME IS THAT PERSON'S UNIT.
+       *
+       * This joined commitments.department_id — which unit the WORK was
+       * categorised into, written by the extractor and null whenever it could
+       * not tell. The label sits directly beneath somebody's name, so the
+       * Chairman read "Suleman Olalomi / Unassigned" and concluded Suleman
+       * belonged to no unit. He did: the commitment did not.
+       *
+       * Two different facts had the same column name in two different tables,
+       * and the screen was showing the wrong one. profiles.department_id is
+       * who somebody is; commitments.department_id is what the work is about.
+       */
       select * from (
         select distinct on (c.profile_id)
                c.profile_id,
@@ -799,7 +965,7 @@ export async function recentStaffUpdates(
                greatest(c.updated_at, c.created_at) as at
         from commitments c
         join profiles p on p.id = c.profile_id
-        left join departments d on d.id = c.department_id
+        left join departments d on d.id = p.department_id
         where c.deleted_at is null
           and p.status = 'active'
           and (c.target_cycle_id = ${cycleId} or c.created_cycle_id = ${cycleId})
