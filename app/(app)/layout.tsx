@@ -4,10 +4,12 @@ import { Settings2 } from "lucide-react";
 import { BottomNav, SideNav } from "@/components/layout/app-nav";
 import { PersonaSwitcher } from "@/components/layout/persona-switcher";
 import { AccountMenu } from "@/components/layout/account-menu";
+import { CoachingRailCard } from "@/components/myweek/coaching-rail-card";
 import { requireViewer, demoPersonas } from "@/lib/session";
 import { assertProviderIsSafe, authMode, ROLE_LABEL } from "@/lib/auth";
 import { launcherFor, tabsFor } from "@/lib/nav";
-import { hasAdministration } from "@/lib/capabilities";
+import { hasAdministration, hasPersonalWorkspace } from "@/lib/capabilities";
+import { latestCoaching } from "@/lib/queries";
 
 /*
  * The authenticated shell.
@@ -38,6 +40,20 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     <AccountMenu name={membership.fullName} email={identity.email} />
   );
 
+  /*
+   * Coaching moved out of My Week and into the rail, so it is read here.
+   *
+   * Only for people who have a week — the Chairman consumes digests and files
+   * nothing, and coaching about a week he does not report is coaching about
+   * nothing. `latestCoaching` reads the cache and never calls a model: this
+   * runs on every page in the product.
+   */
+  const actor = membership.profileId; // what currentActorId() resolves to.
+  const coaching = hasPersonalWorkspace(membership.role)
+    ? await latestCoaching(actor, membership.profileId)
+    : [];
+  const tip = coaching[1] ?? coaching[0] ?? null;
+
   return (
     <div className="relative flex min-h-dvh">
       <a href="#main" className="skip-link text-sm">
@@ -48,6 +64,14 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         tabs={tabs}
         orgName={membership.orgName}
         roleLabel={ROLE_LABEL[membership.role]}
+        aside={
+          hasPersonalWorkspace(membership.role) ? (
+            <CoachingRailCard
+              title={tip?.title ?? null}
+              body={tip?.body ?? null}
+            />
+          ) : null
+        }
         footer={account}
       />
 

@@ -240,11 +240,21 @@ export function SideNav({
   tabs,
   orgName,
   roleLabel,
+  aside,
   footer,
 }: {
   tabs: Tab[];
   orgName: string;
   roleLabel: string;
+  /*
+   * One personal thing at the foot of the rail, above the account.
+   *
+   * Coaching lives here now — see components/myweek/coaching-rail-card.tsx.
+   * It is a slot rather than the card itself so the nav keeps knowing only
+   * about navigation: it is a client component, and the card needs a
+   * server-side read.
+   */
+  aside?: React.ReactNode;
   footer: React.ReactNode;
 }) {
   const isActive = useActive();
@@ -334,6 +344,8 @@ export function SideNav({
           </section>
         ))}
       </div>
+
+      {aside}
 
       <div className="border-t border-white/[0.07] p-2 lg:p-3">{footer}</div>
     </nav>

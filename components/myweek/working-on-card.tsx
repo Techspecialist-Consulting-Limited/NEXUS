@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, RefreshCw } from "lucide-react";
+import { ArrowRight, ChevronRight, RefreshCw } from "lucide-react";
 import type { LiveCommitment } from "@/lib/queries";
 import { statusBadge } from "@/lib/design-tokens";
 import { weekLabel } from "@/lib/cycle";
@@ -22,6 +22,12 @@ import { weekLabel } from "@/lib/cycle";
  * So the list scrolls instead — bounded by the card on desktop and by a height
  * on mobile, where the page is not viewport-locked. The whole set is there, in
  * order, and the header says how many there are.
+ *
+ * EVERY ROW IS A LINK. It reads as a list of things you are doing and it was
+ * inert: five commitments, a status apiece, and no way to ask about any one of
+ * them. Each row now goes to /commitments?task=<id>, which is the Tasks page
+ * with that commitment's detail open — the same panel a row on that page
+ * opens, reached by an address rather than by finding it again in a list.
  */
 
 export function WorkingOnCard({
@@ -107,48 +113,63 @@ export function WorkingOnCard({
             {commitments.map((c) => {
               const s = statusBadge(c.status);
               return (
-                <li
-                  key={c.id}
-                  className="flex items-center gap-3 rounded-xl border border-white/[0.07] bg-white/[0.02] px-3.5 py-2.5"
-                >
-                  <span
-                    aria-hidden="true"
-                    className="size-2.5 shrink-0 rounded-full"
-                    style={{ background: s.tone }}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[15px] leading-snug text-white/90">
-                      {c.title}
-                    </p>
-                    <p className="truncate text-xs text-[var(--nx-text-muted)]">
-                      {s.label}
-                      {/*
-                        Which week this was promised for, but only when it is
-                        not the current one. A commitment carried from three
-                        weeks ago is a different fact from one made for today,
-                        and a list that flattens the two makes a week look
-                        fuller than it is. Saying it on every row would be
-                        noise; saying it on the ones that need it is the point.
-                      */}
-                      {!c.is_current_week && ` · from ${weekLabel(c.target_label)}`}
-                    </p>
-                  </div>
-                  {/*
-                    Renewed rather than finished. Counted from the weeks this
-                    same promise has been open — see `liveCommitments`, which
-                    cannot use carried_from_commitment_id because nothing in
-                    the application has ever written to it.
-                  */}
-                  {c.carry_weeks > 1 && (
+                <li key={c.id}>
+                  <Link
+                    href={`/commitments?task=${encodeURIComponent(c.id)}`}
+                    aria-label={`${c.title} — ${s.label}`}
+                    className="nx-focus-ring group flex items-center gap-3 rounded-xl border border-white/[0.07]
+                               bg-white/[0.02] px-3.5 py-2.5 transition-colors
+                               hover:border-white/[0.14] hover:bg-white/[0.05]"
+                  >
                     <span
-                      title={`Open for ${c.carry_weeks} weeks`}
-                      className="shrink-0 whitespace-nowrap rounded-md bg-[var(--nx-warning)]/12 px-2 py-1
-                                 text-2xs font-medium text-[var(--nx-warning)]"
-                    >
-                      <RefreshCw size={11} className="mr-1 inline align-[-1px]" aria-hidden="true" />
-                      {c.carry_weeks}w
-                    </span>
-                  )}
+                      aria-hidden="true"
+                      className="size-2.5 shrink-0 rounded-full"
+                      style={{ background: s.tone }}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[15px] leading-snug text-white/90">
+                        {c.title}
+                      </p>
+                      <p className="truncate text-xs text-[var(--nx-text-muted)]">
+                        {s.label}
+                        {/*
+                          Which week this was promised for, but only when it is
+                          not the current one. A commitment carried from three
+                          weeks ago is a different fact from one made for today,
+                          and a list that flattens the two makes a week look
+                          fuller than it is. Saying it on every row would be
+                          noise; saying it on the ones that need it is the point.
+                        */}
+                        {!c.is_current_week && ` · for ${weekLabel(c.target_label)}`}
+                      </p>
+                    </div>
+                    {/*
+                      Renewed rather than finished. Counted from the weeks this
+                      same promise has been open — see `liveCommitments`, which
+                      cannot use carried_from_commitment_id because nothing in
+                      the application has ever written to it.
+                    */}
+                    {c.carry_weeks > 1 && (
+                      <span
+                        title={`Open for ${c.carry_weeks} weeks`}
+                        className="shrink-0 whitespace-nowrap rounded-md bg-[var(--nx-warning)]/12 px-2 py-1
+                                   text-2xs font-medium text-[var(--nx-warning)]"
+                      >
+                        <RefreshCw size={11} className="mr-1 inline align-[-1px]" aria-hidden="true" />
+                        {c.carry_weeks}w
+                      </span>
+                    )}
+                    {/*
+                      The affordance, not decoration: without it the rows look
+                      exactly as inert as they used to be.
+                    */}
+                    <ChevronRight
+                      size={15}
+                      aria-hidden="true"
+                      className="shrink-0 text-[var(--nx-text-muted)] transition-transform duration-150
+                                 group-hover:translate-x-0.5 group-hover:text-[var(--nx-text-secondary)]"
+                    />
+                  </Link>
                 </li>
               );
             })}

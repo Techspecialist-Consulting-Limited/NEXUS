@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Bell, ChevronDown } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { Alert } from "@/lib/alerts";
 import type { Cycle, CommitmentRow, Person } from "@/lib/queries";
 import { weekLabel } from "@/lib/cycle";
+import { AlertBell } from "@/components/layout/alert-bell";
 import { CurrentWeekList } from "@/components/tasks/current-week-list";
 import { NeedsAttention } from "@/components/tasks/needs-attention";
 import { PreviousWeeks } from "@/components/tasks/previous-weeks";
@@ -33,14 +34,83 @@ const OPEN = new Set(["promised", "in_progress", "partial", "blocked"]);
 export function TasksWorkspace({
   person,
   weeks,
+  currentCycleId,
+  openTaskId,
+  alerts,
 }: {
   person: Person;
   weeks: Week[];
+  /** The week containing today. The card headed "This week" must be this one. */
+  currentCycleId: string | null;
+  /** `?task=` from the URL — the commitment whose detail should be open. */
+  openTaskId: string | null;
+  /** Exactly what /notifications shows, for the bell. See lib/alerts.ts. */
+  alerts: Alert[];
 }) {
-  const [detail, setDetail] = useState<CommitmentRow | null>(null);
+  /*
+   * THE OPEN COMMITMENT LIVES IN THE URL.
+   *
+   * It was local state, which meant a commitment had no address: My Week's
+   * "What you're working on" could list five rows and link to none of them,
+   * because there was nowhere to link TO. Now every row on both pages resolves
+   * to /commitments?task=<id>, and this is the page that answers it.
+   *
+   * Shallow, via the History API — the way Next 16 documents it
+   * (01-getting-started/04-linking-and-navigating.md, "Native History API").
+   * router.replace would re-run this force-dynamic page and refetch six weeks
+   * of commitments to open a panel over data already on screen.
+   */
+  const [taskId, setTaskId] = useState<string | null>(openTaskId);
 
-  const current = weeks[0];
-  const previous = weeks.slice(1);
+  // Back and forward move through opened commitments like any other navigation.
+  useEffect(() => {
+    const onPop = () =>
+      setTaskId(new URLSearchParams(window.location.search).get("task"));
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  /*
+   * Searched across EVERY week handed to this page, not just the ones it
+   * renders. A commitment made this week targets next week under the two-cycle
+   * model, and a link to one must open whether or not its week has a list on
+   * screen.
+   */
+  const detail = useMemo(() => {
+    if (!taskId) return null;
+    for (const w of weeks) {
+      const found = w.commitments.find((c) => c.id === taskId);
+      if (found) return found;
+    }
+    return null;
+  }, [weeks, taskId]);
+
+  const openTask = useCallback((c: CommitmentRow) => {
+    setTaskId(c.id);
+    window.history.pushState(null, "", `?task=${encodeURIComponent(c.id)}`);
+  }, []);
+
+  const closeTask = useCallback(() => {
+    setTaskId(null);
+    window.history.replaceState(null, "", window.location.pathname);
+  }, []);
+
+  /*
+   * By id, not by position.
+   *
+   * `weeks[0]` is the newest week the person has work in, which is only the
+   * current week by coincidence — it was "17 Aug–23 Aug" under a heading
+   * reading THIS WEEK on the 28th. It is also wrong in the other direction:
+   * a check-in filed this week plans NEXT week, so the newest entry can be a
+   * week that has not started.
+   */
+  const current =
+    weeks.find((w) => w.cycle.id === currentCycleId) ?? weeks[0];
+  const previous = weeks.filter(
+    (w) =>
+      w.cycle.id !== current?.cycle.id &&
+      (!current || new Date(w.cycle.starts_on) < new Date(current.cycle.starts_on)),
+  );
   /*
    * Memoised on `current` rather than derived inline. `current?.commitments ?? []`
    * builds a fresh array on every render when there is no current week, which
@@ -104,21 +174,12 @@ export function TasksWorkspace({
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          <button
-            type="button"
-            aria-label="Notifications"
-            className="grid size-11 place-items-center rounded-full border border-white/[0.08] bg-white/[0.04] text-[var(--nx-text-secondary)] transition-colors hover:text-white/90"
-          >
-            <Bell size={18} strokeWidth={1.75} aria-hidden="true" />
-          </button>
+          <AlertBell alerts={alerts} />
 
-          <button
-            type="button"
-            className="hidden min-h-11 items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.04] px-3.5 text-sm text-[var(--nx-text-secondary)] transition-colors hover:text-white/90 sm:inline-flex"
-          >
+          {/* The week, stated. Not a picker — see my-week-workspace.tsx. */}
+          <span className="hidden min-h-11 items-center rounded-full border border-white/[0.08] bg-white/[0.04] px-3.5 text-sm text-[var(--nx-text-secondary)] sm:inline-flex">
             {current ? weekLabel(current.cycle.label) : "No week yet"}
-            <ChevronDown size={14} aria-hidden="true" />
-          </button>
+          </span>
 
           <span
             title={person.full_name}
@@ -138,23 +199,23 @@ export function TasksWorkspace({
         <CurrentWeekList
           label={current?.cycle.label ?? ""}
           commitments={currentCommitments}
-          onOpen={setDetail}
+          onOpen={openTask}
         />
 
         <NeedsAttention
           blocked={blockedCurrent}
-          onOpen={setDetail}
+          onOpen={openTask}
           onViewAll={scrollToBlocked}
         />
       </div>
 
       {/* ---- Previous weeks ------------------------------------------- */}
-      <PreviousWeeks weeks={previous} onOpenCommitment={setDetail} />
+      <PreviousWeeks weeks={previous} onOpenCommitment={openTask} />
 
       <TaskDetailsDialog
         commitment={detail}
         open={Boolean(detail)}
-        onClose={() => setDetail(null)}
+        onClose={closeTask}
       />
     </div>
   );

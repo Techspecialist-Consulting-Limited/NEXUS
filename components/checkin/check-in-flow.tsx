@@ -222,7 +222,8 @@ export function CheckInFlow({
 
   function stopDictation() {
     dictation.stop();
-    const said = dictation.transcript.trim();
+    // spoken, not transcript — see lib/voice.ts.
+    const said = dictation.spoken.trim();
     if (!said) return;
     if (target.current === "changed") setChanged((v) => (v ? `${v} ${said}` : said));
     else setNextWeek((v) => (v ? `${v} ${said}` : said));
@@ -615,7 +616,7 @@ function MobileWizard(props: {
             <PrimaryButton
               onClick={() => {
                 if (listening) stopDictation();
-                void sort(listening ? [changed, dictation.transcript].filter(Boolean).join(" ") : changed, 3);
+                void sort(listening ? [changed, dictation.spoken].filter(Boolean).join(" ") : changed, 3);
               }}
               disabled={sorting}
               className="flex-1"
@@ -639,7 +640,7 @@ function MobileWizard(props: {
             <PrimaryButton
               onClick={() => {
                 if (listening) stopDictation();
-                void sort(listening ? [nextWeek, dictation.transcript].filter(Boolean).join(" ") : nextWeek, 5);
+                void sort(listening ? [nextWeek, dictation.spoken].filter(Boolean).join(" ") : nextWeek, 5);
               }}
               disabled={sorting}
               className="flex-1"
@@ -1257,7 +1258,7 @@ function Capture({
   onStop: () => void;
   placeholder: string;
 }) {
-  const live = [dictation.transcript, dictation.interim].filter(Boolean).join(" ");
+  const live = dictation.spoken;
 
   return (
     <div className="mt-6">
@@ -1311,8 +1312,21 @@ function Capture({
         />
       </div>
 
-      {dictation.unavailableReason && (
-        <p className="note mt-2">{dictation.unavailableReason}</p>
+      {/*
+        The recogniser's own failure, not only the browser-capability sentence.
+        dictation.error was being dropped here, so a refused or missing
+        microphone stopped the session in silence. See lib/voice.ts.
+      */}
+      {(dictation.error || dictation.unavailableReason) && (
+        <p
+          role="status"
+          className="mt-3 flex items-start gap-1.5 rounded-lg border border-[var(--color-warning)]/25
+                     bg-[var(--color-warning)]/[0.08] px-3 py-2 text-xs leading-relaxed
+                     text-[var(--color-warning)]"
+        >
+          <CircleAlert size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
+          {dictation.error ?? dictation.unavailableReason}
+        </p>
       )}
     </div>
   );
@@ -1338,7 +1352,7 @@ function Composer({
   placeholder: string;
   rows?: number;
 }) {
-  const live = [dictation.transcript, dictation.interim].filter(Boolean).join(" ");
+  const live = dictation.spoken;
 
   return (
     <div

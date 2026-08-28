@@ -3,9 +3,15 @@ import { Sparkles } from "lucide-react";
 /*
  * "NEXUS noticed" — the AI insight that sits directly under the check-in.
  *
- * Premium purple/indigo gradient treatment with a subtle ribbon-like AI visual
- * on the right. The glow and the gradient are meant to read as intelligence and
- * discovery, NOT as a generic notification. Words stay legible on top of it.
+ * The artwork is /images/nexus-notice-bg.png, drawn for this card. It replaces
+ * an inline SVG ribbon that approximated it — same intent, and now the design
+ * is the design rather than a re-drawing of one.
+ *
+ * Held behind a scrim, dimmed, and aria-hidden. Two reasons, and both matter:
+ * the words carry the meaning and rejected-patterns #5 forbids visual polish
+ * implying confidence the data has not earned — and the source file is 173x101,
+ * so at card size it is being enlarged roughly four times. As atmosphere that
+ * softness reads as a wash; as a subject it reads as a blurred picture.
  *
  * WHEN THERE IS NO INSIGHT, THE ROWS SPEAK.
  *
@@ -21,10 +27,24 @@ import { Sparkles } from "lucide-react";
  * and SQL already knows about it.
  */
 
+/*
+ * NO PROVENANCE CHIP HERE.
+ *
+ * This card used to print `based_on` — the model's own field, whose value is a
+ * column name: "promised_count", "protected_count", "carryover_count". It was
+ * rendered raw, so the reader got a database identifier in a rounded box under
+ * a sentence about their week, and it read as debug output that had escaped.
+ *
+ * The intent was right and GUIDE §15 rule 1 still stands: interpretation must
+ * be traceable to a counted figure. But a chip saying "protected_count" traces
+ * nothing for the person reading it — the evidence has to be IN the sentence,
+ * which is exactly what the prompt asks the model for and what the counted
+ * fallback below already does. See design/ai-communication.md.
+ */
+
 export function NexusNoticedCard({
   title,
   body,
-  basedOn,
   hasInsight,
   blockedCount,
   carriedCount,
@@ -34,7 +54,6 @@ export function NexusNoticedCard({
 }: {
   title: string | null;
   body: string | null;
-  basedOn?: string | null;
   /** Whether the model produced anything. Never used to claim a clean week. */
   hasInsight: boolean;
   /** Counted in SQL, not written by a model — see the note above. */
@@ -58,31 +77,19 @@ export function NexusNoticedCard({
       aria-label="NEXUS noticed"
       className="nx-card-gradient-purple relative flex min-h-0 flex-col overflow-hidden rounded-2xl p-5 sm:p-6"
     >
-      {/* subtle ribbon visual — decorative */}
-      <div aria-hidden="true" className="pointer-events-none absolute right-0 top-0 h-full w-40 opacity-60">
-        <svg viewBox="0 0 160 220" fill="none" className="h-full w-full">
-          <path
-            d="M160 0C90 30 40 90 60 160C80 230 150 180 180 140"
-            stroke="url(#nxRibbon)"
-            strokeWidth="18"
-            strokeLinecap="round"
-            opacity="0.20"
-          />
-          <path
-            d="M160 40C100 60 60 110 80 170C100 230 160 190 190 160"
-            stroke="url(#nxRibbon)"
-            strokeWidth="10"
-            strokeLinecap="round"
-            opacity="0.14"
-          />
-          <defs>
-            <linearGradient id="nxRibbon" x1="0" y1="0" x2="160" y2="220" gradientUnits="userSpaceOnUse">
-              <stop stopColor="#A78BFA" />
-              <stop offset="1" stopColor="#8B5CF6" />
-            </linearGradient>
-          </defs>
-        </svg>
-      </div>
+      {/*
+        Decorative only, and covered by a scrim so the copy above it keeps its
+        contrast whatever the artwork is doing underneath.
+      */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 bg-cover bg-center bg-no-repeat opacity-55"
+        style={{ backgroundImage: "url('/images/nexus-notice-bg.png')" }}
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#1B0B3A]/95 via-[#1B0B3A]/78 to-[#1B0B3A]/35"
+      />
 
       <div className="relative z-10 flex min-h-0 flex-1 flex-col">
         <p className="flex items-center gap-2 text-sm font-semibold text-[var(--nx-primary-light)]">
@@ -98,11 +105,6 @@ export function NexusNoticedCard({
             <p className="mt-2 max-w-xl text-[15px] leading-relaxed text-white/80">
               {body}
             </p>
-            {basedOn && (
-              <p className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-white/[0.06] px-3 py-1.5 text-xs text-white/60">
-                {basedOn}
-              </p>
-            )}
           </>
         ) : (
           <>

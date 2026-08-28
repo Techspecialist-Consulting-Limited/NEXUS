@@ -109,7 +109,13 @@ export function InlineCheckIn({
   /** Whether any of it was spoken, so a disputed quote can be read as a mis-hearing. */
   const dictated = useRef(false);
 
+  /*
+   * Derived, not stored. When the recogniser fails mid-session the card must
+   * stop claiming to listen AND get its composer back — an effect that reset
+   * `phase` would render the stuck state once before correcting it.
+   */
   const listening = phase === "listening" && !dictation.error;
+  const phaseNow: Phase = phase === "listening" && dictation.error ? "idle" : phase;
 
   const sort = useCallback(
     async (text: string) => {
@@ -166,7 +172,10 @@ export function InlineCheckIn({
   function press() {
     if (listening) {
       dictation.stop();
-      void sort(dictation.transcript);
+      // spoken, not transcript — see lib/voice.ts. Pressing "stop and
+      // sort" used to discard whatever had not yet been marked final,
+      // which is normally the last thing said.
+      void sort(dictation.spoken);
       return;
     }
     dictated.current = true;
@@ -496,39 +505,11 @@ export function InlineCheckIn({
           : "Say it or type it in plain sentences. NEXUS sorts it out and shows you before anything is filed."}
       </p>
 
-      {/*
-        The two paths, told apart.
-
-        Both file a real check-in, and a person shown both with no explanation
-        cannot tell why there are two. This is the quick one; the link offers the
-        deliberate one, and only when there is enough outstanding for it to be
-        the better answer — an always-visible alternative just reads as doubt
-        about the thing you are standing in.
-      */}
-      {!listening && phase === "idle" && openCount > 2 && (
-        <div className="mt-2">
-          <p className="note">{openCount} commitments still open.</p>
-          {/*
-            A block link, not an inline one. Inline inside a sentence it was a
-            14px tap target — the sweep caught it. The sentence carries the
-            reason; the link carries the target.
-          */}
-          <Link
-            href="/check-in"
-            className="-ml-1 inline-flex min-h-11 items-center gap-1 px-1 text-xs
-                       text-[var(--dept-techspecialist)] transition-opacity hover:opacity-80"
-          >
-            Go through them one at a time
-            <ArrowRight size={12} aria-hidden="true" />
-          </Link>
-        </div>
-      )}
-
       {listening ? (
         <>
           <Waveform live />
           <p className="mt-3 min-h-14 text-sm leading-relaxed text-white/85">
-            {[dictation.transcript, dictation.interim].filter(Boolean).join(" ") || (
+            {dictation.spoken || (
               <span className="text-white/30">…</span>
             )}
           </p>
@@ -543,26 +524,74 @@ export function InlineCheckIn({
         </>
       ) : (
         <>
-          <Waveform />
           {/*
+            NO WAVEFORM HERE. It is drawn live while listening and while
+            sorting, where it carries state somebody can check against what
+            they are hearing. Frozen above a text box it carries none —
+            rejected-patterns #5 asks an ambient element to show "only state
+            that is already stated in words beside it" — and it was costing
+            the input forty pixels in a card that had none to spare.
+
             Typing is not the fallback, it is the other way in. Speech
             recognition is Chromium-only in practice, and plenty of people
             would rather not talk out loud at a desk.
           */}
+          {/*
+            It has to look like something you can type in.
+
+            At 4% fill, a 10% border and a 25% placeholder this read as a faint
+            rectangle rather than a field — and inside a card with a bounded
+            height, `rows={3}` was a fixed request the flex parent squeezed
+            below it, so the example text was clipped mid-sentence and the
+            buttons closed in on top. The strongest signal a check-in surface
+            can send is that there is somewhere to write.
+
+            flex-1 with a floor, so it takes the room the card has instead of
+            asking for three lines and being given less.
+          */}
           <textarea
             value={raw}
             onChange={(e) => setRaw(e.target.value)}
-            rows={3}
             placeholder="Finished the onboarding checklist. Legal is still blocking the vendor contract. Next week I'll start the payments spike…"
             aria-label="Your update"
-            className="mt-3 w-full resize-none rounded-xl border border-white/[0.10]
-                       bg-white/[0.04] px-3.5 py-3 text-sm leading-relaxed text-white/90
-                       placeholder:text-white/25 focus:border-white/25 focus:outline-none"
+            className="mt-3 min-h-[7.5rem] w-full flex-1 resize-none rounded-xl
+                       border border-white/[0.16] bg-white/[0.07] px-3.5 py-3
+                       text-sm leading-relaxed text-white/90
+                       placeholder:text-white/45
+                       focus:border-[var(--nx-primary)]/70 focus:bg-white/[0.09]
+                       focus:outline-none"
           />
         </>
       )}
 
-      <div className="mt-auto flex flex-col gap-2 pt-4 sm:flex-row">
+      {/*
+        The two paths, told apart — and BELOW the thing they are an alternative
+        to.
+
+        This sat between the prompt and the text box, where it pushed the input
+        off the bottom of a height-bounded card and the example text was clipped
+        mid-sentence. An alternative route is not a precondition; it reads
+        correctly after the primary action and costs the input nothing.
+
+        Shown only when there is enough outstanding for the slower path to be
+        the better answer. An always-visible alternative just reads as doubt
+        about the thing you are standing in.
+      */}
+      {!listening && phaseNow === "idle" && openCount > 2 && (
+        <p className="mt-3 flex shrink-0 flex-wrap items-center gap-x-2 text-xs text-tertiary">
+          <span>{openCount} still open.</span>
+          <Link
+            href="/check-in"
+            className="nx-focus-ring -my-2 inline-flex min-h-11 items-center gap-1
+                       text-[var(--nx-primary-light)] transition-opacity hover:opacity-80"
+          >
+            Go through them one at a time
+            <ArrowRight size={12} aria-hidden="true" />
+          </Link>
+        </p>
+      )}
+
+      <div className="mt-auto flex shrink-0 flex-col gap-2 pt-4 sm:flex-row">
         {dictation.supported && (
           <button
             type="button"
@@ -603,10 +632,28 @@ export function InlineCheckIn({
         </button>
       </div>
 
-      {(error || dictation.unavailableReason) && (
-        <p className="mt-2 flex items-start gap-1.5 text-2xs leading-snug text-[var(--color-warning)]">
-          <CircleAlert size={12} className="mt-px shrink-0" aria-hidden="true" />
-          {error ?? dictation.unavailableReason}
+      {/*
+        THE RECOGNISER'S OWN FAILURE IS SHOWN HERE TOO.
+
+        It was not. This rendered the component's error and the
+        browser-capability sentence and dropped dictation.error on the
+        floor, so a refused microphone, a missing microphone and a network
+        failure all looked identical from the outside: the waveform
+        vanished, the composer came back, and nothing said why. "The voice
+        is not working and I do not know why" was this interface working
+        exactly as written.
+
+        Bigger than a 2xs note, as well. A sentence telling somebody why
+        the thing they just pressed did nothing is not a footnote.
+      */}
+      {(error || dictation.error || dictation.unavailableReason) && (
+        <p
+          role="status"
+          className="mt-2 flex shrink-0 items-start gap-1.5 rounded-lg border border-[var(--color-warning)]/25
+                     bg-[var(--color-warning)]/[0.08] px-3 py-2 text-xs leading-relaxed text-[var(--color-warning)]"
+        >
+          <CircleAlert size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
+          {error ?? dictation.error ?? dictation.unavailableReason}
         </p>
       )}
     </div>

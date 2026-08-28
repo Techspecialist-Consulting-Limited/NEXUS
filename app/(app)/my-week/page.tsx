@@ -4,12 +4,14 @@ import { homeFor } from "@/lib/nav";
 import { hasPersonalWorkspace } from "@/lib/capabilities";
 import { asActor } from "@/lib/db";
 import {
+  currentCycle,
   getPerson,
   liveCommitments,
   openCheckInCycle,
   recentCycles,
 } from "@/lib/queries";
 import { weeklyBrief } from "@/lib/coach";
+import { alertsFor } from "@/lib/alerts";
 import { MyWeekWorkspace } from "@/components/myweek/my-week-workspace";
 
 export const dynamic = "force-dynamic";
@@ -50,18 +52,28 @@ export default async function MyWeekPage() {
   }
 
   /*
-   * The week the rhythm opened for them, falling back to the most recent
-   * settled one.
+   * THE WEEK WE ARE IN. Not the last one that settled.
    *
-   * These used to be permanently out of step: recentCycles excludes the
-   * current week, so this page showed LAST week for the whole of this one
-   * while runPrompt opened THIS week. Somebody following "your check-in is
-   * open" filed against a different week than the one they were asked about,
-   * and the compliance figures then answered "did they report?" about a week
-   * they had not been asked to report on.
+   * This asked the rhythm first and fell back to `recentCycles.at(-1)`, which
+   * deliberately excludes the current week because it serves the executive
+   * view. So on Friday 28 August, with no check-in yet opened for the week of
+   * the 24th, the page headed itself "17 Aug–23 Aug" — a week that had ended
+   * five days before — and every card under it answered about that week.
+   *
+   * The order now: the week containing today, then the rhythm's open check-in,
+   * then whatever exists. The first two agree whenever the rhythm has run, and
+   * when they disagree the calendar is the one a person can verify by looking
+   * out of the window.
+   *
+   * `open` is still read, because "your check-in is open" is a different fact
+   * from "this is the current week" and the card says so.
    */
-  const cycles = await recentCycles(actor);
-  const week = (await openCheckInCycle(actor, me.id)) ?? cycles.at(-1);
+  const [cycles, current, open] = await Promise.all([
+    recentCycles(actor),
+    currentCycle(actor),
+    openCheckInCycle(actor, me.id),
+  ]);
+  const week = current ?? open ?? cycles.at(-1);
 
   if (!week) {
     return (
@@ -71,7 +83,7 @@ export default async function MyWeekPage() {
     );
   }
 
-  const [brief, live, checkIn] = await Promise.all([
+  const [brief, live, checkIn, feed] = await Promise.all([
     weeklyBrief(actor, me.id, week.id, me.full_name, week.label),
     /*
      * What they are working on RIGHT NOW, which is a different question from
@@ -99,6 +111,15 @@ export default async function MyWeekPage() {
         order by responded_at desc limit 1
       `,
     ),
+    /*
+     * What the bell in the header shows — the SAME list /notifications builds,
+     * from lib/alerts.ts, so the two cannot disagree about what is waiting.
+     *
+     * It calls weeklyBrief for its own week, which is already cached by the
+     * time this resolves in the common case; both are in one Promise.all so
+     * the second is never a serial wait on the first.
+     */
+    alertsFor(actor, me),
   ]);
 
   return (
@@ -109,6 +130,7 @@ export default async function MyWeekPage() {
       live={live}
       coaching={brief.coaching}
       reportedAt={checkIn[0]?.responded_at ?? null}
+      alerts={feed.alerts}
     />
   );
 }

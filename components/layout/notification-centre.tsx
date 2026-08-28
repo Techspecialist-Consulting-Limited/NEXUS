@@ -6,7 +6,7 @@ import { BellOff, ChevronRight } from "lucide-react";
 import { GlassCard } from "@/components/ui/glass-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { staggerContainer, staggerItem } from "@/lib/motion-tokens";
-import type { Alert } from "@/app/(app)/notifications/page";
+import type { Alert } from "@/lib/alerts";
 
 /*
  * GUIDE "Notification And Digest Rules".

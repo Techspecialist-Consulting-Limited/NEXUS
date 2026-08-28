@@ -1,8 +1,9 @@
 "use client";
 
-import { Bell, ChevronDown } from "lucide-react";
+import type { Alert } from "@/lib/alerts";
 import type { LiveCommitment, Person } from "@/lib/queries";
 import { weekLabel } from "@/lib/cycle";
+import { AlertBell } from "@/components/layout/alert-bell";
 import { CheckInCard } from "@/components/myweek/check-in-card";
 import { NexusNoticedCard } from "@/components/myweek/nexus-noticed-card";
 import { WorkingOnCard } from "@/components/myweek/working-on-card";
@@ -13,25 +14,40 @@ import { CoachingHighlightCard } from "@/components/myweek/coaching-highlight-ca
  *
  * INFORMATION ARCHITECTURE (desktop):
  *
- *   ┌────────────────────────────┬──────────────────────┐
- *   │  Good morning, Chidi 👋    │  Bell  Week  User    │
- *   │  Here's what's happening…  │                      │
- *   ├────────────────────────────┼──────────────────────┤
- *   │  HOW WOULD YOU LIKE TO     │   NEXUS NOTICED      │
- *   │  CHECK-IN?                 │   (AI insight)       │
- *   │  [ Voice ]  [ Type ]       │                      │
- *   ├────────────────────────────┼──────────────────────┤
- *   │  WHAT YOU'RE WORKING ON    │  COACHING HIGHLIGHT  │
- *   │  task rows                 │  (personalised tip)  │
- *   └────────────────────────────┴──────────────────────┘
+ *   +----------------------------+----------------------+
+ *   |  Good morning, Chidi       |  Bell  Week  User    |
+ *   |  Here's what's happening.  |                      |
+ *   +----------------------------+----------------------+
+ *   |  HOW WOULD YOU LIKE TO     |  WHAT YOU'RE         |
+ *   |  CHECK-IN?                 |  WORKING ON          |
+ *   |                            |  task rows           |
+ *   |  the whole left column,    +----------------------+
+ *   |  top to bottom             |  NEXUS NOTICED       |
+ *   |                            |  (AI insight)        |
+ *   +----------------------------+----------------------+
  *
- * Grid is 1.6fr : 1fr — the left column (check-in, working-on) carries the
- * work; the right (noticed, coaching) carries the intelligence. NOT a generic
- * KPI dashboard: no Where-You-Stand, no delivery rate, no performance scores.
+ * WHY THE CHECK-IN TAKES THE WHOLE COLUMN.
+ *
+ * It is the primary action on the highest-priority screen in the product, and
+ * it is the only card here that is an INPUT. Sharing a column with the task
+ * list left the composer around 280px once the prompt, the two mode buttons
+ * and the send row had taken their share: the textarea was clipped mid-example
+ * and the thing a person is meant to type into was the smallest element on the
+ * screen. Everything else on this page is something to read.
+ *
+ * Coaching used to sit bottom-right. It moved to the sidebar rail on desktop
+ * -- see components/myweek/coaching-rail-card.tsx -- because it is the one
+ * card here that is not about this week, and moving it is what freed the space
+ * above. Below `lg` there is no rail, so this page still renders the full card
+ * at the foot of the stack.
+ *
+ * Grid is 1.6fr : 1fr: the left column carries the work you do, the right the
+ * work you have and what NEXUS makes of it. NOT a generic KPI dashboard: no
+ * Where-You-Stand, no delivery rate, no performance scores.
  *
  * The desktop layout is designed to fit one viewport, by design rather than by
- * overflow tricks: a dvh-bounded grid whose two rows share the available
- * height, compact paddings, and capped task rows.
+ * overflow tricks: a dvh-bounded grid, compact paddings, and lists that scroll
+ * inside their own card rather than pushing the page down.
  */
 
 function partOfDay(): string {
@@ -46,6 +62,7 @@ export function MyWeekWorkspace({
   live,
   coaching,
   reportedAt,
+  alerts,
 }: {
   person: Person;
   cycleId: string;
@@ -61,6 +78,8 @@ export function MyWeekWorkspace({
   coaching: { title: string; body: string; based_on: string }[];
   /** When they last filed, or null if this week is still open. */
   reportedAt: string | null;
+  /** Exactly what /notifications shows, for the bell. See lib/alerts.ts. */
+  alerts: Alert[];
 }) {
   const first = person.full_name.split(/\s+/)[0];
 
@@ -100,21 +119,20 @@ export function MyWeekWorkspace({
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          <button
-            type="button"
-            aria-label="Notifications"
-            className="nx-focus-ring grid size-11 place-items-center rounded-full border border-white/[0.08] bg-white/[0.04] text-[var(--nx-text-secondary)] transition-colors hover:text-white/90"
-          >
-            <Bell size={18} strokeWidth={1.75} aria-hidden="true" />
-          </button>
+          <AlertBell alerts={alerts} />
 
-          <button
-            type="button"
-            className="nx-focus-ring hidden min-h-11 items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.04] px-3.5 text-sm text-[var(--nx-text-secondary)] transition-colors hover:text-white/90 sm:inline-flex"
-          >
+          {/*
+            The week, stated. NOT a button.
+
+            It was a <button> carrying a chevron and no handler — a control
+            that looks like a week picker, takes the click and does nothing.
+            There is one week on this page and it is the week you are in;
+            saying so is the whole job, and a disclosure arrow that discloses
+            nothing is the same lie the bell beside it used to tell.
+          */}
+          <span className="hidden min-h-11 items-center rounded-full border border-white/[0.08] bg-white/[0.04] px-3.5 text-sm text-[var(--nx-text-secondary)] sm:inline-flex">
             {weekLabel(cycleLabel)}
-            <ChevronDown size={14} aria-hidden="true" />
-          </button>
+          </span>
 
           <span
             title={person.full_name}
@@ -127,26 +145,29 @@ export function MyWeekWorkspace({
       </header>
 
       {/*
-        Two-row asymmetric grid.
+        One asymmetric row, and it is the right column that splits.
 
-        Each row is `lg:grid-cols-[1.6fr_1fr]`. Both rows are `1fr` of the
-        remaining height on desktop so the whole workspace fills the viewport
-        without scrolling. Row 1 / Row 2 become the grid columns' sibling
-        cells; on mobile everything collapses into a single stacked column in
-        the order the spec mandates: check-in, noticed, working on, coaching.
+        The check-in is a single cell spanning the full height, so it can give
+        the composer everything the column has. The right column is its own
+        1.4fr / 1fr grid: the task list takes the larger share because it is a
+        list, and the insight under it is a headline and a sentence.
+
+        On mobile it collapses to a stack in the order somebody actually needs
+        it — check in, see what is open, read what NEXUS made of it, then
+        coaching.
       */}
-      <div className="flex min-h-0 flex-1 flex-col gap-5 lg:grid lg:grid-rows-[1fr_1fr] lg:gap-6">
-        {/* Row 1 — check-in (left) + noticed (right) */}
-        <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 lg:grid-cols-[1.6fr_1fr] lg:grid-rows-1 lg:gap-6">
-          <CheckInCard
-            cycleId={cycleId}
-            alreadyReported={Boolean(reportedAt)}
-            openCount={openCount}
-          />
+      <div className="flex min-h-0 flex-1 flex-col gap-5 lg:grid lg:grid-cols-[1.6fr_1fr] lg:grid-rows-1 lg:gap-6">
+        <CheckInCard
+          cycleId={cycleId}
+          alreadyReported={Boolean(reportedAt)}
+          openCount={openCount}
+        />
+
+        <div className="flex min-h-0 flex-col gap-5 lg:grid lg:grid-rows-[1.4fr_1fr] lg:gap-6">
+          <WorkingOnCard commitments={live} hasReported={Boolean(reportedAt)} />
           <NexusNoticedCard
             title={top?.title ?? null}
             body={top?.body ?? null}
-            basedOn={top?.based_on ?? null}
             hasInsight={Boolean(top)}
             blockedCount={blocked.length}
             carriedCount={carried.length}
@@ -156,18 +177,21 @@ export function MyWeekWorkspace({
           />
         </div>
 
-        {/* Row 2 — working on (left) + coaching (right) */}
-        <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 lg:grid-cols-[1.6fr_1fr] lg:grid-rows-1 lg:gap-6">
-          <WorkingOnCard commitments={live} hasReported={Boolean(reportedAt)} />
+        {/*
+          Coaching, for everybody without a rail to put it in. The rail version
+          lives in the app shell and is `lg:` only; this is the same idea in
+          the space a phone actually has.
+        */}
+        <div className="lg:hidden">
           <CoachingHighlightCard
             title={coachTip?.title ?? null}
             body={coachTip?.body ?? null}
-            basedOn={coachTip?.based_on ?? null}
             hasCoaching={Boolean(coachTip)}
             hasReported={Boolean(reportedAt)}
           />
         </div>
       </div>
+
     </div>
   );
 }

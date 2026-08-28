@@ -6,7 +6,7 @@ import { ArrowRight, BellOff, CircleAlert, Clock, Info } from "lucide-react";
 import { GlassCard } from "@/components/ui/glass-card";
 import { PageHead } from "@/components/executive/page-head";
 import { weekLabel } from "@/lib/cycle";
-import type { Alert } from "@/app/(app)/notifications/page";
+import type { Alert } from "@/lib/alerts";
 
 /*
  * Alerts, in one view.
