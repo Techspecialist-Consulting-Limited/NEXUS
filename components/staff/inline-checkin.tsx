@@ -72,11 +72,25 @@ export function InlineCheckIn({
   cycleId,
   alreadyReported,
   openCount = 0,
+  autoStart = false,
 }: {
   cycleId: string;
   alreadyReported: boolean;
   /** Open commitments this week — decides whether the guided path is offered. */
   openCount?: number;
+  /**
+   * Open with the microphone already listening.
+   *
+   * For a caller that has ALREADY asked "how would you like to check in?" and
+   * been told "by voice". Without it, a button labelled "Speak to NEXUS" landed
+   * the person on an idle composer with a second microphone to find — the
+   * label made a promise the next screen did not keep.
+   *
+   * Mount-based here, unlike the launcher below, and correctly so: this only
+   * ever arrives with the component freshly mounted, because the caller renders
+   * it in place of the chooser rather than alongside it.
+   */
+  autoStart?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -161,6 +175,24 @@ export function InlineCheckIn({
     dictation.start();
     setPhase("listening");
   }
+
+  /*
+   * Chosen "by voice" on the way in, so start listening.
+   *
+   * Runs once, on mount. The caller swaps the chooser out for this component,
+   * so there is no case where somebody re-picks voice without a remount — the
+   * hazard the launcher effect below has to work around does not exist here.
+   */
+  useEffect(() => {
+    if (!autoStart || !dictation.supported) return;
+    dictated.current = true;
+    dictation.reset();
+    dictation.start();
+    /* Bootstrapping from a prop — same reasoning as the launcher below. */
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPhase("listening");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStart]);
 
   /*
    * Arriving from the launcher in the bottom bar opens the microphone.

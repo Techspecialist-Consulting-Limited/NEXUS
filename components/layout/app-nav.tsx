@@ -252,8 +252,9 @@ export function SideNav({
   return (
     <nav
       aria-label="Primary"
-      className="glass-l1 sticky top-0 hidden h-dvh shrink-0 flex-col border-y-0 border-l-0 md:flex
+      className="sticky top-0 hidden h-dvh shrink-0 flex-col border-y-0 border-l-0 md:flex
                  md:w-[76px] lg:w-[244px]"
+      style={{ backgroundColor: "#0B1020", borderRight: "1px solid rgba(255,255,255,0.07)" }}
     >
       {/* identity */}
       <div className="flex items-center gap-2.5 px-4 py-4 lg:px-5">
@@ -308,7 +309,7 @@ export function SideNav({
                         "relative flex min-h-11 items-center gap-3 rounded-lg px-3 transition-colors",
                         "md:justify-center lg:justify-start",
                         active
-                          ? "bg-white/[0.10] text-white/95"
+                          ? "bg-[var(--nx-primary)]/18 text-[var(--nx-primary-light)] shadow-[inset_0_0_0_1px_rgba(139,92,246,0.35)]"
                           : "text-white/55 hover:bg-white/[0.05] hover:text-white/85",
                       )}
                     >

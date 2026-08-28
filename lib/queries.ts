@@ -603,6 +603,116 @@ export async function commitmentsFor(
   );
 }
 
+/** A live commitment, carrying the week it was promised for. */
+export type LiveCommitment = CommitmentRow & {
+  target_cycle_id: string;
+  /** The week this was promised for — "W35 · 24 Aug–30 Aug". */
+  target_label: string;
+  /** True when that week is the one currently running. */
+  is_current_week: boolean;
+  /**
+   * How many weeks this same promise has been open.
+   *
+   * Counted from the rows rather than read from `carried_from_commitment_id`,
+   * which nothing in the application has ever written — see the note below.
+   */
+  carry_weeks: number;
+};
+
+/**
+ * What somebody is actually working on right now.
+ *
+ * WHY THIS EXISTS, AND WHY `commitmentsFor` COULD NOT DO IT.
+ *
+ * `commitmentsFor` answers "what was promised FOR this week", filtering
+ * `target_cycle_id = $cycle`. That is the right question for a weekly
+ * reconciliation and the wrong one for a card headed "what you're working on",
+ * because the two-cycle model puts the answer in a different week from the one
+ * being displayed: a check-in filed IN W34 produces commitments TARGETING W35,
+ * and /my-week shows the week the person was asked to report on.
+ *
+ * The result was a card that could only ever be empty for the person who had
+ * just filed. Abbas Taofeeq reported three commitments and his own page said
+ * "Nothing here yet" — the work existed, was correctly stored, and was being
+ * asked for by target week against the week before it.
+ *
+ * ONE ROW PER PIECE OF WORK, COLLAPSED BY TITLE.
+ *
+ * A promise renewed each week is a NEW commitment row each week. Listing them
+ * all showed Chidi Nwosu twelve open items that were three pieces of work
+ * repeated across nine weeks — the same two titles from W26 to W34. A list
+ * that says "12 open" about three jobs is worse than an empty one, because it
+ * is confidently wrong.
+ *
+ * The obvious key would be `carried_from_commitment_id`, and it cannot be used:
+ * NOTHING IN THE APPLICATION EVER SETS IT. Only `supabase/seed/seed.sql:835`
+ * writes that column, so on any real database it is null everywhere, every
+ * chain is length one, and `chronicCarryovers` — the finding this product
+ * treats as its flagship — can never return a row. That is a real gap and it
+ * is not this function's to close; this one has to work on the data as it is.
+ *
+ * So the identity is (person, lower(trim(title))), which is exactly the rule
+ * migration 0020 already enforces for a single week. The newest week wins and
+ * the number of weeks it has been open is counted and carried, which restores
+ * the "this keeps moving" signal from the rows themselves.
+ */
+export async function liveCommitments(
+  actor: string,
+  profileId: string,
+  limit = 12,
+): Promise<LiveCommitment[]> {
+  return asActor(
+    actor,
+    (sql) => sql<LiveCommitment>`
+      select
+        t.id, t.title, t.category, t.priority, t.status, t.was_planned,
+        t.deviation_declared, t.blocker_kind, t.depends_on_department,
+        t.carry_depth, t.source_quote,
+        t.estimated_effort_hours, t.actual_effort_hours,
+        t.target_cycle_id, t.target_label, t.is_current_week, t.carry_weeks
+      from (
+        select distinct on (lower(btrim(c.title)))
+          c.id, c.title, c.category, c.priority::text as priority,
+          c.status::text as status, c.was_planned, c.deviation_declared,
+          c.blocker_kind::text as blocker_kind,
+          d.name as depends_on_department,
+          c.source_quote,
+          c.estimated_effort_hours::float8, c.actual_effort_hours::float8,
+          c.target_cycle_id,
+          cy.label as target_label,
+          cy.starts_on,
+          -- Ranked in here, where priority is still the enum the function
+          -- takes. The outer query only ever sees the ::text form.
+          priority_weight(c.priority) as prio,
+          (cy.starts_on <= current_date and cy.ends_on >= current_date) as is_current_week,
+          /*
+           * How many weeks this promise has been open, counted over the same
+           * partition the DISTINCT ON collapses. Doubles as carry_depth so the
+           * shared CommitmentRow shape keeps meaning what it says.
+           */
+          count(*) over (partition by lower(btrim(c.title)))::int as carry_weeks,
+          count(*) over (partition by lower(btrim(c.title)))::int as carry_depth
+        from commitments c
+        join cycles cy on cy.id = c.target_cycle_id
+        left join departments d on d.id = c.depends_on_department_id
+        where c.profile_id = ${profileId}
+          and c.deleted_at is null
+          /*
+           * Open, in the sense somebody would recognise: still theirs to move.
+           * Delivered work is done, dropped and superseded are decisions
+           * already taken, and none of the three is something you are working
+           * on.
+           */
+          and c.status in ('promised', 'in_progress', 'partial', 'blocked')
+        -- DISTINCT ON keeps the first row per title, so the newest week wins.
+        order by lower(btrim(c.title)), cy.starts_on desc
+      ) t
+      order by t.starts_on desc, t.prio desc, t.title
+      limit ${limit}
+    `,
+  );
+}
+
 export type PersonTrend = {
   cycle_id: string;
   label: string;

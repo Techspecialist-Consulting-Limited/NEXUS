@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { currentActorId } from "@/lib/session";
 import { commitmentsFor, cyclesWithWork, getPerson } from "@/lib/queries";
 import { CommitmentList } from "@/components/employee/commitment-list";
-import { TaskBoard } from "@/components/staff/task-board";
+import { TasksWorkspace } from "@/components/tasks/tasks-workspace";
 import { hasPersonalWorkspace } from "@/lib/capabilities";
 
 export const dynamic = "force-dynamic";
@@ -42,7 +42,7 @@ export default async function CommitmentsPage() {
    * Only the Chairman, who files nothing, gets the other view.
    */
   if (hasPersonalWorkspace(me.role)) {
-    return <TaskBoard weeks={filled} />;
+    return <TasksWorkspace person={me} weeks={filled} />;
   }
 
   return <CommitmentList weeks={filled} />;

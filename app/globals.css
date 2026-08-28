@@ -79,8 +79,43 @@
   --shadow-heavy: 0 16px 64px rgba(0, 0, 0, 0.5);
   --shadow-dramatic: 0 24px 80px rgba(0, 0, 0, 0.6);
 
+  /* === Premium dark navy palette === */
+  --nx-bg: #070A15;
+  --nx-sidebar: #0B1020;
+  --nx-surface: rgba(17, 24, 39, 0.72);
+  --nx-surface-strong: rgba(17, 24, 39, 0.85);
+  --nx-border: rgba(255, 255, 255, 0.08);
+  --nx-border-strong: rgba(255, 255, 255, 0.12);
+
+  /* Primary purple */
+  --nx-primary: #8B5CF6;
+  --nx-primary-light: #A78BFA;
+  --nx-purple: #A855F7;
+
+  /* Success green */
+  --nx-success: #22C55E;
+  --nx-success-light: #34D399;
+
+  /* Signal */
+  --nx-info: #3B82F6;
+  --nx-warning: #F59E0B;
+  --nx-error: #EF4444;
+
+  /* Text */
+  --nx-text-primary: #F8FAFC;
+  --nx-text-secondary: #A1A1AA;
+  --nx-text-muted: #71717A;
+
+  /* Gradients */
+  --nx-gradient-nexus: linear-gradient(135deg, #17112F 0%, #24115C 45%, #32127A 100%);
+  --nx-gradient-coaching: linear-gradient(135deg, #062D2A 0%, #073D35 45%, #0A5145 100%);
+
+  /* Glow */
+  --nx-glow-purple: 0 20px 60px rgba(139, 92, 246, 0.18);
+  --nx-glow-green: 0 20px 60px rgba(34, 197, 94, 0.12);
+
   /* === Void === */
-  --void: #08080c;
+  --void: #070A15;
 
   /*
    * The one opaque surface a native control — or a floating overlay — sits on.
@@ -97,7 +132,7 @@
    *
    * The same reasoning later covered dropdown menus — see .glass-overlay.
    */
-  --native-surface: #12121a;
+  --native-surface: #0B1020;
 
   /* === Department colours (GUIDE §5, verified against seed.sql:48-52) === */
   --dept-techspecialist: #5b8cff;
@@ -172,6 +207,13 @@
   --color-warning: var(--color-warning);
   --color-critical: var(--color-critical);
 
+  --color-nx-primary: var(--nx-primary);
+  --color-nx-primary-light: var(--nx-primary-light);
+  --color-nx-success: var(--nx-success);
+  --color-nx-success-light: var(--nx-success-light);
+  --color-nx-text-primary: var(--nx-text-primary);
+  --color-nx-text-secondary: var(--nx-text-secondary);
+
   --font-display: var(--font-display);
   --font-body: var(--font-body);
   --font-mono: var(--font-mono);
@@ -183,7 +225,7 @@
 
 html {
   color-scheme: dark;
-  background-color: var(--void);
+  background-color: var(--nx-bg);
   -webkit-text-size-adjust: 100%;
 }
 
@@ -208,15 +250,17 @@ select optgroup {
 }
 
 body {
-  background-color: var(--void);
-  color: var(--text-primary);
+  background:
+    radial-gradient(circle at 75% 0%, rgba(76, 29, 149, 0.20), transparent 35%),
+    radial-gradient(circle at 20% 100%, rgba(6, 182, 212, 0.08), transparent 30%),
+    var(--nx-bg);
+  color: var(--nx-text-primary);
   font-family: var(--font-body);
   font-size: var(--text-base);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   min-height: 100dvh;
-  /* GUIDE §11: no horizontal scrolling anywhere in the mobile experience. */
   overflow-x: hidden;
 }
 
@@ -278,14 +322,14 @@ h1, h2, h3, h4, h5, h6 {
  * invisible to typecheck, lint, tests and code review.
  */
 .glass-l1 {
-  background-color: rgba(255, 255, 255, 0.04);
+  background-color: rgba(11, 16, 32, 0.65);
   -webkit-backdrop-filter: blur(24px) saturate(140%);
   backdrop-filter: blur(24px) saturate(140%);
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .glass-l2 {
-  background-color: rgba(255, 255, 255, 0.06);
+  background-color: rgba(11, 16, 32, 0.75);
   -webkit-backdrop-filter: blur(40px) saturate(150%);
   backdrop-filter: blur(40px) saturate(150%);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -293,7 +337,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .glass-l3 {
-  background-color: rgba(255, 255, 255, 0.08);
+  background-color: rgba(11, 16, 32, 0.85);
   -webkit-backdrop-filter: blur(64px) saturate(160%);
   backdrop-filter: blur(64px) saturate(160%);
   border: 1px solid rgba(255, 255, 255, 0.15);
@@ -301,7 +345,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .glass-l4 {
-  background-color: rgba(255, 255, 255, 0.12);
+  background-color: rgba(11, 16, 32, 0.92);
   -webkit-backdrop-filter: blur(64px) saturate(160%);
   backdrop-filter: blur(64px) saturate(160%);
   border: 1px solid rgba(255, 255, 255, 0.2);
@@ -330,7 +374,7 @@ h1, h2, h3, h4, h5, h6 {
  * and changes nothing on screen.
  */
 .glass-overlay {
-  background-color: var(--native-surface);
+  background-color: #0B1020;
   border: 1px solid rgba(255, 255, 255, 0.15);
   box-shadow: var(--shadow-heavy);
 }
@@ -359,7 +403,7 @@ h1, h2, h3, h4, h5, h6 {
    than to an unreadable transparent rectangle. */
 @supports not (backdrop-filter: blur(1px)) {
   .glass-l1, .glass-l2, .glass-l3, .glass-l4 {
-    background-color: #121218;
+    background-color: #0B1020;
   }
 }
 
@@ -565,4 +609,80 @@ h1, h2, h3, h4, h5, h6 {
 ::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.12);
   border-radius: 999px;
+}
+
+/* ===========================================================================
+   Premium card system — My Week redesign
+   =========================================================================== */
+
+.nx-card {
+  border-radius: 20px;
+  border: 1px solid var(--nx-border);
+  background: var(--nx-surface);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  backdrop-filter: blur(12px) saturate(140%);
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+
+.nx-card:hover {
+  border-color: var(--nx-border-strong);
+}
+
+.nx-card-gradient-purple {
+  background: var(--nx-gradient-nexus);
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  box-shadow: var(--nx-glow-purple);
+}
+
+.nx-card-gradient-green {
+  background: var(--nx-gradient-coaching);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  box-shadow: var(--nx-glow-green);
+}
+
+/* Sidebar active item */
+.nx-nav-active {
+  background: rgba(124, 58, 237, 0.18);
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  color: var(--nx-primary-light);
+}
+
+/* Check-in action button */
+.nx-checkin-btn {
+  border-radius: 16px;
+  border: 1px solid var(--nx-border);
+  background: var(--nx-surface);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  transition: all 180ms ease;
+}
+
+.nx-checkin-btn:hover {
+  transform: translateY(-2px);
+  border-color: var(--nx-border-strong);
+  background: var(--nx-surface-strong);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.nx-checkin-btn:active {
+  transform: translateY(0);
+}
+
+/* Status badge for commitments */
+.nx-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+/* Focus ring for premium feel */
+.nx-focus-ring:focus-visible {
+  outline: 2px solid var(--nx-primary);
+  outline-offset: 2px;
+  border-radius: 12px;
 }

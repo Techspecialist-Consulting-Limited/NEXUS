@@ -677,14 +677,17 @@ function MobileWizard(props: {
 function DesktopWorkspace(props: Shared) {
   const {
     open, resolutions, setResolutions, changed, setChanged, nextWeek, setNextWeek,
-    understood, updates, planned, listening, dictation, startDictation, stopDictation,
-    sorting, saving, submit, sort, cycleLabel, deliveryRate, streakWeeks, answered,
+    understood, updates, listening, dictation, startDictation, stopDictation,
+    sorting, saving, submit, sort, cycleLabel, answered,
   } = props;
 
+  const delivered = Object.values(resolutions).filter((v) => v === "delivered").length;
+
   return (
-    <div className="mx-auto flex max-w-[1400px] flex-col gap-5 pb-2">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
+    <div className="mx-auto flex w-full max-w-[1240px] flex-col gap-4 lg:h-[calc(100dvh-3rem)] lg:gap-5">
+      {/* Header */}
+      <header className="flex shrink-0 items-start justify-between gap-6 pt-1">
+        <div className="min-w-0">
           {/*
             Plain language, not the operating model. "Weekly reconciliation",
             "cycle archive" and "reconciliation stats" describe how NEXUS
@@ -693,39 +696,42 @@ function DesktopWorkspace(props: Shared) {
             stay in the code, the schema and the executive surfaces, where
             they are precise and the reader wants precision.
           */}
-          <h1 className="page-title">Let&rsquo;s wrap up your week</h1>
-          <p className="standfirst mt-1.5">
-            What happened to what you planned, what changed, and what you are doing
-            next — all on one page.
+          <h1 className="page-title">Check in</h1>
+          <p className="mt-1 text-lg font-medium leading-snug text-[var(--nx-text-primary)]">
+            Let&rsquo;s wrap up your week
+          </p>
+          <p className="mt-1 max-w-[72ch] text-sm leading-relaxed text-[var(--nx-text-secondary)]">
+            What happened to what you planned, what changed, and what you are doing next
+            &mdash; all on one page.
           </p>
         </div>
         <Stages answered={answered} total={open.length} hasUnderstood={Boolean(understood)} />
-      </div>
+      </header>
 
-      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)_minmax(0,0.9fr)]">
-        {/* ---- left: what was promised ---------------------------------- */}
-        <div className="flex flex-col gap-4">
-          <GlassCard level={2} className="p-5">
-            <p className="eyebrow">This reporting week</p>
-            <h2 className="card-title mt-1">{weekLabel(cycleLabel)}</h2>
-            <p className="body-sm mt-1.5">
-              What you said you would do for this week. Whatever you answer here is
-              what your lead and the Chairman see.
-            </p>
-          </GlassCard>
-
-          <GlassCard level={2} className="p-5">
-            <div className="flex items-baseline justify-between gap-3">
-              <p className="eyebrow">What you planned</p>
-              <span className="metric text-2xs text-white/30">
-                {answered}/{open.length}
-              </span>
+      {/* Body: previous commitments + what changed */}
+      <div className="flex min-h-0 flex-1 flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,0.72fr)_minmax(0,1.5fr)] lg:gap-5">
+        {/* Your commitments */}
+        <section
+          aria-label="Your commitments"
+          className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.035]"
+        >
+          <header className="flex shrink-0 items-baseline justify-between gap-3 border-b border-white/[0.06] px-5 py-4">
+            <div>
+              <p className="eyebrow">Your commitments</p>
+              <h2 className="mt-0.5 text-[15px] font-semibold text-[var(--nx-text-primary)]">
+                {weekLabel(cycleLabel)}
+              </h2>
             </div>
+            <span className="metric text-xs text-[var(--nx-text-secondary)]">
+              {answered}/{open.length} reviewed
+            </span>
+          </header>
 
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
             {open.length === 0 ? (
-              <p className="note mt-3">Nothing was outstanding.</p>
+              <p className="note mx-1 mt-2">Nothing was outstanding this week.</p>
             ) : (
-              <ul className="mt-3 space-y-3">
+              <ul className="space-y-2.5">
                 {open.map((c) => (
                   <li key={c.id}>
                     <CompactPrompt
@@ -737,61 +743,85 @@ function DesktopWorkspace(props: Shared) {
                 ))}
               </ul>
             )}
-          </GlassCard>
-        </div>
+          </div>
 
-        {/* ---- middle: the conversation ---------------------------------- */}
-        <div className="flex flex-col gap-4">
-          <GlassCard level={2} className="p-5">
-            <div className="flex items-center gap-2.5">
-              <Sparkles
-                size={16}
-                className="text-[var(--dept-techspecialist)]"
-                aria-hidden="true"
-              />
-              <h2 className="card-title">What changed this week?</h2>
-            </div>
-            <p className="body-sm mt-1.5">
+          <footer className="shrink-0 border-t border-white/[0.06] px-5 py-3">
+            <span className="note">
+              {delivered} of {open.length} delivered.
+            </span>
+          </footer>
+        </section>
+
+        {/* What changed */}
+        <section
+          aria-label="What changed this week"
+          className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.035]"
+        >
+          <header className="flex shrink-0 items-center gap-2.5 border-b border-white/[0.06] px-5 py-4">
+            <Sparkles size={16} className="text-[var(--nx-primary)]" aria-hidden="true" />
+            <h2 className="text-[15px] font-semibold text-[var(--nx-text-primary)]">
+              What changed this week?
+            </h2>
+          </header>
+
+          <div className="min-h-0 flex-1 overflow-y-auto p-5">
+            <p className="body-sm mt-0.5">
               Anything new, finished, or blocked that was not on your list. Speak it or type
               it.
             </p>
 
-            <Composer
-              value={changed}
-              onChange={setChanged}
-              listening={listening}
-              dictation={dictation}
-              onStart={() => startDictation("changed")}
-              onStop={stopDictation}
-              placeholder="Finished the onboarding checklist. Legal is still blocking the vendor contract…"
-            />
+            <div className="mt-4">
+              <Composer
+                value={changed}
+                onChange={setChanged}
+                listening={listening}
+                dictation={dictation}
+                onStart={() => startDictation("changed")}
+                onStop={stopDictation}
+                rows={5}
+                placeholder="Finished the onboarding checklist. Legal is still blocking the vendor contract…"
+              />
+            </div>
 
             <div className="mt-3 flex justify-end">
-              <PrimaryButton
+              <PrimaryAction
                 onClick={() => void sort(changed, 3)}
                 disabled={sorting || listening || !changed.trim()}
               >
                 {sorting ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
                 {sorting ? "Sorting…" : "Sort this out"}
-              </PrimaryButton>
+              </PrimaryAction>
             </div>
-          </GlassCard>
 
-          {(understood || sorting) && (
-            <GlassCard level={2} className="p-5">
-              <div className="flex items-center justify-between gap-3">
-                <h2 className="card-title">What NEXUS understood</h2>
-                <span className="note">Nothing filed yet</span>
+            {(understood || sorting) && (
+              <div className="mt-5 border-t border-white/[0.06] pt-4">
+                <h3 className="text-sm font-semibold text-[var(--nx-text-primary)]">
+                  NEXUS organized your update
+                </h3>
+                <div className="mt-2.5">
+                  <Understanding understood={understood} updates={updates} sorting={sorting} />
+                </div>
               </div>
-              <Understanding understood={understood} updates={updates} sorting={sorting} />
-            </GlassCard>
-          )}
+            )}
+          </div>
+        </section>
+      </div>
 
-          <GlassCard level={2} className="p-5">
-            <h2 className="card-title">Focus for next week</h2>
-            <p className="body-sm mt-1.5">
+      {/* Focus for next week */}
+      <section
+        aria-label="Focus for next week"
+        className="shrink-0 rounded-2xl border border-white/[0.08] bg-white/[0.035]"
+      >
+        <div className="flex flex-col gap-3 px-5 py-4 lg:flex-row lg:items-start lg:gap-6">
+          <div className="w-full lg:w-64 lg:shrink-0">
+            <h2 className="text-[15px] font-semibold text-[var(--nx-text-primary)]">
+              Focus for next week
+            </h2>
+            <p className="body-sm mt-0.5">
               Whatever you say here becomes next week&rsquo;s commitments.
             </p>
+          </div>
+          <div className="min-w-0 flex-1">
             <Composer
               value={nextWeek}
               onChange={setNextWeek}
@@ -799,88 +829,31 @@ function DesktopWorkspace(props: Shared) {
               dictation={dictation}
               onStart={() => startDictation("next")}
               onStop={stopDictation}
+              rows={2}
               placeholder="Ship the vendor launch by Friday and finish the API documentation…"
             />
-          </GlassCard>
-
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="note flex items-start gap-1.5">
-              <TriangleAlert size={12} className="mt-px shrink-0" aria-hidden="true" />
-              Review before confirming — this becomes part of this week&rsquo;s brief.
-            </p>
-            <PrimaryButton onClick={submit} disabled={saving}>
-              {saving ? (
-                <>
-                  <Loader2 size={15} className="animate-spin" /> Filing…
-                </>
-              ) : (
-                <>
-                  <Send size={15} /> Confirm report
-                </>
-              )}
-            </PrimaryButton>
           </div>
         </div>
+      </section>
 
-        {/* ---- right: what it adds up to --------------------------------- */}
-        <div className="flex flex-col gap-4">
-          <GlassCard level={2} className="p-5">
-            <p className="eyebrow">Next week&rsquo;s plan</p>
-            {planned.length === 0 ? (
-              <p className="note mt-2.5">
-                Nothing yet. What you write on the left appears here.
-              </p>
-            ) : (
-              <ul className="mt-2.5 space-y-2">
-                {planned.map((t) => (
-                  <li
-                    key={t}
-                    className="flex items-start gap-2.5 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2.5"
-                  >
-                    <span
-                      aria-hidden="true"
-                      className="mt-[7px] size-1.5 shrink-0 rounded-full bg-[var(--dept-techspecialist)]"
-                    />
-                    <span className="text-sm leading-snug text-white/85">{t}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </GlassCard>
-
-          {understood?.question && (
-            <GlassCard
-              level={2}
-              className="border-[var(--color-partial)]/25 bg-[var(--color-partial)]/[0.06] p-5"
-            >
-              <p className="eyebrow" style={{ color: "var(--color-partial)" }}>
-                NEXUS noticed
-              </p>
-              <p className="mt-1.5 text-sm leading-relaxed text-white/85">
-                {understood.question}
-              </p>
-            </GlassCard>
+      {/* Footer */}
+      <footer className="flex shrink-0 flex-wrap items-center justify-between gap-3">
+        <p className="note flex items-start gap-1.5">
+          <TriangleAlert size={12} className="mt-px shrink-0" aria-hidden="true" />
+          Review before confirming &mdash; this becomes part of this week&rsquo;s brief.
+        </p>
+        <PrimaryAction onClick={submit} disabled={saving}>
+          {saving ? (
+            <>
+              <Loader2 size={15} className="animate-spin" /> Filing…
+            </>
+          ) : (
+            <>
+              <Send size={15} /> Confirm report
+            </>
           )}
-
-          <GlassCard level={2} className="p-5">
-            <p className="eyebrow">How the week went</p>
-            <dl className="mt-2.5">
-              <Stat
-                label="Last settled delivery"
-                value={deliveryRate === null ? "—" : `${deliveryRate}%`}
-              />
-              <Stat
-                label="Weeks reported in a row"
-                value={streakWeeks === 0 ? "—" : String(streakWeeks)}
-              />
-              <Stat
-                label="Resolved this session"
-                value={`${answered} of ${open.length}`}
-              />
-            </dl>
-          </GlassCard>
-        </div>
-      </div>
+        </PrimaryAction>
+      </footer>
     </div>
   );
 }
@@ -1354,6 +1327,7 @@ function Composer({
   onStart,
   onStop,
   placeholder,
+  rows = 4,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -1362,6 +1336,7 @@ function Composer({
   onStart: () => void;
   onStop: () => void;
   placeholder: string;
+  rows?: number;
 }) {
   const live = [dictation.transcript, dictation.interim].filter(Boolean).join(" ");
 
@@ -1375,7 +1350,7 @@ function Composer({
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        rows={4}
+        rows={rows}
         placeholder={placeholder}
         aria-label={placeholder}
         className="w-full resize-none bg-transparent px-4 py-3.5 text-sm leading-relaxed text-white/90 placeholder:text-white/25 focus:outline-none"
@@ -1425,38 +1400,45 @@ function Stages({
   ];
 
   return (
-    <ol className="flex flex-wrap items-center gap-x-2 gap-y-1">
-      {stages.map((s, i) => (
-        <li key={s.label} className="flex items-center gap-2">
-          {i > 0 && <span aria-hidden="true" className="h-px w-5 bg-white/[0.14]" />}
-          <span
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs",
-              s.done ? "text-white/90" : "text-white/40",
+    <ol className="flex shrink-0 items-center gap-2" aria-label="Progress">
+      {stages.map((s, i) => {
+        const isCurrent = i === stages.findIndex((x) => !x.done);
+        return (
+          <li key={s.label} className="flex items-center gap-2">
+            {i > 0 && (
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "h-px w-6",
+                  stages[i - 1].done ? "bg-[var(--nx-primary)]/60" : "bg-white/[0.14]",
+                )}
+              />
             )}
-            style={s.done ? { background: "rgba(255,255,255,0.06)" } : undefined}
-          >
-            <span
-              aria-hidden="true"
-              className="size-1.5 rounded-full"
-              style={{
-                background: s.done ? "var(--color-delivered)" : "rgba(255,255,255,0.25)",
-              }}
-            />
-            {s.label}
-          </span>
-        </li>
-      ))}
+            <span className="inline-flex items-center gap-1.5">
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "size-2 rounded-full",
+                  s.done
+                    ? "bg-[var(--nx-primary-light)]"
+                    : isCurrent
+                      ? "bg-[var(--nx-primary)] shadow-[0_0_0_3px_rgba(139,92,246,0.2)]"
+                      : "bg-white/[0.22]",
+                )}
+              />
+              <span
+                className={cn(
+                  "whitespace-nowrap text-xs",
+                  s.done ? "text-[var(--nx-text-primary)]" : "text-[var(--nx-text-secondary)]",
+                )}
+              >
+                {s.label}
+              </span>
+            </span>
+          </li>
+        );
+      })}
     </ol>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3 border-b border-white/[0.06] py-2 last:border-b-0">
-      <dt className="text-xs text-tertiary">{label}</dt>
-      <dd className="metric text-sm text-white/90">{value}</dd>
-    </div>
   );
 }
 
@@ -1496,6 +1478,32 @@ function PrimaryButton({
         "bg-[var(--dept-techspecialist)] px-6 text-sm font-medium text-white",
         "transition-[filter] hover:brightness-110 disabled:opacity-40",
         className,
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** Desktop CTA in NEXUS purple, matching the rest of the surface. */
+function PrimaryAction({
+  children,
+  onClick,
+  disabled,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        "inline-flex min-h-12 items-center justify-center gap-2 rounded-full px-6 text-sm font-medium text-white",
+        "bg-[var(--nx-primary)] shadow-[0_8px_24px_-8px_rgba(139,92,246,0.55)]",
+        "transition-[filter,transform] hover:brightness-110 active:scale-[0.98] disabled:opacity-40 disabled:hover:brightness-100",
       )}
     >
       {children}

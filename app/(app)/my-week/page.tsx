@@ -3,9 +3,14 @@ import { currentActorId, requireViewer } from "@/lib/session";
 import { homeFor } from "@/lib/nav";
 import { hasPersonalWorkspace } from "@/lib/capabilities";
 import { asActor } from "@/lib/db";
-import { getPerson, openCheckInCycle, recentCycles } from "@/lib/queries";
+import {
+  getPerson,
+  liveCommitments,
+  openCheckInCycle,
+  recentCycles,
+} from "@/lib/queries";
 import { weeklyBrief } from "@/lib/coach";
-import { CopilotHome } from "@/components/staff/copilot-home";
+import { MyWeekWorkspace } from "@/components/myweek/my-week-workspace";
 
 export const dynamic = "force-dynamic";
 
@@ -21,13 +26,9 @@ export const dynamic = "force-dynamic";
  */
 export default async function MyWeekPage() {
   const actor = await currentActorId();
-  /*
-   * Read for one field: whether this person has seen the introduction. Cheap —
-   * requireViewer resolves the same membership the shell already needed — and
-   * it keeps "have they been welcomed" on the membership rather than making
-   * this page ask the database a second question about the same row.
-   */
-  const { membership } = await requireViewer();
+  // Resolves the same membership the shell already needed, so identity is set
+  // before the page reads anything actor-scoped.
+  await requireViewer();
   const me = await getPerson(actor);
   if (!me) redirect("/");
 
@@ -70,8 +71,20 @@ export default async function MyWeekPage() {
     );
   }
 
-  const [brief, checkIn] = await Promise.all([
+  const [brief, live, checkIn] = await Promise.all([
     weeklyBrief(actor, me.id, week.id, me.full_name, week.label),
+    /*
+     * What they are working on RIGHT NOW, which is a different question from
+     * what `weeklyBrief` answers.
+     *
+     * The brief is scoped to one week's promises — correct for reconciling that
+     * week, and wrong for a card headed "what you're working on", because the
+     * two-cycle model puts the answer in the following week: a check-in filed
+     * in W34 creates commitments targeting W35, while this page is showing W34.
+     * The card could therefore only ever be empty for the person who had just
+     * filed, which is exactly who was looking at it.
+     */
+    liveCommitments(actor, me.id),
     /*
      * When they last filed. Read through asActor and scoped to their own
      * profile — policy `check_ins_own` restricts these rows to their author,
@@ -89,15 +102,12 @@ export default async function MyWeekPage() {
   ]);
 
   return (
-    <CopilotHome
-      firstRun={membership.welcomedAt === null}
+    <MyWeekWorkspace
       person={me}
       cycleId={week.id}
       cycleLabel={week.label}
-      reconciliation={brief.reconciliation}
-      commitments={brief.commitments}
+      live={live}
       coaching={brief.coaching}
-      questions={brief.questions}
       reportedAt={checkIn[0]?.responded_at ?? null}
     />
   );
