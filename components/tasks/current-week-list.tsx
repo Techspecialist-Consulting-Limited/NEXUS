@@ -33,7 +33,16 @@ export function CurrentWeekList({
   const delivered = commitments.filter((c) => c.status === "delivered").length;
 
   return (
-    <section aria-label="Current week" className="flex min-h-0 flex-1 flex-col rounded-2xl border border-white/[0.08] bg-[var(--nx-surface)]">
+    <section
+      aria-label="Current week"
+      /*
+        `on-dark`: this paints itself with --nx-surface rather than wearing
+        .nx-card, so the lit column has no other way to know it is a dark
+        island. Without it, "No commitments yet" rendered as ink on
+        near-black. See .surface-lit in app/globals.css.
+      */
+      className="on-dark flex min-h-0 flex-1 flex-col rounded-2xl border border-white/[0.08] bg-[var(--nx-surface)]"
+    >
       <header className="flex shrink-0 items-center justify-between gap-3 border-b border-white/[0.06] px-5 py-3.5">
         <div className="min-w-0">
           <p className="eyebrow">This week</p>

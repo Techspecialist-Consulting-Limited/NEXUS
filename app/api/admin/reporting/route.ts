@@ -43,6 +43,7 @@ const body = z.object({
   promptDay: z.number().int().min(1).max(7),
   promptHour: z.number().int().min(0).max(23),
   promptMinute: z.number().int().min(0).max(59).default(0),
+  reminderDay: z.number().int().min(1).max(7),
   reminderHour: z.number().int().min(0).max(23),
   reminderMinute: z.number().int().min(0).max(59).default(0),
   digestCadence: cadence,
@@ -73,15 +74,34 @@ export async function PATCH(request: Request) {
   }
 
   /*
-   * A chase earlier than the opening would never fire — there is nothing to
-   * chase yet. Refused here as well as in the form, because a form check is
-   * not a rule, it is a courtesy.
+   * The chase has to fall after the opening, IN THE SAME WEEK.
+   *
+   * Compared as a position in the week now that the day is configurable — the
+   * old check compared clock times alone, which would have accepted "opens
+   * Friday 09:00, chases Monday 10:00" as valid because 10:00 > 09:00.
+   *
+   * That is not a cosmetic rule. `currentCycles` resolves the week containing
+   * today, so a chase on an earlier weekday runs against the FOLLOWING week —
+   * it would chase every person about a week nobody has been prompted for.
+   *
+   * Refused here as well as in the form, because a form check is not a rule,
+   * it is a courtesy.
    */
-  const opensAt = parsed.data.promptHour * 60 + parsed.data.promptMinute;
-  const chasesAt = parsed.data.reminderHour * 60 + parsed.data.reminderMinute;
+  const opensAt =
+    parsed.data.promptDay * 1440 +
+    parsed.data.promptHour * 60 +
+    parsed.data.promptMinute;
+  const chasesAt =
+    parsed.data.reminderDay * 1440 +
+    parsed.data.reminderHour * 60 +
+    parsed.data.reminderMinute;
   if (chasesAt <= opensAt) {
     return NextResponse.json(
-      { error: "The chase has to come after the week opens, or it would never fire." },
+      {
+        error:
+          "The chase has to come after the week opens, in the same week — " +
+          "otherwise it would run against a week nobody has been asked about.",
+      },
       { status: 422 },
     );
   }
@@ -136,8 +156,14 @@ export async function PATCH(request: Request) {
       `moved the week's opening to ${DAY_NAME[n.promptDay]} ${clock(n.promptHour, n.promptMinute)}`,
     );
   }
-  if (before.reminderHour !== n.reminderHour || before.reminderMinute !== n.reminderMinute) {
-    changes.push(`moved the chase to ${clock(n.reminderHour, n.reminderMinute)}`);
+  if (
+    before.reminderDay !== n.reminderDay ||
+    before.reminderHour !== n.reminderHour ||
+    before.reminderMinute !== n.reminderMinute
+  ) {
+    changes.push(
+      `moved the chase to ${DAY_NAME[n.reminderDay]} ${clock(n.reminderHour, n.reminderMinute)}`,
+    );
   }
   if (
     JSON.stringify(before.digestCadence) !== JSON.stringify(n.digestCadence)

@@ -165,6 +165,45 @@
   --priority-normal: rgba(255, 255, 255, 0.5);
   --priority-low: rgba(255, 255, 255, 0.25);
 
+  /* === The dark palette, named ===
+     Every value below is already the product's palette; naming it lets the lit
+     column restate the live tokens and lets a card restore them, without a
+     second copy of the numbers. See ".surface-lit" at the foot of this file. */
+  --dk-ink: #ffffff;
+  --dk-text-primary: rgba(255, 255, 255, 0.9);
+  --dk-text-secondary: rgba(255, 255, 255, 0.6);
+  --dk-text-tertiary: rgba(255, 255, 255, 0.55);
+  --dk-text-quaternary: rgba(255, 255, 255, 0.3);
+  --dk-nx-text-primary: #F8FAFC;
+  --dk-nx-text-secondary: #A1A1AA;
+  --dk-nx-text-muted: #71717A;
+  --dk-nx-primary: #8B5CF6;
+  --dk-nx-primary-light: #A78BFA;
+  --dk-nx-purple: #A855F7;
+  --dk-nx-success: #22C55E;
+  --dk-nx-success-light: #34D399;
+  --dk-nx-info: #3B82F6;
+  --dk-nx-warning: #F59E0B;
+  --dk-nx-error: #EF4444;
+  --dk-dept-techspecialist: #5b8cff;
+  --dk-dept-media-hub: #f2789f;
+  --dk-dept-creative-hub: #f5b942;
+  --dk-dept-operations: #48c9a9;
+  --dk-dept-growth: #b18cf5;
+  --dk-in-progress: #5b8cff;
+  --dk-delivered: #48c9a9;
+  --dk-partial: #f5b942;
+  --dk-blocked: #f2789f;
+  --dk-promised: rgba(255, 255, 255, 0.55);
+  --dk-deferred: rgba(255, 255, 255, 0.38);
+  --dk-dropped: rgba(255, 255, 255, 0.22);
+  --dk-superseded: rgba(255, 255, 255, 0.3);
+  --dk-neutral: rgba(255, 255, 255, 0.4);
+  --dk-priority-normal: rgba(255, 255, 255, 0.5);
+  --dk-priority-low: rgba(255, 255, 255, 0.25);
+  --dk-focus-ring: rgba(255, 255, 255, 0.5);
+  --dk-scrollbar-thumb: rgba(255, 255, 255, 0.12);
+
   /* === Text hierarchy (GUIDE §4 rule 5) ===
      white/opacity only — never Tailwind gray-*. */
   --text-primary: rgba(255, 255, 255, 0.9);
@@ -425,8 +464,8 @@ h1, h2, h3, h4, h5, h6 {
     to top,
     var(--color-partial) 0%,
     var(--color-partial) 50%,
-    rgba(255, 255, 255, 0.10) 50%,
-    rgba(255, 255, 255, 0.10) 100%
+    color-mix(in srgb, var(--color-white) 10%, transparent) 50%,
+    color-mix(in srgb, var(--color-white) 10%, transparent) 100%
   );
 }
 
@@ -562,7 +601,7 @@ h1, h2, h3, h4, h5, h6 {
    =========================================================================== */
 
 :where(a, button, select, input, textarea, [tabindex]):focus-visible {
-  outline: 2px solid rgba(255, 255, 255, 0.5);
+  outline: 2px solid var(--focus-ring, rgba(255, 255, 255, 0.5));
   outline-offset: 2px;
   border-radius: 8px;
 }
@@ -607,7 +646,7 @@ h1, h2, h3, h4, h5, h6 {
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--scrollbar-thumb, rgba(255, 255, 255, 0.12));
   border-radius: 999px;
 }
 
@@ -685,4 +724,233 @@ h1, h2, h3, h4, h5, h6 {
   outline: 2px solid var(--nx-primary);
   outline-offset: 2px;
   border-radius: 12px;
+}
+
+/* ===========================================================================
+   The lit column
+
+   The main area stands on /images/main-page-bg-for-all-pages.png at full
+   strength — a pale lavender field — while the rail keeps its dark #0B1020.
+   So the product has two surfaces, and text has to know which one it is on.
+
+   THE RULE IS ONE SENTENCE: the page is lit, and anything wearing a card
+   class is a dark island on it.
+
+   That is not a compromise, it is what the screen already looked like and was
+   liked: dark cards floating on a light ground, with real depth between them.
+   What was broken was everything OUTSIDE a card — page titles, standfirsts,
+   the Administration setup list, form labels, the header controls — all of
+   which were white on near-white and simply gone.
+
+   HOW ONE VARIABLE TURNS THE PAGE OVER.
+
+   There are ~720 hand-written `text-white/90`, `bg-white/[0.04]` and
+   `border-white/[0.10]` utilities across 65 files. Tailwind v4 compiles every
+   one of them to
+
+       color-mix(in oklab, var(--color-white) 90%, transparent)
+
+   so restating --color-white as ink re-points all of them at once, and does it
+   while PRESERVING what each opacity meant: 90% was body copy on the dark
+   surface and is body copy on the lit one; 25% was decoration and stays
+   decoration. A hand sweep of 720 sites could not have kept that ordering
+   straight, and would have to be redone for the next surface.
+
+   THE ONE BROWSER CAVEAT. Tailwind emits a literal `#fff` fallback outside
+   `@supports (color: color-mix(in lab, red, red))`, so a browser without lab
+   color-mix — pre-2023 Chrome/Safari/Firefox — paints white on white here.
+   NEXUS already requires backdrop-filter, which scripts/smoke.mjs asserts, so
+   that floor is not new; it is worth knowing about.
+
+   SURFACES ARE NOT TOUCHED. --nx-surface, the glass fills and the shadows all
+   keep their dark values, because the cards are the part that already worked.
+   Only ink, and the hues that have to sit on light, are restated.
+   =========================================================================== */
+
+.surface-lit {
+  color-scheme: light;
+
+  /*
+   * The field, as colour rather than a 1.1MB PNG.
+   *
+   * These are the artwork's own values, sampled from it: a periwinkle corner
+   * top-left (#ABB0FB), lavender across the top (#CCBDFC), a warm near-white
+   * top-right (#FDF3FA) and a pale blue bottom-left (#C8D7FD), over a base of
+   * #F0EEFD — which is what the middle of the image actually measures.
+   *
+   * Same look, nothing to download, nothing to decode, and it scales to any
+   * viewport instead of being stretched from 1692x930. It is also the same
+   * technique `body` already uses for the dark surface, so the product has one
+   * way of painting a ground rather than two.
+   */
+  --lit-field:
+    radial-gradient(120% 85% at 0% 0%, #ABB0FB 0%, transparent 58%),
+    radial-gradient(95% 60% at 42% 0%, #CCBDFC 0%, transparent 62%),
+    radial-gradient(65% 55% at 100% 0%, #FDF3FA 0%, transparent 52%),
+    radial-gradient(75% 65% at 0% 100%, #C8D7FD 0%, transparent 58%),
+    #F0EEFD;
+
+  /*
+   * Painted here rather than from an inline style on the element.
+   *
+   * `background-attachment` has to be its own declaration: the `background`
+   * shorthand resets it, so an inline `background: var(--lit-field)` silently
+   * cancelled a `bg-fixed` class and the ground scrolled with the page.
+   *
+   * Fixed so a long Tasks list scrolls OVER the ground rather than dragging
+   * it, and so the gradient is sized to the viewport rather than to whatever
+   * the page happens to be tall.
+   */
+  background: var(--lit-field);
+  background-attachment: fixed;
+
+  /* The pivot. See above. */
+  --color-white: #16132B;
+
+  --text-primary: rgba(22, 19, 43, 0.92);
+  --text-secondary: rgba(22, 19, 43, 0.72);
+  /* 0.64, not the 0.55 its dark twin uses: measured on this artwork it lands
+     around 5:1, and 0.55 came out near 4.1:1 — under GUIDE §17. */
+  --text-tertiary: rgba(22, 19, 43, 0.64);
+  --text-quaternary: rgba(22, 19, 43, 0.32);
+
+  --nx-text-primary: #16132B;
+  --nx-text-secondary: #4A4664;
+  --nx-text-muted: #6B6788;
+
+  --focus-ring: rgba(22, 19, 43, 0.55);
+  --scrollbar-thumb: rgba(22, 19, 43, 0.22);
+
+  /*
+   * Signal and department hues: the same hue, darkened until it clears 4.5:1
+   * on the artwork.
+   *
+   * These are identity colours and the hue is what carries the identity —
+   * Operations is still teal, Media Hub is still pink. What changes is the
+   * lightness, because a value tuned to sit on #070A15 measures around 2.5:1
+   * on a pale lavender and GUIDE §17 rules it out. GUIDE §5 fixes the hues,
+   * not the surface they were sampled against. Inside a card they revert.
+   */
+  --nx-primary: #6D28D9;
+  --nx-primary-light: #6D28D9;
+  --nx-purple: #7E22CE;
+  --nx-success: #0F7A5C;
+  --nx-success-light: #0F7A5C;
+  --nx-info: #2E5FE0;
+  --nx-warning: #96540A;
+  --nx-error: #C62B4E;
+
+  --dept-techspecialist: #2E5FE0;
+  --dept-media-hub: #B32E5E;
+  --dept-creative-hub: #8C5206;
+  --dept-operations: #0F7A5C;
+  --dept-growth: #6D3FC4;
+
+  --color-in-progress: #2E5FE0;
+  --color-delivered: #0F7A5C;
+  --color-partial: #8C5206;
+  --color-blocked: #B32E5E;
+  --color-promised: rgba(22, 19, 43, 0.55);
+  --color-deferred: rgba(22, 19, 43, 0.42);
+  --color-dropped: rgba(22, 19, 43, 0.26);
+  --color-superseded: rgba(22, 19, 43, 0.32);
+
+  --color-healthy: #0F7A5C;
+  --color-warning: #8C5206;
+  --color-critical: #B32E5E;
+  --color-neutral: rgba(22, 19, 43, 0.45);
+
+  --priority-critical: #B32E5E;
+  --priority-high: #8C5206;
+  --priority-normal: rgba(22, 19, 43, 0.55);
+  --priority-low: rgba(22, 19, 43, 0.28);
+
+  /* body set `color` from the dark token and inheritance carries the computed
+     value, not the variable — so the lit column has to state its own. */
+  color: var(--nx-text-primary);
+}
+
+/*
+ * Dark islands on the lit page.
+ *
+ * Every floating surface in the product wears one of these classes — cards,
+ * the four glass elevations, dropdown overlays, the two gradient cards, the
+ * check-in buttons — and every one keeps its dark fill. So each restores the
+ * dark palette for its own subtree, and the ~720 white utilities inside it go
+ * back to being white.
+ *
+ * `.on-dark` IS THE ESCAPE HATCH, AND IT WAS NEEDED IMMEDIATELY. Three
+ * surfaces are dark without wearing a card class — they paint themselves with
+ * bg-[var(--nx-surface)], bg-[var(--nx-bg)] or bg-[var(--void)] instead. The
+ * sweep caught two of them on the Tasks page rendering "No commitments yet"
+ * and "All clear" as ink on near-black. A class list can only ever name what
+ * exists today; the marker is how a new dark panel says so.
+ *
+ * The values come from the --dk-* prototypes rather than being repeated, so
+ * there is still exactly one definition of the product's palette.
+ *
+ * Harmless outside .surface-lit, where all of this is already in force.
+ */
+.surface-lit :is(
+  .nx-card,
+  .nx-card-gradient-purple,
+  .nx-card-gradient-green,
+  .nx-checkin-btn,
+  .glass-l1,
+  .glass-l2,
+  .glass-l3,
+  .glass-l4,
+  .glass-overlay,
+  .on-dark
+) {
+  --color-white: var(--dk-ink);
+
+  --text-primary: var(--dk-text-primary);
+  --text-secondary: var(--dk-text-secondary);
+  --text-tertiary: var(--dk-text-tertiary);
+  --text-quaternary: var(--dk-text-quaternary);
+
+  --nx-text-primary: var(--dk-nx-text-primary);
+  --nx-text-secondary: var(--dk-nx-text-secondary);
+  --nx-text-muted: var(--dk-nx-text-muted);
+
+  --focus-ring: var(--dk-focus-ring);
+  --scrollbar-thumb: var(--dk-scrollbar-thumb);
+
+  --nx-primary: var(--dk-nx-primary);
+  --nx-primary-light: var(--dk-nx-primary-light);
+  --nx-purple: var(--dk-nx-purple);
+  --nx-success: var(--dk-nx-success);
+  --nx-success-light: var(--dk-nx-success-light);
+  --nx-info: var(--dk-nx-info);
+  --nx-warning: var(--dk-nx-warning);
+  --nx-error: var(--dk-nx-error);
+
+  --dept-techspecialist: var(--dk-dept-techspecialist);
+  --dept-media-hub: var(--dk-dept-media-hub);
+  --dept-creative-hub: var(--dk-dept-creative-hub);
+  --dept-operations: var(--dk-dept-operations);
+  --dept-growth: var(--dk-dept-growth);
+
+  --color-in-progress: var(--dk-in-progress);
+  --color-delivered: var(--dk-delivered);
+  --color-partial: var(--dk-partial);
+  --color-blocked: var(--dk-blocked);
+  --color-promised: var(--dk-promised);
+  --color-deferred: var(--dk-deferred);
+  --color-dropped: var(--dk-dropped);
+  --color-superseded: var(--dk-superseded);
+
+  --color-healthy: var(--dk-delivered);
+  --color-warning: var(--dk-partial);
+  --color-critical: var(--dk-blocked);
+  --color-neutral: var(--dk-neutral);
+
+  --priority-critical: var(--dk-blocked);
+  --priority-high: var(--dk-partial);
+  --priority-normal: var(--dk-priority-normal);
+  --priority-low: var(--dk-priority-low);
+
+  color: var(--dk-nx-text-primary);
+  color-scheme: dark;
 }

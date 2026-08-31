@@ -58,6 +58,7 @@ export const RHYTHM_DEFAULTS: RhythmConfig = {
   promptDay: 5, // Friday
   promptHour: 15,
   promptMinute: 0,
+  reminderDay: 5, // Friday, same day as the opening
   reminderHour: 17,
   reminderMinute: 0,
   digestCadence: { kind: "weekly", day: 1, hour: 9, minute: 0 }, // Monday 09:00
@@ -152,6 +153,20 @@ export function readRhythm(settings: Record<string, unknown>): RhythmConfig {
     promptDay: int(settings.checkin_prompt_day, d.promptDay, 1, 7),
     promptHour: int(settings.checkin_prompt_hour, d.promptHour, 0, 23),
     promptMinute: int(settings.checkin_prompt_minute, d.promptMinute, 0, 59),
+    /*
+     * Defaults to the day the week opens, not to RHYTHM_DEFAULTS.
+     *
+     * Every organisation configured before this key existed was chasing on the
+     * prompt's day, because that is what the gate did. Falling back to the
+     * constant would silently move the chase for anybody whose opening is not
+     * a Friday.
+     */
+    reminderDay: int(
+      settings.checkin_reminder_day,
+      int(settings.checkin_prompt_day, d.promptDay, 1, 7),
+      1,
+      7,
+    ),
     reminderHour: int(settings.checkin_reminder_hour, d.reminderHour, 0, 23),
     reminderMinute: int(settings.checkin_reminder_minute, d.reminderMinute, 0, 59),
     digestCadence: readCadence(settings),
@@ -205,6 +220,7 @@ export async function updateRhythm(
   const c = next.digestCadence;
   const patch: Record<string, unknown> = {
     checkin_prompt_day: next.promptDay,
+    checkin_reminder_day: next.reminderDay,
     checkin_prompt_hour: next.promptHour,
     checkin_prompt_minute: next.promptMinute,
     checkin_reminder_hour: next.reminderHour,

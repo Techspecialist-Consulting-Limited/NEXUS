@@ -37,7 +37,21 @@ export type RhythmConfig = {
   promptDay: number;
   promptHour: number;
   promptMinute: number;
-  /** Same day as the prompt, later. Chases whoever has not answered. */
+  /**
+   * When NEXUS chases whoever has not answered.
+   *
+   * ISO weekday, and it was hard-wired to `promptDay` — the chase could only
+   * ever be a few hours after the opening. An organisation that opens the week
+   * on Friday and wants a last call on Sunday evening, so people still have the
+   * weekend, could not say so.
+   *
+   * IT MUST BE AT OR AFTER THE OPENING, IN THE SAME WEEK. Not a style rule:
+   * `currentCycles` resolves the week containing today, so a chase on an
+   * earlier weekday belongs to the FOLLOWING calendar week and would chase
+   * people about a week nobody has been asked about yet. Both the form and the
+   * route refuse it.
+   */
+  reminderDay: number;
   reminderHour: number;
   reminderMinute: number;
   /** When the Chairman's brief goes out. */
@@ -335,8 +349,15 @@ export function gateFor(
   rhythm: RhythmConfig,
   timezone: string,
   state: GateState = {},
+  /*
+   * The instant to judge against. Defaults to now, and exists so the gate can
+   * be driven in a test — `digestDue` below already takes one, and a rhythm
+   * whose weekday arithmetic can only be exercised by waiting until Sunday is
+   * a rhythm nobody exercises.
+   */
+  instant: Date = new Date(),
 ): Gate {
-  const now = localNow(timezone);
+  const now = localNow(timezone, instant);
   const at = (d: number, h: number, m: number) =>
     `${DAY_NAME[d]} ${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 
@@ -350,16 +371,16 @@ export function gateFor(
           };
 
     case "remind":
-      return momentHasArrived(now, rhythm.promptDay, rhythm.reminderHour, rhythm.reminderMinute)
+      return momentHasArrived(now, rhythm.reminderDay, rhythm.reminderHour, rhythm.reminderMinute)
         ? { due: true, reason: "" }
         : {
             due: false,
-            reason: `chases ${at(rhythm.promptDay, rhythm.reminderHour, rhythm.reminderMinute)}`,
+            reason: `chases ${at(rhythm.reminderDay, rhythm.reminderHour, rhythm.reminderMinute)}`,
           };
 
     case "digest":
     case "send-digest":
-      return digestDue(rhythm, timezone, state);
+      return digestDue(rhythm, timezone, state, instant);
 
     default:
       return { due: true, reason: "" };

@@ -116,6 +116,15 @@ export function WorkingOnCard({
                 <li key={c.id}>
                   <Link
                     href={`/commitments?task=${encodeURIComponent(c.id)}`}
+                    /*
+                      NOT PREFETCHED. On a phone the cards stack, so every row
+                      is in the viewport at once and Next fetched an RSC
+                      payload for all twelve — the sweep caught them as a dozen
+                      aborted requests when it navigated away. It is a list to
+                      read, not a menu to pick from: most rows are never
+                      pressed, and the ones that are can afford one round trip.
+                    */
+                    prefetch={false}
                     aria-label={`${c.title} — ${s.label}`}
                     className="nx-focus-ring group flex items-center gap-3 rounded-xl border border-white/[0.07]
                                bg-white/[0.02] px-3.5 py-2.5 transition-colors

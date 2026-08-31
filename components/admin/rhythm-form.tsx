@@ -90,12 +90,19 @@ export function RhythmForm({
     setForm((p) => ({ ...p, [key]: value }));
 
   /*
-   * The one relationship worth checking. A reminder earlier than the prompt is
-   * a reminder about a week nobody has been asked about yet — it would simply
-   * never fire, and the page should say so rather than saving something inert.
+   * The one relationship worth checking, and it is a position in the WEEK
+   * rather than a clock time.
+   *
+   * A chase before the opening is a chase about a week nobody has been asked
+   * about. With the day fixed to the prompt's that could only mean "earlier
+   * the same day"; now that the day is configurable it also means an earlier
+   * weekday — and `currentCycles` resolves the week containing today, so a
+   * Monday chase after a Friday opening runs against the FOLLOWING week and
+   * would chase everybody about work they have not been prompted for.
    */
-  const opensAt = form.promptHour * 60 + form.promptMinute;
-  const chasesAt = form.reminderHour * 60 + form.reminderMinute;
+  const opensAt = form.promptDay * 1440 + form.promptHour * 60 + form.promptMinute;
+  const chasesAt =
+    form.reminderDay * 1440 + form.reminderHour * 60 + form.reminderMinute;
   const reminderTooEarly = chasesAt <= opensAt;
 
   const cadence = form.digestCadence;
@@ -169,9 +176,12 @@ export function RhythmForm({
             label="NEXUS chases"
             hint="Only people who have not answered. Anybody who reported hears nothing further."
           >
-            <span className="metric self-center text-2xs text-tertiary">
-              {DAY_NAME[form.promptDay]}
-            </span>
+            <Select
+              aria="Day NEXUS chases"
+              value={form.reminderDay}
+              onChange={(v) => set("reminderDay", v)}
+              options={Object.entries(DAY_NAME).map(([v, l]) => [Number(v), l])}
+            />
             <Clock
               label="NEXUS chases"
               hour={form.reminderHour}
@@ -184,8 +194,12 @@ export function RhythmForm({
 
           {reminderTooEarly && (
             <p className="px-4 py-2.5 text-xs text-[var(--color-warning)]">
-              A chase earlier than the opening would never fire — there is nothing
-              to chase yet. Set it after {clockLabel(form.promptHour, form.promptMinute)}.
+              A chase before the opening would never fire — there is nothing to
+              chase yet, and on an earlier weekday it would run against the
+              following week instead. Set it after{" "}
+              {DAY_NAME[form.promptDay]}{" "}
+              {clockLabel(form.promptHour, form.promptMinute)}, and no later
+              than Sunday.
             </p>
           )}
 

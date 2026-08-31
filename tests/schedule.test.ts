@@ -455,6 +455,57 @@ describe("the rhythm gate", () => {
     expect(momentHasArrived({ day: 5, hour: 15, minute: 30 }, 5, 15, 30)).toBe(true);
   });
 
+  /*
+   * A UTC instant on a given ISO weekday. 2026-08-31 is a Monday, so adding
+   * (day - 1) lands on that weekday of the same week.
+   */
+  const at = (day: number, hour: number) =>
+    new Date(Date.UTC(2026, 7, 30 + day, hour, 0, 0));
+
+  /*
+   * The chase used to borrow promptDay, so it could only ever be a few hours
+   * after the opening. An organisation that opens on Friday and wants a last
+   * call on Sunday evening — leaving people the weekend — could not say so.
+   */
+  it("chases on its own day, not the day the week opened", () => {
+    const fridayOpenSundayChase = {
+      ...rhythm,
+      promptDay: 5,
+      promptHour: 9,
+      reminderDay: 7, // Sunday
+      reminderHour: 18,
+      reminderMinute: 0,
+    };
+
+    // Friday evening: the week is open, but the chase is two days off.
+    expect(gateFor("prompt", fridayOpenSundayChase, "UTC", {}, at(5, 10)).due).toBe(true);
+    expect(gateFor("remind", fridayOpenSundayChase, "UTC", {}, at(5, 20)).due).toBe(false);
+
+    // Saturday: still not yet.
+    expect(gateFor("remind", fridayOpenSundayChase, "UTC", {}, at(6, 23)).due).toBe(false);
+
+    // Sunday 18:00: now.
+    expect(gateFor("remind", fridayOpenSundayChase, "UTC", {}, at(7, 18)).due).toBe(true);
+  });
+
+  /*
+   * Existing organisations were configured before the key existed and were
+   * chasing on the prompt's day, because that is what the gate did. Falling
+   * back to the RHYTHM_DEFAULTS constant would silently move the chase for
+   * anybody whose opening is not a Friday.
+   */
+  it("defaults an unconfigured chase to the day the week opens", () => {
+    const monday = readRhythm({ checkin_prompt_day: 1 });
+    expect(monday.reminderDay).toBe(1);
+
+    const wednesday = readRhythm({ checkin_prompt_day: 3, checkin_reminder_hour: 20 });
+    expect(wednesday.reminderDay).toBe(3);
+
+    // And an explicit value is honoured over the fallback.
+    const split = readRhythm({ checkin_prompt_day: 5, checkin_reminder_day: 7 });
+    expect(split.reminderDay).toBe(7);
+  });
+
   it("never gates the jobs nobody receives", () => {
     /*
      * narrate and coordinate produce a cached readout and a set of findings.
