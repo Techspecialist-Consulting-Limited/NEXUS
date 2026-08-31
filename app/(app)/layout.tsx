@@ -36,22 +36,18 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const personas = isDev ? await demoPersonas() : [];
 
   /*
-   * The account cluster, and the theme with it.
-   *
    * This one value is rendered in TWO places — the rail's footer on desktop,
-   * and the phone header, which is the only chrome a phone has. Putting the
-   * toggle here rather than into a page header is what makes it reachable
-   * from every screen in the product without adding a control to any of them.
+   * and the phone header, which is the only chrome a phone has.
+   *
+   * The theme toggle is deliberately NOT in here any more. In the footer it
+   * sat with the things somebody uses once, and it is reached far more often
+   * than that; it lives at the top of the rail now, and separately in the
+   * phone header below, which is already at the top.
    */
-  const account = (
-    <div className="flex min-w-0 items-center gap-2">
-      <ThemeToggle />
-      {isDev ? (
-        <PersonaSwitcher people={personas} currentId={membership.profileId} />
-      ) : (
-        <AccountMenu name={membership.fullName} email={identity.email} />
-      )}
-    </div>
+  const account = isDev ? (
+    <PersonaSwitcher people={personas} currentId={membership.profileId} />
+  ) : (
+    <AccountMenu name={membership.fullName} email={identity.email} />
   );
 
   /*
@@ -135,6 +131,8 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
               />
             </div>
           )}
+          {/* The phone has no rail, so its toggle lives here. */}
+          <ThemeToggle />
           {account}
         </header>
 

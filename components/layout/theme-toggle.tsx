@@ -19,11 +19,11 @@ import { Moon, Sun } from "lucide-react";
  * anybody who chose white. This component only keeps its own icon in step
  * with what that script already decided.
  *
- * THE DEFAULT IS BLACK, AND DELIBERATELY NOT THE SYSTEM SETTING. Somebody
- * whose laptop is in light mode has not asked this product for a white theme,
- * and a reporting tool that changes colour because the sun went down is a
- * reporting tool people think is broken. The choice is explicit, remembered,
- * and per-browser.
+ * THE DEFAULT IS WHITE, AND DELIBERATELY NOT THE SYSTEM SETTING. A reporting
+ * tool that changes colour because the sun went down is a reporting tool
+ * people think is broken. The choice is explicit, remembered, and per-browser
+ * — and because nothing stored now means white, BOTH choices are written
+ * rather than only the non-default one.
  */
 
 type Theme = "black" | "white";

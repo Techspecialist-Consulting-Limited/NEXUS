@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { NexusMark } from "@/components/ui/nexus-mark";
+import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { usePathname } from "next/navigation";
 import { m } from "motion/react";
 import {
@@ -281,9 +282,24 @@ export function SideNav({
       {/* identity */}
       <div className="flex items-center gap-2.5 px-4 py-4 lg:px-5">
         <NexusMark size={32} />
-        <div className="hidden min-w-0 lg:block">
+        <div className="hidden min-w-0 flex-1 lg:block">
           <p className="truncate text-sm font-medium leading-tight">{orgName}</p>
           <p className="truncate text-2xs leading-tight text-tertiary">{roleLabel}</p>
+        </div>
+        {/*
+          At the top, not in the footer.
+
+          It sat beside the account at the foot of the rail, which is where a
+          product puts the things somebody uses once — sign out, switch seat.
+          The theme is not that: it is the first thing a person reaches for
+          when a screen is hard to read, so it belongs where the eye starts.
+
+          Desktop only here, because below `lg` the rail is a 76px icon strip
+          or absent entirely. The phone gets it in the header, which is
+          already at the top.
+        */}
+        <div className="hidden lg:block">
+          <ThemeToggle />
         </div>
       </div>
 

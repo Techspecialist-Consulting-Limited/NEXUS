@@ -35,7 +35,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#000000",
+  themeColor: "#FFFFFF",
   width: "device-width",
   initialScale: 1,
   // The interface is dark and full-bleed; let it paint under the status bar.
@@ -69,19 +69,25 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           Inline and first in the body, so it runs while the parser is still
           working and nothing below it has been drawn. Anything asynchronous —
           an effect, a deferred script, a client component — runs after the
-          first paint, so whoever chose white would watch the product paint
-          black and then turn white on every single navigation.
+          first paint, so a person would watch the product paint one theme and
+          then switch on every single navigation.
 
-          It touches one attribute and swallows its own errors: localStorage
-          throws in a private window and in browsers set to block site data,
-          and a theme that cannot be read is not a reason to fail to render.
-          The fallback is the black theme, which is the default anyway.
+          WHITE IS THE DEFAULT, so the attribute is set unless somebody has
+          explicitly chosen black. That is why the test is `!== "black"` rather
+          than `=== "white"`: a first visit, a cleared browser and a private
+          window all have nothing stored, and all three should land on white.
+
+          It touches one attribute and swallows its own errors — localStorage
+          throws in a private window and in browsers set to block site data —
+          and the catch sets white too, because a preference that cannot be
+          read is not a reason to serve the theme nobody asked for.
         */}
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "try{if(localStorage.getItem('nexus-theme')==='white')" +
-              "document.documentElement.setAttribute('data-theme','white')}catch(e){}",
+              "(function(){var t='white';try{if(localStorage.getItem('nexus-theme')==='black')" +
+              "t='black'}catch(e){}" +
+              "if(t==='white')document.documentElement.setAttribute('data-theme','white')})()",
           }}
         />
         <Providers>{children}</Providers>
