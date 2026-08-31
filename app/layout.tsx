@@ -35,7 +35,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#08080c",
+  themeColor: "#000000",
   width: "device-width",
   initialScale: 1,
   // The interface is dark and full-bleed; let it paint under the status bar.

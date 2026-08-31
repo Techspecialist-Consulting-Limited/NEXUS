@@ -80,12 +80,12 @@
   --shadow-dramatic: 0 24px 80px rgba(0, 0, 0, 0.6);
 
   /* === Premium dark navy palette === */
-  --nx-bg: #070A15;
-  --nx-sidebar: #0B1020;
-  --nx-surface: rgba(17, 24, 39, 0.72);
-  --nx-surface-strong: rgba(17, 24, 39, 0.85);
-  --nx-border: rgba(255, 255, 255, 0.08);
-  --nx-border-strong: rgba(255, 255, 255, 0.12);
+  --nx-bg: #000000;
+  --nx-sidebar: #0A0A0B;
+  --nx-surface: rgba(16, 16, 19, 0.92);
+  --nx-surface-strong: rgba(22, 22, 26, 0.96);
+  --nx-border: rgba(255, 255, 255, 0.11);
+  --nx-border-strong: rgba(255, 255, 255, 0.18);
 
   /* Primary purple */
   --nx-primary: #8B5CF6;
@@ -93,18 +93,18 @@
   --nx-purple: #A855F7;
 
   /* Success green */
-  --nx-success: #22C55E;
-  --nx-success-light: #34D399;
+  --nx-success: #34D399;
+  --nx-success-light: #6EE7B7;
 
   /* Signal */
-  --nx-info: #3B82F6;
-  --nx-warning: #F59E0B;
-  --nx-error: #EF4444;
+  --nx-info: #60A5FA;
+  --nx-warning: #FBBF24;
+  --nx-error: #F87171;
 
   /* Text */
-  --nx-text-primary: #F8FAFC;
-  --nx-text-secondary: #A1A1AA;
-  --nx-text-muted: #71717A;
+  --nx-text-primary: #FFFFFF;
+  --nx-text-secondary: #A1A1A8;
+  --nx-text-muted: #7A7A82;
 
   /* Gradients */
   --nx-gradient-nexus: linear-gradient(135deg, #17112F 0%, #24115C 45%, #32127A 100%);
@@ -115,7 +115,7 @@
   --nx-glow-green: 0 20px 60px rgba(34, 197, 94, 0.12);
 
   /* === Void === */
-  --void: #070A15;
+  --void: #000000;
 
   /*
    * The one opaque surface a native control — or a floating overlay — sits on.
@@ -132,84 +132,84 @@
    *
    * The same reasoning later covered dropdown menus — see .glass-overlay.
    */
-  --native-surface: #0B1020;
+  --native-surface: #141417;
 
   /* === Department colours (GUIDE §5, verified against seed.sql:48-52) === */
-  --dept-techspecialist: #5b8cff;
-  --dept-media-hub: #f2789f;
-  --dept-creative-hub: #f5b942;
-  --dept-operations: #48c9a9;
-  --dept-growth: #b18cf5;
+  --dept-techspecialist: #60A5FA;
+  --dept-media-hub: #F87171;
+  --dept-creative-hub: #FBBF24;
+  --dept-operations: #34D399;
+  --dept-growth: #A78BFA;
 
   /* === Status colours ===
      Hues exactly as GUIDE §5 specifies. See [FIX 2]/[FIX 3]: these are never
      the sole carrier of meaning — pair with .status-fill-* and an icon. */
   --color-promised: rgba(255, 255, 255, 0.55);
-  --color-in-progress: #5b8cff;
-  --color-delivered: #48c9a9;
-  --color-partial: #f5b942;
-  --color-deferred: rgba(255, 255, 255, 0.38);
-  --color-blocked: #f2789f;
-  --color-dropped: rgba(255, 255, 255, 0.22);
-  --color-superseded: rgba(255, 255, 255, 0.3); /* [FIX 6] */
+  --color-in-progress: #60A5FA;
+  --color-delivered: #34D399;
+  --color-partial: #FBBF24;
+  --color-deferred: rgba(255, 255, 255, 0.40);
+  --color-blocked: #F87171;
+  --color-dropped: rgba(255, 255, 255, 0.26);
+  --color-superseded: rgba(255, 255, 255, 0.32); /* [FIX 6] */
 
   /* === Signal === */
-  --color-healthy: #48c9a9;
-  --color-warning: #f5b942;
-  --color-critical: #f2789f;
-  --color-neutral: rgba(255, 255, 255, 0.4);
+  --color-healthy: #34D399;
+  --color-warning: #FBBF24;
+  --color-critical: #F87171;
+  --color-neutral: rgba(255, 255, 255, 0.42);
 
   /* === Priority === */
-  --priority-critical: #f2789f;
-  --priority-high: #f5b942;
+  --priority-critical: #F87171;
+  --priority-high: #FBBF24;
   --priority-normal: rgba(255, 255, 255, 0.5);
-  --priority-low: rgba(255, 255, 255, 0.25);
+  --priority-low: rgba(255, 255, 255, 0.28);
 
   /* === The dark palette, named ===
      Every value below is already the product's palette; naming it lets the lit
      column restate the live tokens and lets a card restore them, without a
      second copy of the numbers. See ".surface-lit" at the foot of this file. */
   --dk-ink: #ffffff;
-  --dk-text-primary: rgba(255, 255, 255, 0.9);
-  --dk-text-secondary: rgba(255, 255, 255, 0.6);
-  --dk-text-tertiary: rgba(255, 255, 255, 0.55);
-  --dk-text-quaternary: rgba(255, 255, 255, 0.3);
-  --dk-nx-text-primary: #F8FAFC;
-  --dk-nx-text-secondary: #A1A1AA;
-  --dk-nx-text-muted: #71717A;
+  --dk-text-primary: #FFFFFF;
+  --dk-text-secondary: rgba(255, 255, 255, 0.68);
+  --dk-text-tertiary: rgba(255, 255, 255, 0.54);
+  --dk-text-quaternary: rgba(255, 255, 255, 0.36);
+  --dk-nx-text-primary: #FFFFFF;
+  --dk-nx-text-secondary: #A1A1A8;
+  --dk-nx-text-muted: #7A7A82;
   --dk-nx-primary: #8B5CF6;
   --dk-nx-primary-light: #A78BFA;
   --dk-nx-purple: #A855F7;
-  --dk-nx-success: #22C55E;
-  --dk-nx-success-light: #34D399;
-  --dk-nx-info: #3B82F6;
-  --dk-nx-warning: #F59E0B;
-  --dk-nx-error: #EF4444;
-  --dk-dept-techspecialist: #5b8cff;
-  --dk-dept-media-hub: #f2789f;
-  --dk-dept-creative-hub: #f5b942;
-  --dk-dept-operations: #48c9a9;
-  --dk-dept-growth: #b18cf5;
-  --dk-in-progress: #5b8cff;
-  --dk-delivered: #48c9a9;
-  --dk-partial: #f5b942;
-  --dk-blocked: #f2789f;
+  --dk-nx-success: #34D399;
+  --dk-nx-success-light: #6EE7B7;
+  --dk-nx-info: #60A5FA;
+  --dk-nx-warning: #FBBF24;
+  --dk-nx-error: #F87171;
+  --dk-dept-techspecialist: #60A5FA;
+  --dk-dept-media-hub: #F87171;
+  --dk-dept-creative-hub: #FBBF24;
+  --dk-dept-operations: #34D399;
+  --dk-dept-growth: #A78BFA;
+  --dk-in-progress: #60A5FA;
+  --dk-delivered: #34D399;
+  --dk-partial: #FBBF24;
+  --dk-blocked: #F87171;
   --dk-promised: rgba(255, 255, 255, 0.55);
-  --dk-deferred: rgba(255, 255, 255, 0.38);
-  --dk-dropped: rgba(255, 255, 255, 0.22);
-  --dk-superseded: rgba(255, 255, 255, 0.3);
-  --dk-neutral: rgba(255, 255, 255, 0.4);
+  --dk-deferred: rgba(255, 255, 255, 0.40);
+  --dk-dropped: rgba(255, 255, 255, 0.26);
+  --dk-superseded: rgba(255, 255, 255, 0.32);
+  --dk-neutral: rgba(255, 255, 255, 0.42);
   --dk-priority-normal: rgba(255, 255, 255, 0.5);
-  --dk-priority-low: rgba(255, 255, 255, 0.25);
-  --dk-focus-ring: rgba(255, 255, 255, 0.5);
-  --dk-scrollbar-thumb: rgba(255, 255, 255, 0.12);
+  --dk-priority-low: rgba(255, 255, 255, 0.28);
+  --dk-focus-ring: rgba(255, 255, 255, 0.8);
+  --dk-scrollbar-thumb: rgba(255, 255, 255, 0.16);
 
   /* === Text hierarchy (GUIDE §4 rule 5) ===
      white/opacity only — never Tailwind gray-*. */
-  --text-primary: rgba(255, 255, 255, 0.9);
-  --text-secondary: rgba(255, 255, 255, 0.6);
-  --text-tertiary: rgba(255, 255, 255, 0.55); /* [FIX 1] */
-  --text-quaternary: rgba(255, 255, 255, 0.3); /* decoration only, never text */
+  --text-primary: #FFFFFF;
+  --text-secondary: rgba(255, 255, 255, 0.68);
+  --text-tertiary: rgba(255, 255, 255, 0.54); /* [FIX 1] */
+  --text-quaternary: rgba(255, 255, 255, 0.36); /* decoration only, never text */
 }
 
 @theme inline {
@@ -289,10 +289,7 @@ select optgroup {
 }
 
 body {
-  background:
-    radial-gradient(circle at 75% 0%, rgba(76, 29, 149, 0.20), transparent 35%),
-    radial-gradient(circle at 20% 100%, rgba(6, 182, 212, 0.08), transparent 30%),
-    var(--nx-bg);
+  background: var(--nx-bg);
   color: var(--nx-text-primary);
   font-family: var(--font-body);
   font-size: var(--text-base);
@@ -323,9 +320,7 @@ h1, h2, h3, h4, h5, h6 {
   z-index: -1; /* [FIX 5] */
   pointer-events: none;
   background:
-    linear-gradient(135deg, rgba(91, 140, 255, 0.05), transparent 34%),
-    linear-gradient(315deg, rgba(72, 201, 169, 0.04), transparent 42%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 60%);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 55%);
   animation: meshDrift 60s var(--ease-in-out) infinite alternate;
 }
 
@@ -361,22 +356,22 @@ h1, h2, h3, h4, h5, h6 {
  * invisible to typecheck, lint, tests and code review.
  */
 .glass-l1 {
-  background-color: rgba(11, 16, 32, 0.65);
+  background-color: rgba(14, 14, 17, 0.82);
   -webkit-backdrop-filter: blur(24px) saturate(140%);
   backdrop-filter: blur(24px) saturate(140%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.11);
 }
 
 .glass-l2 {
-  background-color: rgba(11, 16, 32, 0.75);
+  background-color: rgba(16, 16, 19, 0.90);
   -webkit-backdrop-filter: blur(40px) saturate(150%);
   backdrop-filter: blur(40px) saturate(150%);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.13);
   box-shadow: var(--shadow-medium);
 }
 
 .glass-l3 {
-  background-color: rgba(11, 16, 32, 0.85);
+  background-color: rgba(20, 20, 24, 0.95);
   -webkit-backdrop-filter: blur(64px) saturate(160%);
   backdrop-filter: blur(64px) saturate(160%);
   border: 1px solid rgba(255, 255, 255, 0.15);
@@ -384,10 +379,10 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .glass-l4 {
-  background-color: rgba(11, 16, 32, 0.92);
+  background-color: rgba(24, 24, 28, 0.98);
   -webkit-backdrop-filter: blur(64px) saturate(160%);
   backdrop-filter: blur(64px) saturate(160%);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   box-shadow: var(--shadow-dramatic);
 }
 
@@ -413,8 +408,8 @@ h1, h2, h3, h4, h5, h6 {
  * and changes nothing on screen.
  */
 .glass-overlay {
-  background-color: #0B1020;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background-color: #141417;
+  border: 1px solid rgba(255, 255, 255, 0.22);
   box-shadow: var(--shadow-heavy);
 }
 
@@ -431,8 +426,8 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: inherit;
   background: linear-gradient(
     135deg,
-    rgba(255, 255, 255, 0.12) 0%,
-    rgba(255, 255, 255, 0.03) 28%,
+    rgba(255, 255, 255, 0.16) 0%,
+    rgba(255, 255, 255, 0.05) 28%,
     transparent 58%
   );
   mix-blend-mode: screen;
@@ -442,7 +437,7 @@ h1, h2, h3, h4, h5, h6 {
    than to an unreadable transparent rectangle. */
 @supports not (backdrop-filter: blur(1px)) {
   .glass-l1, .glass-l2, .glass-l3, .glass-l4 {
-    background-color: #0B1020;
+    background-color: #141417;
   }
 }
 
@@ -622,7 +617,7 @@ h1, h2, h3, h4, h5, h6 {
 .skip-link:focus {
   left: 16px;
   top: 16px;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.20);
   backdrop-filter: blur(40px);
 }
 

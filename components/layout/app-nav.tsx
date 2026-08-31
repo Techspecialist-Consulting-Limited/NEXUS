@@ -270,7 +270,7 @@ export function SideNav({
         spacing or active state is touched here; its type follows --color-white
         like the rest of the shell.
       */
-      style={{ backgroundColor: "#0B1020", borderRight: "1px solid rgba(255,255,255,0.07)" }}
+      style={{ backgroundColor: "#0A0A0B", borderRight: "1px solid rgba(255,255,255,0.10)" }}
     >
       {/* identity */}
       <div className="flex items-center gap-2.5 px-4 py-4 lg:px-5">
