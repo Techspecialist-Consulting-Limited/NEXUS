@@ -55,7 +55,18 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const tip = coaching[1] ?? coaching[0] ?? null;
 
   return (
-    <div className="relative flex min-h-dvh">
+    /*
+      The whole shell is lit, rail included.
+
+      It sat on the main column alone while the rail stayed dark. The design
+      handed over has a white rail, so the scope moves up one element and
+      the rail comes with it — its own `text-white/55`, `hover:bg-white/[0.05]`
+      and the rest re-point at ink along with everything else, because
+      `--color-white` is what they all compile through.
+
+      Background colours and text colours. Nothing here moved.
+    */
+    <div className="surface-lit relative flex min-h-dvh">
       <a href="#main" className="skip-link text-sm">
         Skip to content
       </a>
@@ -107,7 +118,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         island on the lit page and restores the dark palette for its own
         subtree. The rail is outside this element and keeps its opaque #0B1020.
       */}
-      <div className="surface-lit flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col">
         {/* Phones have no sidebar, so identity and the account live up here. */}
         {/*
           Phones have no sidebar, so identity and the account live up here — and

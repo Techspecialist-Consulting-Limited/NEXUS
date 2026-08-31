@@ -771,113 +771,139 @@ h1, h2, h3, h4, h5, h6 {
   color-scheme: light;
 
   /*
-   * The field, as colour rather than a 1.1MB PNG.
+   * BACKGROUND COLOURS AND TEXT COLOURS. That is the whole of this block.
    *
-   * These are the artwork's own values, sampled from it: a periwinkle corner
-   * top-left (#ABB0FB), lavender across the top (#CCBDFC), a warm near-white
-   * top-right (#FDF3FA) and a pale blue bottom-left (#C8D7FD), over a base of
-   * #F0EEFD — which is what the middle of the image actually measures.
+   * Sampled from the design that was handed over: a flat near-white page,
+   * white cards on it, a neutral near-black for type and two greys under it.
+   * Nothing structural is changed by any of this — no layout, no component,
+   * no spacing. Only what things are painted in.
    *
-   * Same look, nothing to download, nothing to decode, and it scales to any
-   * viewport instead of being stretched from 1692x930. It is also the same
-   * technique `body` already uses for the dark surface, so the product has one
-   * way of painting a ground rather than two.
+   * The previous version of this block was a lavender field with a violet
+   * ink; the design is neutral, so the field is flat #F5F6F7 and the ink is
+   * #0F1214. A gradient would be a decision the design does not make.
    */
-  --lit-field:
-    radial-gradient(120% 85% at 0% 0%, #ABB0FB 0%, transparent 58%),
-    radial-gradient(95% 60% at 42% 0%, #CCBDFC 0%, transparent 62%),
-    radial-gradient(65% 55% at 100% 0%, #FDF3FA 0%, transparent 52%),
-    radial-gradient(75% 65% at 0% 100%, #C8D7FD 0%, transparent 58%),
-    #F0EEFD;
-
-  /*
-   * Painted here rather than from an inline style on the element.
-   *
-   * `background-attachment` has to be its own declaration: the `background`
-   * shorthand resets it, so an inline `background: var(--lit-field)` silently
-   * cancelled a `bg-fixed` class and the ground scrolled with the page.
-   *
-   * Fixed so a long Tasks list scrolls OVER the ground rather than dragging
-   * it, and so the gradient is sized to the viewport rather than to whatever
-   * the page happens to be tall.
-   */
+  --lit-field: #F5F6F7;
   background: var(--lit-field);
   background-attachment: fixed;
 
-  /* The pivot. See above. */
-  --color-white: #16132B;
+  /*
+   * THE PIVOT.
+   *
+   * Tailwind v4 compiles every text-white/*, bg-white/* and border-white/*
+   * to color-mix(in oklab, var(--color-white) N%, transparent), so this one
+   * line re-points all ~720 of them across 65 files and keeps what each
+   * opacity meant. It lands close to the design's own scale without anything
+   * being hand-matched: 90% reads #26292B, 60% reads #6E7173 against the
+   * design's #6B7280, and 8% on a border reads #E8E9EA against its #E5E7EB.
+   */
+  --color-white: #0F1214;
 
-  --text-primary: rgba(22, 19, 43, 0.92);
-  --text-secondary: rgba(22, 19, 43, 0.72);
-  /* 0.64, not the 0.55 its dark twin uses: measured on this artwork it lands
-     around 5:1, and 0.55 came out near 4.1:1 — under GUIDE §17. */
-  --text-tertiary: rgba(22, 19, 43, 0.64);
-  --text-quaternary: rgba(22, 19, 43, 0.32);
+  --text-primary: rgba(15, 18, 20, 0.92);
+  --text-secondary: rgba(15, 18, 20, 0.66);
+  /* 0.58, not the 0.55 of its dark twin: on #FFFFFF that measures about 5.6:1,
+     where 0.5 would fall under the 4.5:1 GUIDE §17 asks for. */
+  --text-tertiary: rgba(15, 18, 20, 0.58);
+  --text-quaternary: rgba(15, 18, 20, 0.34);
 
-  --nx-text-primary: #16132B;
-  --nx-text-secondary: #4A4664;
-  --nx-text-muted: #6B6788;
+  --nx-text-primary: #0F1214;
+  --nx-text-secondary: #6B7280;
+  --nx-text-muted: #9CA3AF;
 
-  --focus-ring: rgba(22, 19, 43, 0.55);
-  --scrollbar-thumb: rgba(22, 19, 43, 0.22);
+  /* Card backgrounds. White on the near-white page, separated by a hairline
+     and the faintest lift rather than by a heavier fill. */
+  --nx-surface: #FFFFFF;
+  --nx-surface-strong: #FFFFFF;
+  --nx-border: #E5E7EB;
+  --nx-border-strong: #D1D5DB;
+  --nx-card-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+
+  /* The remaining background tokens, so anything painting itself from one of
+     them lands on the page rather than punching a dark hole in it. */
+  --nx-bg: #FFFFFF;
+  --void: #FFFFFF;
+  --native-surface: #FFFFFF;
+
+  --glass-fill-1: #FFFFFF;
+  --glass-fill-2: #FFFFFF;
+  --glass-fill-3: #FFFFFF;
+  --glass-fill-4: #FFFFFF;
+  --glass-line-1: #E5E7EB;
+  --glass-line-2: #E5E7EB;
+  --glass-line-3: #D1D5DB;
+  --glass-line-4: #D1D5DB;
+  --glass-opaque: #FFFFFF;
+  /* screen over a light surface is a white wash, and the design has no sheen
+     at all. Nothing to blend. */
+  --sheen-image: none;
+  --sheen-blend: normal;
+
+  --shadow-subtle: 0 1px 2px rgba(16, 24, 40, 0.04);
+  --shadow-medium: 0 4px 12px rgba(16, 24, 40, 0.06);
+  --shadow-heavy: 0 12px 32px rgba(16, 24, 40, 0.10);
+  --shadow-dramatic: 0 20px 48px rgba(16, 24, 40, 0.14);
+
+  --focus-ring: rgba(15, 18, 20, 0.55);
+  --scrollbar-thumb: rgba(15, 18, 20, 0.18);
 
   /*
-   * Signal and department hues: the same hue, darkened until it clears 4.5:1
-   * on the artwork.
+   * TEXT COLOURS, CONTINUED.
    *
-   * These are identity colours and the hue is what carries the identity —
-   * Operations is still teal, Media Hub is still pink. What changes is the
-   * lightness, because a value tuned to sit on #070A15 measures around 2.5:1
-   * on a pale lavender and GUIDE §17 rules it out. GUIDE §5 fixes the hues,
-   * not the surface they were sampled against. Inside a card they revert.
+   * These are the hues the product writes text in — a link, a status word, a
+   * unit's name. Same hue, darkened until each clears 4.5:1 on white: a value
+   * tuned to sit on #070A15 measures around 2.5:1 here, which GUIDE §17 rules
+   * out. GUIDE §5 fixes the hues, not the surface they were sampled against.
    */
   --nx-primary: #6D28D9;
   --nx-primary-light: #6D28D9;
   --nx-purple: #7E22CE;
-  --nx-success: #0F7A5C;
-  --nx-success-light: #0F7A5C;
-  --nx-info: #2E5FE0;
-  --nx-warning: #96540A;
-  --nx-error: #C62B4E;
+  --nx-success: #15803D;
+  --nx-success-light: #15803D;
+  --nx-info: #1D4ED8;
+  --nx-warning: #92400E;
+  --nx-error: #B91C1C;
 
-  --dept-techspecialist: #2E5FE0;
-  --dept-media-hub: #B32E5E;
-  --dept-creative-hub: #8C5206;
-  --dept-operations: #0F7A5C;
-  --dept-growth: #6D3FC4;
+  --dept-techspecialist: #1D4ED8;
+  --dept-media-hub: #A81E52;
+  --dept-creative-hub: #854D0E;
+  --dept-operations: #0F766E;
+  --dept-growth: #6D28D9;
 
-  --color-in-progress: #2E5FE0;
-  --color-delivered: #0F7A5C;
-  --color-partial: #8C5206;
-  --color-blocked: #B32E5E;
-  --color-promised: rgba(22, 19, 43, 0.55);
-  --color-deferred: rgba(22, 19, 43, 0.42);
-  --color-dropped: rgba(22, 19, 43, 0.26);
-  --color-superseded: rgba(22, 19, 43, 0.32);
+  --color-in-progress: #1D4ED8;
+  --color-delivered: #15803D;
+  --color-partial: #854D0E;
+  --color-blocked: #A81E52;
+  --color-promised: rgba(15, 18, 20, 0.5);
+  --color-deferred: rgba(15, 18, 20, 0.38);
+  --color-dropped: rgba(15, 18, 20, 0.24);
+  --color-superseded: rgba(15, 18, 20, 0.3);
 
-  --color-healthy: #0F7A5C;
-  --color-warning: #8C5206;
-  --color-critical: #B32E5E;
-  --color-neutral: rgba(22, 19, 43, 0.45);
+  --color-healthy: #15803D;
+  --color-warning: #854D0E;
+  --color-critical: #A81E52;
+  --color-neutral: rgba(15, 18, 20, 0.42);
 
-  --priority-critical: #B32E5E;
-  --priority-high: #8C5206;
-  --priority-normal: rgba(22, 19, 43, 0.55);
-  --priority-low: rgba(22, 19, 43, 0.28);
+  --priority-critical: #A81E52;
+  --priority-high: #854D0E;
+  --priority-normal: rgba(15, 18, 20, 0.5);
+  --priority-low: rgba(15, 18, 20, 0.26);
 
   /* body set `color` from the dark token and inheritance carries the computed
-     value, not the variable — so the lit column has to state its own. */
+     value, not the variable — so the lit shell has to state its own. */
   color: var(--nx-text-primary);
 }
 
 /*
  * Dark islands on the lit page.
  *
- * Every floating surface in the product wears one of these classes — cards,
- * the four glass elevations, dropdown overlays, the two gradient cards, the
- * check-in buttons — and every one keeps its dark fill. So each restores the
- * dark palette for its own subtree, and the ~720 white utilities inside it go
- * back to being white.
+ * ONLY THE PAINTED ONES.
+ *
+ * Cards, the glass elevations and dropdown overlays are all light now — they
+ * read --nx-surface and the glass fills, which the block above restated — so
+ * they are ordinary light surfaces and their type is ink like everything
+ * else. The two gradient cards are different: they are artwork with their own
+ * dark scrims, so their copy stays white wherever the page around them lands.
+ * Each restores the dark palette for its own subtree, and the white utilities
+ * inside it go back to being white.
  *
  * `.on-dark` IS THE ESCAPE HATCH, AND IT WAS NEEDED IMMEDIATELY. Three
  * surfaces are dark without wearing a card class — they paint themselves with
@@ -892,15 +918,8 @@ h1, h2, h3, h4, h5, h6 {
  * Harmless outside .surface-lit, where all of this is already in force.
  */
 .surface-lit :is(
-  .nx-card,
   .nx-card-gradient-purple,
   .nx-card-gradient-green,
-  .nx-checkin-btn,
-  .glass-l1,
-  .glass-l2,
-  .glass-l3,
-  .glass-l4,
-  .glass-overlay,
   .on-dark
 ) {
   --color-white: var(--dk-ink);

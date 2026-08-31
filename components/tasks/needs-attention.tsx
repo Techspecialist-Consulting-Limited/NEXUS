@@ -28,8 +28,7 @@ export function NeedsAttention({
     <section
       aria-label="Needs attention"
       className={cn(
-        // `on-dark`: painted from --nx-bg, not a card class. See globals.css.
-        "on-dark flex min-h-0 flex-col rounded-2xl border bg-[var(--nx-bg)]",
+        "flex min-h-0 flex-col rounded-2xl border bg-[var(--nx-bg)]",
         allClear
           ? "border-white/[0.08]"
           : "border-[var(--color-blocked)]/30",

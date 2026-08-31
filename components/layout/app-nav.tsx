@@ -264,7 +264,13 @@ export function SideNav({
       aria-label="Primary"
       className="sticky top-0 hidden h-dvh shrink-0 flex-col border-y-0 border-l-0 md:flex
                  md:w-[76px] lg:w-[244px]"
-      style={{ backgroundColor: "#0B1020", borderRight: "1px solid rgba(255,255,255,0.07)" }}
+      /*
+        White, with a hairline rather than a fill change to separate it from
+        the page. Background colour only — nothing about the rail's structure,
+        spacing or active state is touched here; its type follows --color-white
+        like the rest of the shell.
+      */
+      style={{ backgroundColor: "#FFFFFF", borderRight: "1px solid #E5E7EB" }}
     >
       {/* identity */}
       <div className="flex items-center gap-2.5 px-4 py-4 lg:px-5">

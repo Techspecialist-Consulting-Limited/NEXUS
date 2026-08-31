@@ -337,7 +337,7 @@ export function SettingsPanel({
         Clear of the phone's bottom bar, and near the edge on desktop where
         there is none.
       */}
-      <div className="on-dark sticky bottom-24 z-10 flex items-center justify-between gap-3 rounded-lg border border-white/[0.12] bg-[var(--void)] px-4 py-3 shadow-lg shadow-black/40 md:bottom-4">
+      <div className="sticky bottom-24 z-10 flex items-center justify-between gap-3 rounded-lg border border-white/[0.12] bg-[var(--void)] px-4 py-3 shadow-lg shadow-black/40 md:bottom-4">
         <p className="note">{dirty ? "Unsaved changes." : "Everything is saved."}</p>
         <button
           type="button"
