@@ -264,7 +264,7 @@ export function OrganizationsManager({
                       onClick={() => void remove(org)}
                       disabled={!armed || busy}
                       className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-lg
-                                 bg-[var(--color-critical)] px-4 text-sm font-medium text-white
+                                 bg-[var(--color-critical)] px-4 text-sm font-medium text-[var(--on-accent)]
                                  transition-opacity hover:opacity-90 disabled:opacity-40"
                     >
                       {busy ? (

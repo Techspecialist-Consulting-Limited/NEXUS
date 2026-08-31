@@ -775,13 +775,19 @@ h1, h2, h3, h4, h5, h6 {
    the same separating, the same three status hues. Nothing here is blue or
    purple, in either theme.
 
-   ADDRESSED BY data-theme, NOT BY A CLASS ON ONE ELEMENT.
+   ADDRESSED BY data-theme ON <html>, APPLIED TO THE APP SHELL.
 
-   It used to be `.surface-lit` on the main column, which meant the rail was a
-   different theme from the page beside it and the sign-in screens were a
-   third. On <html> it covers everything, including /login and /onboarding,
-   and the inline script in app/layout.tsx sets it before first paint so the
-   product never flashes black and then turns white.
+   The attribute goes on <html>, because the inline script in app/layout.tsx
+   has to stamp it before anything paints and the toggle has to read it from
+   one place. The TOKENS are scoped to `.theme-surface`, which only the
+   authenticated shell wears.
+
+   That split is deliberate. Sign-in and onboarding are their own design —
+   a card floating on the NEXUS hero artwork — and they were never part of
+   this. Themed along with everything else, the card turned white on a dark
+   hero and the Microsoft button's label went black on a black fill, because
+   `text-white` had been re-pointed at ink underneath it. They keep the black
+   palette by simply not carrying the class.
 
    HOW ONE VARIABLE TURNS THE PAGE OVER.
 
@@ -800,7 +806,7 @@ h1, h2, h3, h4, h5, h6 {
    that floor is not new.
    =========================================================================== */
 
-:root[data-theme="white"] {
+[data-theme="white"] .theme-surface {
   color-scheme: light;
 
   /* The pivot. See above. */
@@ -913,7 +919,11 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--nx-text-primary);
 }
 
-:root[data-theme="white"] body {
+/*
+ * The shell paints its own ground rather than body doing it, because body is
+ * shared with the sign-in screens and they are not themed.
+ */
+.theme-surface {
   background: var(--nx-bg);
 }
 
@@ -925,7 +935,7 @@ h1, h2, h3, h4, h5, h6 {
  * has to be ink like everything else — the rule below would otherwise force
  * white type onto a white card.
  */
-:root[data-theme="white"] :is(
+[data-theme="white"] .theme-surface :is(
   .nx-card-gradient-purple,
   .nx-card-gradient-green
 ) {

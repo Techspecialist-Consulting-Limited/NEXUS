@@ -190,7 +190,7 @@ export function BottomNav({
               >
                 <span
                   className="grid size-12 place-items-center rounded-full
-                             bg-[var(--dept-techspecialist)] text-white
+                             bg-[var(--dept-techspecialist)] text-[var(--on-accent)]
                              shadow-lg shadow-[var(--dept-techspecialist)]/30
                              transition-transform active:scale-95"
                 >

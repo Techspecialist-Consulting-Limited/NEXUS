@@ -448,7 +448,7 @@ export function InlineCheckIn({
             onClick={submit}
             disabled={saving || (!progress.trim() && !plan.trim())}
             className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl
-                       bg-[var(--dept-techspecialist)] px-4 text-sm text-white
+                       bg-[var(--dept-techspecialist)] px-4 text-sm text-[var(--on-accent)]
                        transition-[filter] hover:brightness-110 disabled:opacity-40"
           >
             {saving ? (

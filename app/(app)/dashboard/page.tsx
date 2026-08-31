@@ -58,7 +58,7 @@ function NothingSettledYet({ role }: { role: OrgRole }) {
           action={
             <Link
               href="/admin"
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-[var(--dept-techspecialist)] px-4 text-sm font-medium text-white transition-opacity hover:opacity-90"
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-[var(--dept-techspecialist)] px-4 text-sm font-medium text-[var(--on-accent)] transition-opacity hover:opacity-90"
             >
               Continue setup <ArrowRight size={14} aria-hidden="true" />
             </Link>

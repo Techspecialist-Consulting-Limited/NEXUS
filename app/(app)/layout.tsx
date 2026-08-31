@@ -76,7 +76,13 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
 
       Background colours and text colours. Nothing here moved.
     */
-    <div className="relative flex min-h-dvh">
+    /*
+      `theme-surface` is what the white palette is scoped to — see the block of
+      that name at the foot of app/globals.css. It is here rather than on
+      <html> so that sign-in and onboarding, which are their own design on the
+      hero artwork, are left alone.
+    */
+    <div className="theme-surface relative flex min-h-dvh">
       <a href="#main" className="skip-link text-sm">
         Skip to content
       </a>

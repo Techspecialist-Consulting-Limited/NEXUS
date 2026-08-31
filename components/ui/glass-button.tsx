@@ -23,7 +23,7 @@ import type { ReactNode } from "react";
 
 const variants = {
   primary:
-    "bg-[var(--dept-techspecialist)] text-white border border-transparent hover:brightness-110",
+    "bg-[var(--dept-techspecialist)] text-[var(--on-accent)] border border-transparent hover:brightness-110",
   secondary:
     "bg-white/[0.08] text-white/90 border border-white/[0.12] hover:bg-white/[0.12]",
   ghost:

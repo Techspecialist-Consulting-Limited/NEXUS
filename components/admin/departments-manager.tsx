@@ -103,7 +103,7 @@ export function DepartmentsManager({
           type="submit"
           disabled={!name.trim() || busy === "create"}
           className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[var(--dept-techspecialist)]
-                     px-4 text-sm font-medium text-white transition-opacity
+                     px-4 text-sm font-medium text-[var(--on-accent)] transition-opacity
                      hover:opacity-90 disabled:opacity-30"
         >
           {busy === "create" ? (

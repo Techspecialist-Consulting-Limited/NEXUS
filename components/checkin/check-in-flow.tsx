@@ -1272,8 +1272,8 @@ function Capture({
             className={cn(
               "mx-auto grid size-20 place-items-center rounded-full transition-colors",
               listening
-                ? "bg-[var(--color-critical)] text-white"
-                : "bg-[var(--dept-techspecialist)] text-white",
+                ? "bg-[var(--color-critical)] text-[var(--on-accent)]"
+                : "bg-[var(--dept-techspecialist)] text-[var(--on-accent)]",
             )}
           >
             {listening ? (
@@ -1489,7 +1489,7 @@ function PrimaryButton({
       disabled={disabled}
       className={cn(
         "inline-flex min-h-12 items-center justify-center gap-2 rounded-full",
-        "bg-[var(--dept-techspecialist)] px-6 text-sm font-medium text-white",
+        "bg-[var(--dept-techspecialist)] px-6 text-sm font-medium text-[var(--on-accent)]",
         "transition-[filter] hover:brightness-110 disabled:opacity-40",
         className,
       )}
@@ -1515,7 +1515,7 @@ function PrimaryAction({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "inline-flex min-h-12 items-center justify-center gap-2 rounded-full px-6 text-sm font-medium text-white",
+        "inline-flex min-h-12 items-center justify-center gap-2 rounded-full px-6 text-sm font-medium text-[var(--on-accent)]",
         "bg-[var(--nx-primary)] shadow-[0_8px_24px_-8px_rgba(139,92,246,0.55)]",
         "transition-[filter,transform] hover:brightness-110 active:scale-[0.98] disabled:opacity-40 disabled:hover:brightness-100",
       )}

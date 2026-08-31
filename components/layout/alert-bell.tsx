@@ -92,7 +92,7 @@ export function AlertBell({ alerts }: { alerts: Alert[] }) {
           <span
             aria-hidden="true"
             className="metric absolute -right-0.5 -top-0.5 grid min-w-[18px] place-items-center rounded-full
-                       bg-[var(--color-critical)] px-1 text-[10px] font-semibold leading-[18px] text-white"
+                       bg-[var(--color-critical)] px-1 text-[10px] font-semibold leading-[18px] text-[var(--on-accent)]"
           >
             {count > 9 ? "9+" : count}
           </span>

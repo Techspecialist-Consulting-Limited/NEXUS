@@ -116,7 +116,7 @@ export function FirstRun({ firstName }: { firstName: string }) {
           onClick={() => void finish()}
           disabled={dismissing}
           className="inline-flex min-h-11 items-center gap-2 rounded-full
-                     bg-[var(--dept-techspecialist)] px-5 text-sm font-medium text-white
+                     bg-[var(--dept-techspecialist)] px-5 text-sm font-medium text-[var(--on-accent)]
                      transition-opacity hover:opacity-90 disabled:opacity-40"
         >
           {dismissing ? (

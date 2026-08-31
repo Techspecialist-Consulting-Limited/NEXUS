@@ -344,7 +344,7 @@ export function SettingsPanel({
           onClick={() => void save()}
           disabled={!dirty || saving}
           className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[var(--dept-techspecialist)]
-                     px-4 text-sm font-medium text-white transition-opacity
+                     px-4 text-sm font-medium text-[var(--on-accent)] transition-opacity
                      hover:opacity-90 disabled:opacity-30"
         >
           {saving && <Loader2 size={14} className="animate-spin" aria-hidden="true" />}
