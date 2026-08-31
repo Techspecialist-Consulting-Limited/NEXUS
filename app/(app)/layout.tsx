@@ -66,7 +66,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
 
       Background colours and text colours. Nothing here moved.
     */
-    <div className="surface-lit relative flex min-h-dvh">
+    <div className="relative flex min-h-dvh">
       <a href="#main" className="skip-link text-sm">
         Skip to content
       </a>
