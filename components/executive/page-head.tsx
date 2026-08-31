@@ -19,7 +19,8 @@ export function PageHead({
   aside,
 }: {
   title: string;
-  cycleLabel: string;
+  /** The week this page is about, or null before one has settled. */
+  cycleLabel: string | null;
   /** One line, built from counted facts. Never a generated claim. */
   standfirst: ReactNode;
   /** Optional right-hand marker — a count, a state. */
@@ -39,9 +40,15 @@ export function PageHead({
           It is a coordinate, not a status — a badge would give it the same
           visual weight as something that needs acting on.
         */}
-        <span className="metric text-2xs uppercase tracking-wider text-tertiary">
-          {cycleLabel}
-        </span>
+        {/*
+          Omitted entirely when there is no week, rather than printed as an
+          empty box. A coordinate nobody can read is not a coordinate.
+        */}
+        {cycleLabel && (
+          <span className="metric text-2xs uppercase tracking-wider text-tertiary">
+            {cycleLabel}
+          </span>
+        )}
       </div>
     </div>
   );

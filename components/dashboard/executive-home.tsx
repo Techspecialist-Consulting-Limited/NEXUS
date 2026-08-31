@@ -41,6 +41,18 @@ import type { AIInsight } from "@/lib/insights";
  * explains those same numbers rather than producing its own, so the screen and
  * the answer can never disagree.
  *
+ * THERE IS NO VERSION OF THIS PAGE THAT DOES NOT RENDER.
+ *
+ * A Chairman invited into a brand-new organisation was shown one centred
+ * sentence on an otherwise blank screen — the whole page was skipped, because
+ * /dashboard bailed before reaching it whenever no reporting week had settled.
+ * He could not see the assistant, the units that had just been created, or
+ * anything he might ask about. My Week has never behaved that way for an
+ * employee: it draws every card and each one says what will fill it.
+ *
+ * So `cycleLabel` is nullable and null is an ordinary state, not an error.
+ * Every card renders in every case; only the sentences inside them change.
+ *
  * THE FIRST DAY IS A REAL STATE, NOT A DEGRADED ONE.
  *
  * A Chairman is invited before anybody has reported, so the first thing this
@@ -163,7 +175,8 @@ export function ExecutiveHome({
   firstName: string;
   greeting: string;
   today: string;
-  cycleLabel: string;
+  /** The settled week, or null when none has settled yet. */
+  cycleLabel: string | null;
   insights: AIInsight[];
   updates: StaffUpdate[];
   /** Every unit and who is in it. Shown whether or not anybody has reported. */
@@ -221,7 +234,9 @@ export function ExecutiveHome({
               <p className="metric hidden shrink-0 text-xs text-tertiary md:block">{today}</p>
             </div>
             <p className="mt-1 text-[15px] text-secondary">
-              Your organisation at a glance — settled through {cycleLabel}.
+              {cycleLabel
+                ? `Your organisation at a glance — settled through ${cycleLabel}.`
+                : "Your organisation at a glance. No reporting week has settled yet, so the figures below fill in after the first one closes."}
             </p>
 
             <div className="mt-6 md:mt-8">
@@ -260,7 +275,9 @@ export function ExecutiveHome({
             <p className="mt-4 text-sm leading-relaxed text-secondary">
               {reporting.expected === 0
                 ? "Nobody has been added to the organisation yet. Once people are invited and start reporting, what they say appears here in their own words."
-                : `Nobody has filed for ${cycleLabel} yet. As each person reports, their update appears here — their own sentence, not a summary of it.`}
+                : cycleLabel
+                  ? `Nobody has filed for ${cycleLabel} yet. As each person reports, their update appears here — their own sentence, not a summary of it.`
+                  : "Nothing has been filed yet. As each person reports, their update appears here — their own sentence, not a summary of it."}
             </p>
           ) : (
             <ul className="mt-3 flex flex-col gap-2">
@@ -385,8 +402,8 @@ export function ExecutiveHome({
             {reporting.expected === 0
               ? "Nobody has been added to the organisation yet. When people are invited and start reporting, NEXUS reads every check-in and what needs a decision from you appears here — what is blocked between units, what keeps carrying over, and who needs support."
               : nothingYet
-                ? `Nobody has reported for ${cycleLabel} yet, so there is nothing to read. As check-ins arrive, NEXUS flags what is blocked between units, what has carried without explanation, and who needs support.`
-                : `${reporting.submitted} of ${reporting.expected} reported for ${cycleLabel}, and nothing came back blocked across units, carried without explanation, or dropped without being declared.`}
+                ? `Nobody has reported${cycleLabel ? ` for ${cycleLabel}` : ""} yet, so there is nothing to read. As check-ins arrive, NEXUS flags what is blocked between units, what has carried without explanation, and who needs support.`
+                : `${reporting.submitted} of ${reporting.expected} reported${cycleLabel ? ` for ${cycleLabel}` : ""}, and nothing came back blocked across units, carried without explanation, or dropped without being declared.`}
           </p>
         ) : (
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">

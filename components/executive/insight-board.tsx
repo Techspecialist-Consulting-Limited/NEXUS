@@ -59,7 +59,8 @@ export function InsightBoard({
   insights,
   reporting,
 }: {
-  cycleLabel: string;
+  /** The settled week, or null when none has settled yet. */
+  cycleLabel: string | null;
   insights: AIInsight[];
   /**
    * Who was expected to file this week, and who has.
@@ -78,7 +79,7 @@ export function InsightBoard({
     <div className="mx-auto flex max-w-[1400px] flex-col gap-4 pb-2">
       <PageHead
         title="Insights"
-        cycleLabel={weekLabel(cycleLabel)}
+        cycleLabel={cycleLabel ? weekLabel(cycleLabel) : null}
         standfirst={
           insights.length === 0 ? (
             reporting.submitted === 0
@@ -135,7 +136,9 @@ export function InsightBoard({
             ) : reporting.submitted === 0 ? (
               <>
                 <p className="mt-3 text-sm font-medium text-white/90">
-                  Nothing reported for {cycleLabel} yet
+                  {cycleLabel
+                    ? `Nothing reported for ${cycleLabel} yet`
+                    : "Nothing reported yet"}
                 </p>
                 <p className="mt-1 text-sm leading-relaxed text-secondary">
                   {reporting.expected}{" "}
@@ -150,8 +153,9 @@ export function InsightBoard({
                   Nothing needs your attention
                 </p>
                 <p className="mt-1 text-sm leading-relaxed text-secondary">
-                  {reporting.submitted} of {reporting.expected} reported for{" "}
-                  {cycleLabel} and nothing came back blocked between units,
+                  {reporting.submitted} of {reporting.expected} reported
+                  {cycleLabel ? ` for ${cycleLabel}` : ""} and nothing came back
+                  blocked between units,
                   carried without explanation, or dropped without being
                   declared. This page stays empty when the week is clean — it
                   does not manufacture a concern to look useful.

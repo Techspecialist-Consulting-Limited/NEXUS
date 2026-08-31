@@ -23,6 +23,34 @@ export default async function AdvicePage() {
   if (!me) redirect("/");
 
   const week = await latestVisibleCycle(actor);
+
+  /*
+   * THE CHAIRMAN'S PAGE ALWAYS RENDERS.
+   *
+   * Findings are read from reported weeks, so before the first one settles
+   * there are none — but "none" is a state his board already knows how to
+   * show, and it says what will fill it. Bailing here left him a centred
+   * sentence on a blank screen instead, which is what he sees on the day he
+   * is invited. Same reasoning as /dashboard.
+   */
+  if (me.role === "executive") {
+    const [org, compliance] = await Promise.all([
+      week ? executiveBrief(actor, week.id) : Promise.resolve(null),
+      // What separates a clean week from one nobody has filed for.
+      week ? reportingCompliance(actor, week.id) : Promise.resolve([]),
+    ]);
+    return (
+      <InsightBoard
+        cycleLabel={week?.label ?? null}
+        insights={org?.insights ?? []}
+        reporting={{
+          expected: compliance.length,
+          submitted: compliance.filter((r) => r.submitted).length,
+        }}
+      />
+    );
+  }
+
   if (!week) {
     /*
      * Says what is missing, why it matters and what changes it. "Nothing to
@@ -36,9 +64,8 @@ export default async function AdvicePage() {
           No reporting week has settled yet
         </p>
         <p className="mt-1.5 text-sm leading-relaxed text-secondary">
-          {me.role === "executive"
-            ? "Findings are read from what people report, after a week closes and its reconciliations confirm. Nothing is missing — it is simply early."
-            : "Your coaching is written after a week settles. The first one arrives once you have reported and the week has closed."}
+          Your coaching is written after a week settles. The first one arrives
+          once you have reported and the week has closed.
         </p>
       </div>
     );
@@ -51,24 +78,6 @@ export default async function AdvicePage() {
    * half of the page — and computing weeklyBrief for him is a query that can
    * only ever return nothing.
    */
-  if (me.role === "executive") {
-    const [org, compliance] = await Promise.all([
-      executiveBrief(actor, week.id),
-      // What separates a clean week from one nobody has filed for.
-      reportingCompliance(actor, week.id),
-    ]);
-    return (
-      <InsightBoard
-        cycleLabel={week.label}
-        insights={org.insights}
-        reporting={{
-          expected: compliance.length,
-          submitted: compliance.filter((r) => r.submitted).length,
-        }}
-      />
-    );
-  }
-
   /*
    * Personal coaching for everyone who files. A lead's unit findings live on
    * /my-team and HR's monitoring lives on /dashboard, so this page is only

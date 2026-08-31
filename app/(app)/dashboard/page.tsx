@@ -112,33 +112,32 @@ export default async function DashboardPage() {
   if (!me) redirect("/");
 
   const week = await latestVisibleCycle(actor);
-
-  /*
-   * A brand-new organisation has no settled week, and this page used to say so
-   * in one flat sentence and then stop — which is what an administrator saw
-   * the very first time they signed in. It is a fair statement of fact and a
-   * dead end: it does not say why there is nothing, what would change it, or
-   * where to go.
-   *
-   * The answer differs by who is asking, so it is answered by who is asking.
-   * An administrator has setup left to do; HR has nobody to chase yet; the
-   * Chairman is simply early.
-   */
-  if (!week) {
-    return <NothingSettledYet role={me.role} />;
-  }
-
   const isChairman = me.role === "executive";
 
+  /*
+   * THE CHAIRMAN IS NOT GATED ON A SETTLED WEEK.
+   *
+   * He is invited into an organisation somebody else is building, and this
+   * page used to return one centred sentence on a blank screen before it ever
+   * reached his view — no assistant to ask, no sight of the units that had
+   * just been created, nothing. My Week has never done that to an employee.
+   *
+   * So his branch runs with `week` possibly null and every card renders,
+   * saying what will fill it. The guard for everybody else is below his
+   * branch, because an administrator with setup left to do and HR with nobody
+   * to chase are both better served by being told so than by a page of empty
+   * cards.
+   */
   if (isChairman) {
     /*
-     * The weekly brief is the STORED digest, read here and passed down as
-     * plain props. Null when none has been sent, which is the whole of the
-     * empty state: no brief, no modal.
+     * Everything needing a settled week is skipped when there is none, and the
+     * card that reads it renders its empty state instead. `unitRoster` needs
+     * no cycle at all, and `latestWeeklyBrief` is the STORED digest — null
+     * when none has been sent, which is the whole of that empty state.
      */
     const [brief, updates, weekly, roster, compliance] = await Promise.all([
-      executiveBrief(actor, week.id),
-      recentStaffUpdates(actor, week.id),
+      week ? executiveBrief(actor, week.id) : Promise.resolve(null),
+      week ? recentStaffUpdates(actor, week.id) : Promise.resolve([]),
       latestWeeklyBrief(actor),
       /*
        * The organisation's shape, read without a cycle. Units exist from the
@@ -152,8 +151,22 @@ export default async function DashboardPage() {
        * page cannot tell "nothing needed you" from "nobody reported", and it
        * used to render the first sentence for both.
        */
-      reportingCompliance(actor, week.id),
+      week ? reportingCompliance(actor, week.id) : Promise.resolve([]),
     ]);
+
+    /*
+     * Who is expected to file, when no week exists to count it over.
+     *
+     * Derived from the roster rather than a second query: units' members plus
+     * the unassigned IS every active person, and reportingCompliance excludes
+     * the Chairman for the same reason this does — he consumes reporting and
+     * does not produce it.
+     */
+    const expected =
+      compliance.length > 0
+        ? compliance.length
+        : [...roster.units.flatMap((u) => u.members), ...roster.unassigned]
+            .filter((m) => m.role !== "executive").length;
 
     return (
       <ExecutiveHome
@@ -165,17 +178,26 @@ export default async function DashboardPage() {
           month: "short",
           year: "numeric",
         })}
-        cycleLabel={week.label}
-        insights={brief.insights}
+        cycleLabel={week?.label ?? null}
+        insights={brief?.insights ?? []}
         updates={updates}
         roster={roster}
         reporting={{
-          expected: compliance.length,
+          expected,
           submitted: compliance.filter((r) => r.submitted).length,
         }}
         weeklyBrief={weekly}
       />
     );
+  }
+
+  /*
+   * Past this point a settled week is required — HR reads compliance over one
+   * and the Administrator's command view is entirely counted figures. The
+   * Chairman was handled above and never reaches here.
+   */
+  if (!week) {
+    return <NothingSettledYet role={me.role} />;
   }
 
   if (me.role === "hr") {
