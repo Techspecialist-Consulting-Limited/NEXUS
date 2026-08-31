@@ -32,7 +32,16 @@
 
 :root {
   /* === Typography (GUIDE §4) === */
-  --font-display: var(--font-inter), "SF Pro Display", system-ui, sans-serif;
+  /*
+   * Titles only. Inter is invisible — which was right while the product was
+   * finding its shape, and is why every screen read as competent and none read
+   * as this product. NEXUS is a record of what an organisation promised and
+   * what it did; that has a voice, and the titles are where it is audible.
+   *
+   * The fallback is a serif on purpose: if the face fails to load, a title
+   * should still be a title rather than silently becoming body copy.
+   */
+  --font-display: var(--font-instrument), Georgia, "Times New Roman", serif;
   --font-body: var(--font-inter), "SF Pro Text", system-ui, sans-serif;
   --font-mono: var(--font-jetbrains), "SF Mono", ui-monospace, monospace;
 
@@ -357,6 +366,16 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: 500;
   line-height: 1.25;
   letter-spacing: 0;
+  /*
+   * NO FAUX BOLD.
+   *
+   * Instrument Serif ships one weight. Without this, every `font-semibold`
+   * utility already written on a heading would ask the browser to invent a
+   * 600 by smearing the 400 — which on a high-contrast serif destroys exactly
+   * the thin strokes that make it worth using. Turned off, those utilities
+   * resolve to the one real weight and the face renders as drawn.
+   */
+  font-synthesis-weight: none;
 }
 
 /* ---------------------------------------------------------------------------
@@ -569,6 +588,12 @@ h1, h2, h3, h4, h5, h6 {
 
 /* The label above a section. Reads as structure, not as content. */
 .eyebrow {
+  /*
+   * Inter, even on an <h2>. An eyebrow is a label — 11px, uppercase, letter-
+   * spaced — and a display serif at that size is illegible rather than
+   * characterful. The rail's group headings are the case that proves it.
+   */
+  font-family: var(--font-body);
   font-size: var(--text-2xs);
   font-weight: 500;
   text-transform: uppercase;
@@ -578,6 +603,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* A page title. One per page. */
 .page-title {
+  font-family: var(--font-display);
   font-size: var(--text-2xl);
   font-weight: 500;
   line-height: 1.15;
@@ -596,6 +622,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* A card or band heading, one level below the page title. */
 .card-title {
+  font-family: var(--font-display);
   font-size: var(--text-base);
   font-weight: 500;
   line-height: 1.3;

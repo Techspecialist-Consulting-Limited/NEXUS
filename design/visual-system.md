@@ -68,7 +68,8 @@ thing", and most things on a page are not.
 
 ## Typography
 
-**Inter** for everything. **JetBrains Mono** for every figure.
+**Inter** for body and interface. **JetBrains Mono** for every figure.
+A **display face** carries titles, used with restraint — see the rule below.
 
 ### The scale — use it, never an arbitrary value
 
@@ -124,7 +125,33 @@ at each call site.
 4. `text-wrap: balance` on titles, `pretty` on prose.
 5. Body copy caps at 65–75ch.
 
-Do not introduce a new font. The typography system is settled.
+### The display face
+
+Reopened deliberately on 2026-08-31. This document previously said "do not
+introduce a new font, the typography system is settled", and Inter everywhere
+was the right call while the product was finding its shape: it is invisible,
+it never fights the content, and it let every other decision be made without
+typography arguing back.
+
+It is also why every screen reads as competent and none reads as *this
+product*. Inter is the single most-used interface face on the web; a page set
+entirely in it announces nothing about what it is. NEXUS is a record of what an
+organisation promised and what it did — that has a voice, and the titles are
+where it should be audible.
+
+**Three faces, three jobs, and no more:**
+
+| Role | Face | Where |
+|---|---|---|
+| Display | the chosen display face | page titles and card headings only |
+| Body | Inter | everything a person reads |
+| Figures | JetBrains Mono | every number, tabular |
+
+**The restraint is the whole point.** A display face on body copy is a costume;
+on a title it is a voice. It appears at `.page-title` and `.card-title` and
+nowhere else. Rules 1–5 below still hold: medium weight, never bolder.
+
+Nothing else joins them. Three faces is a system; four is a collection.
 
 ---
 
