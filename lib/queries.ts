@@ -283,6 +283,66 @@ export async function unitRoster(actor: string): Promise<UnitRoster> {
   return { units, unassigned };
 }
 
+export type WeekCommitment = {
+  full_name: string;
+  unit: string | null;
+  status: string;
+  title: string;
+  source_quote: string | null;
+  was_planned: boolean;
+  depends_on: string | null;
+};
+
+/**
+ * Everything the organisation committed to in one week, per person.
+ *
+ * NOT `recentStaffUpdates`, which is `distinct on (profile_id)` — one row per
+ * person, newest first. That is the right shape for a feed card and the wrong
+ * one for the assistant: somebody who filed three things had two of them
+ * invisible, so a question like "who asked me for something?" could be
+ * answered wrongly from an incomplete set rather than answered honestly from
+ * a complete one.
+ *
+ * Ordered blocked-first so the cap, when a large organisation reaches it,
+ * drops the least consequential rows rather than an arbitrary tail.
+ *
+ * `source_quote` is the extractor's captured sentence, not a paraphrase — it
+ * is what lets an answer quote somebody back to themselves. The raw check-in
+ * text is deliberately NOT here and is not reachable through any read the
+ * Chairman has: policy `check_ins_own` keeps it to its author, and
+ * submission_status exists precisely so compliance can see that a report
+ * arrived without seeing what it said.
+ */
+export async function orgWeekCommitments(
+  actor: string,
+  cycleId: string,
+  limit = 60,
+): Promise<WeekCommitment[]> {
+  return asActor(
+    actor,
+    (sql) => sql<WeekCommitment>`
+      select p.full_name,
+             d.name  as unit,
+             c.status::text as status,
+             c.title,
+             c.source_quote,
+             c.was_planned,
+             dep.name as depends_on
+      from commitments c
+      join profiles p on p.id = c.profile_id
+      left join departments d on d.id = p.department_id
+      left join departments dep on dep.id = c.depends_on_department_id
+      where c.deleted_at is null
+        and p.status = 'active'
+        and (c.target_cycle_id = ${cycleId} or c.created_cycle_id = ${cycleId})
+      order by (c.status = 'blocked') desc,
+               p.full_name,
+               c.title
+      limit ${limit}
+    `,
+  );
+}
+
 export type BlockingEdge = {
   from_name: string;
   from_color: string;

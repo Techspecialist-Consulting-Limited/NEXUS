@@ -242,7 +242,20 @@ export function ExecutiveHome({
             <div className="mt-6 md:mt-8">
               <VoiceConsole
                 greeting="Your AI Executive Assistant"
-                subtitle="Ask about the week, a unit or a person. Speak it or type it, and the answer is written back in a few sentences."
+                /*
+                  The half that says something.
+
+                  "Speak it or type it, and the answer is written back in a
+                  few sentences" described the two controls sitting directly
+                  underneath it — a microphone button and a text field — and
+                  the shape of the reply, which the reader is about to see
+                  anyway. Copy that narrates the interface below it is copy
+                  somebody reads once and then learns to skip.
+
+                  What is left is the part he cannot work out by looking:
+                  what this thing knows enough to be asked about.
+                */
+                subtitle="Ask about the week, a unit or a person."
                 suggestions={[
                   "How are we doing this week?",
                   "What is blocked between teams?",

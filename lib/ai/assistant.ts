@@ -5,6 +5,7 @@ import {
   commitmentsFor,
   getPerson,
   latestVisibleCycle,
+  orgWeekCommitments,
   reconciliationFor,
   teamWeek,
 } from "../queries";
@@ -60,7 +61,37 @@ async function factsFor(
   // `actor` is both the reader and, for staff, the subject: an employee asks
   // about their own week and nobody else's.
   if (role === "executive" || role === "admin" || role === "hr") {
-    const brief = await executiveBrief(actor, cycleId);
+    /*
+     * THE PACK HAS PEOPLE IN IT, NOT ONLY UNITS.
+     *
+     * It did not, and the assistant said so plainly when the Chairman asked
+     * which of his staff needed him: "the data covers delivery and reporting
+     * status for Marketing, HR and Automation units but does not include
+     * individual profiles or personnel details." That was the model behaving
+     * correctly — GUIDE requires "I do not have that" to be reachable — and
+     * reporting a hole in what it was handed. The defect was the pack.
+     *
+     * It also made the assistant less capable than the page it sits on. The
+     * Chairman's dashboard already renders `recentStaffUpdates`, quoting each
+     * person's own sentence, and already renders `needsSupport` behind its
+     * findings. So this widens nothing: it hands the assistant exactly the
+     * facts the screen beside it is showing, read through the same asActor
+     * queries and governed by the same row-level security. If he may not see
+     * a row, the query does not return it — here as everywhere else.
+     */
+    const [brief, reported] = await Promise.all([
+      executiveBrief(actor, cycleId),
+      /*
+       * Every commitment, not one per person.
+       *
+       * `recentStaffUpdates` — what the dashboard card uses — is `distinct on
+       * (profile_id)`, so somebody who filed three things had two of them
+       * invisible here. A question like "who asked me for something?" would
+       * then be answered confidently from an incomplete set, which is worse
+       * than not answering it.
+       */
+      orgWeekCommitments(actor, cycleId),
+    ]);
 
     const withValue = brief.departments.filter((d) => d.delivery_rate !== null);
     const mean = (pick: (d: (typeof brief.departments)[number]) => number | null) => {
@@ -92,6 +123,43 @@ async function factsFor(
         summary: i.summary,
         severity: i.severity,
         recommendedAction: i.recommendedAction,
+      })),
+      /*
+       * Who a conversation would help, counted by `needsSupport` — silent
+       * drops, an unanswered week, or delivery under 60. This is the literal
+       * answer to "which of my staff needs my attention", and it was the one
+       * question the assistant could not touch.
+       *
+       * `responded` is the load-bearing field: somebody who has not reported
+       * is a different conversation from somebody who reported a hard week.
+       */
+      people_needing_support: brief.attention.map((a) => ({
+        name: a.full_name,
+        unit: a.department_name,
+        reported: a.responded,
+        delivery: a.delivery_rate === null ? null : Math.round(a.delivery_rate),
+        told_in_time:
+          a.signal_integrity === null ? null : Math.round(a.signal_integrity),
+        silent_drops: a.silent_drop_count,
+        promised: a.promised_count,
+      })),
+      /*
+       * What people actually committed to, in their own words.
+       *
+       * `said` is the extractor's captured sentence where it found a literal
+       * one and the commitment's title otherwise — never a paraphrase, which
+       * is what lets an answer quote somebody back to themselves. It is also
+       * the only place a request like "I need the Chairman's feedback on this"
+       * exists at all: it is inside somebody's update, not in any unit's
+       * figures, which is exactly why the assistant could not find it.
+       */
+      what_people_reported: reported.map((c) => ({
+        name: c.full_name,
+        unit: c.unit,
+        status: c.status,
+        said: c.source_quote ?? c.title,
+        unplanned: !c.was_planned,
+        waiting_on: c.depends_on,
       })),
       // headline is deliberately omitted: it is assembled from the same
       // findings above, and repeating it costs prompt tokens on every
