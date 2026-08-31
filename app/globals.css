@@ -88,16 +88,16 @@
   --nx-border-strong: rgba(255, 255, 255, 0.18);
 
   /* Primary purple */
-  --nx-primary: #8B5CF6;
-  --nx-primary-light: #A78BFA;
-  --nx-purple: #A855F7;
+  --nx-primary: #FFFFFF;
+  --nx-primary-light: #FFFFFF;
+  --nx-purple: #E4E4E7;
 
   /* Success green */
   --nx-success: #34D399;
   --nx-success-light: #6EE7B7;
 
   /* Signal */
-  --nx-info: #60A5FA;
+  --nx-info: #D4D4D8;
   --nx-warning: #FBBF24;
   --nx-error: #F87171;
 
@@ -107,12 +107,12 @@
   --nx-text-muted: #7A7A82;
 
   /* Gradients */
-  --nx-gradient-nexus: linear-gradient(135deg, #17112F 0%, #24115C 45%, #32127A 100%);
-  --nx-gradient-coaching: linear-gradient(135deg, #062D2A 0%, #073D35 45%, #0A5145 100%);
+  --nx-gradient-nexus: linear-gradient(135deg, #0E0E11 0%, #16161A 45%, #1E1E23 100%);
+  --nx-gradient-coaching: linear-gradient(135deg, #0B0B0D 0%, #131316 45%, #1A1A1F 100%);
 
   /* Glow */
-  --nx-glow-purple: 0 20px 60px rgba(139, 92, 246, 0.18);
-  --nx-glow-green: 0 20px 60px rgba(34, 197, 94, 0.12);
+  --nx-glow-purple: 0 20px 60px rgba(0, 0, 0, 0.55);
+  --nx-glow-green: 0 20px 60px rgba(0, 0, 0, 0.55);
 
   /* === Void === */
   --void: #000000;
@@ -135,17 +135,17 @@
   --native-surface: #141417;
 
   /* === Department colours (GUIDE §5, verified against seed.sql:48-52) === */
-  --dept-techspecialist: #60A5FA;
-  --dept-media-hub: #F87171;
-  --dept-creative-hub: #FBBF24;
-  --dept-operations: #34D399;
-  --dept-growth: #A78BFA;
+  --dept-techspecialist: #FFFFFF;
+  --dept-media-hub: #C7C7CC;
+  --dept-creative-hub: #9C9CA3;
+  --dept-operations: #E4E4E7;
+  --dept-growth: #7E7E86;
 
   /* === Status colours ===
      Hues exactly as GUIDE §5 specifies. See [FIX 2]/[FIX 3]: these are never
      the sole carrier of meaning — pair with .status-fill-* and an icon. */
   --color-promised: rgba(255, 255, 255, 0.55);
-  --color-in-progress: #60A5FA;
+  --color-in-progress: #D4D4D8;
   --color-delivered: #34D399;
   --color-partial: #FBBF24;
   --color-deferred: rgba(255, 255, 255, 0.40);
@@ -168,7 +168,8 @@
   /* === The dark palette, named ===
      Every value below is already the product's palette; naming it lets the lit
      column restate the live tokens and lets a card restore them, without a
-     second copy of the numbers. See ".surface-lit" at the foot of this file. */
+     white theme restate them and lets a card restore them, without a second
+     copy of the numbers. */
   --dk-ink: #ffffff;
   --dk-text-primary: #FFFFFF;
   --dk-text-secondary: rgba(255, 255, 255, 0.68);
@@ -177,20 +178,20 @@
   --dk-nx-text-primary: #FFFFFF;
   --dk-nx-text-secondary: #A1A1A8;
   --dk-nx-text-muted: #7A7A82;
-  --dk-nx-primary: #8B5CF6;
-  --dk-nx-primary-light: #A78BFA;
-  --dk-nx-purple: #A855F7;
+  --dk-nx-primary: #FFFFFF;
+  --dk-nx-primary-light: #FFFFFF;
+  --dk-nx-purple: #E4E4E7;
   --dk-nx-success: #34D399;
   --dk-nx-success-light: #6EE7B7;
-  --dk-nx-info: #60A5FA;
+  --dk-nx-info: #D4D4D8;
   --dk-nx-warning: #FBBF24;
   --dk-nx-error: #F87171;
-  --dk-dept-techspecialist: #60A5FA;
-  --dk-dept-media-hub: #F87171;
-  --dk-dept-creative-hub: #FBBF24;
-  --dk-dept-operations: #34D399;
-  --dk-dept-growth: #A78BFA;
-  --dk-in-progress: #60A5FA;
+  --dk-dept-techspecialist: #FFFFFF;
+  --dk-dept-media-hub: #C7C7CC;
+  --dk-dept-creative-hub: #9C9CA3;
+  --dk-dept-operations: #E4E4E7;
+  --dk-dept-growth: #7E7E86;
+  --dk-in-progress: #D4D4D8;
   --dk-delivered: #34D399;
   --dk-partial: #FBBF24;
   --dk-blocked: #F87171;
@@ -203,6 +204,56 @@
   --dk-priority-low: rgba(255, 255, 255, 0.28);
   --dk-focus-ring: rgba(255, 255, 255, 0.8);
   --dk-scrollbar-thumb: rgba(255, 255, 255, 0.16);
+
+  /* Glass fills and lines, named so the white theme can restate them. */
+  --glass-fill-1: rgba(14, 14, 17, 0.82);
+  --glass-fill-2: rgba(16, 16, 19, 0.90);
+  --glass-fill-3: rgba(20, 20, 24, 0.95);
+  --glass-fill-4: rgba(24, 24, 28, 0.98);
+  --glass-line-1: rgba(255, 255, 255, 0.11);
+  --glass-line-2: rgba(255, 255, 255, 0.13);
+  --glass-line-3: rgba(255, 255, 255, 0.15);
+  --glass-line-4: rgba(255, 255, 255, 0.18);
+  --glass-opaque: #141417;
+  --skip-link-bg: rgba(255, 255, 255, 0.16);
+  --sheen-image: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.10) 0%,
+    rgba(255, 255, 255, 0.03) 28%,
+    transparent 58%
+  );
+  --sheen-blend: screen;
+
+  /*
+   * The selected rail row, and every solid action in the product.
+   *
+   * A white pill with black type — what the reference does with its own
+   * segmented control, and what is left when there is no accent hue to fill
+   * a button with. Named rather than hardcoded because the two themes invert
+   * it: black pill with white type on the white surface.
+   */
+  --nav-active-bg: #FFFFFF;
+  --nav-active-fg: #000000;
+  --nav-active-ring: none;
+  --nav-active-marker: #000000;
+
+  /*
+   * The scrim over the two painted cards.
+   *
+   * It was hardcoded near-black in the component, so in the white theme it
+   * painted black over a near-white card while the island rule turned the
+   * copy to ink — black on black, unreadable, and only visible by actually
+   * looking at the white theme.
+   */
+  --card-scrim: linear-gradient(
+    to right,
+    rgba(11, 11, 14, 0.95),
+    rgba(11, 11, 14, 0.78) 50%,
+    rgba(11, 11, 14, 0.35)
+  );
+
+  /* Type that sits ON a solid action, which is the inverse of the ground. */
+  --on-accent: #000000;
 
   /* === Text hierarchy (GUIDE §4 rule 5) ===
      white/opacity only — never Tailwind gray-*. */
@@ -356,33 +407,33 @@ h1, h2, h3, h4, h5, h6 {
  * invisible to typecheck, lint, tests and code review.
  */
 .glass-l1 {
-  background-color: rgba(14, 14, 17, 0.82);
+  background-color: var(--glass-fill-1);
   -webkit-backdrop-filter: blur(24px) saturate(140%);
   backdrop-filter: blur(24px) saturate(140%);
-  border: 1px solid rgba(255, 255, 255, 0.11);
+  border: 1px solid var(--glass-line-1);
 }
 
 .glass-l2 {
-  background-color: rgba(16, 16, 19, 0.90);
+  background-color: var(--glass-fill-2);
   -webkit-backdrop-filter: blur(40px) saturate(150%);
   backdrop-filter: blur(40px) saturate(150%);
-  border: 1px solid rgba(255, 255, 255, 0.13);
+  border: 1px solid var(--glass-line-2);
   box-shadow: var(--shadow-medium);
 }
 
 .glass-l3 {
-  background-color: rgba(20, 20, 24, 0.95);
+  background-color: var(--glass-fill-3);
   -webkit-backdrop-filter: blur(64px) saturate(160%);
   backdrop-filter: blur(64px) saturate(160%);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid var(--glass-line-3);
   box-shadow: var(--shadow-heavy);
 }
 
 .glass-l4 {
-  background-color: rgba(24, 24, 28, 0.98);
+  background-color: var(--glass-fill-4);
   -webkit-backdrop-filter: blur(64px) saturate(160%);
   backdrop-filter: blur(64px) saturate(160%);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid var(--glass-line-4);
   box-shadow: var(--shadow-dramatic);
 }
 
@@ -408,8 +459,8 @@ h1, h2, h3, h4, h5, h6 {
  * and changes nothing on screen.
  */
 .glass-overlay {
-  background-color: #141417;
-  border: 1px solid rgba(255, 255, 255, 0.22);
+  background-color: var(--glass-opaque);
+  border: 1px solid var(--glass-line-3);
   box-shadow: var(--shadow-heavy);
 }
 
@@ -424,20 +475,15 @@ h1, h2, h3, h4, h5, h6 {
   z-index: 0;
   pointer-events: none;
   border-radius: inherit;
-  background: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.16) 0%,
-    rgba(255, 255, 255, 0.05) 28%,
-    transparent 58%
-  );
-  mix-blend-mode: screen;
+  background: var(--sheen-image);
+  mix-blend-mode: var(--sheen-blend);
 }
 
 /* backdrop-filter is expensive and not universal; fall back to opaque rather
    than to an unreadable transparent rectangle. */
 @supports not (backdrop-filter: blur(1px)) {
   .glass-l1, .glass-l2, .glass-l3, .glass-l4 {
-    background-color: #141417;
+    background-color: var(--glass-opaque);
   }
 }
 
@@ -617,7 +663,7 @@ h1, h2, h3, h4, h5, h6 {
 .skip-link:focus {
   left: 16px;
   top: 16px;
-  background: rgba(255, 255, 255, 0.20);
+  background: var(--skip-link-bg);
   backdrop-filter: blur(40px);
 }
 
@@ -636,7 +682,7 @@ h1, h2, h3, h4, h5, h6 {
   .status-pulse { animation: none; opacity: 0.75; }
 }
 
-::selection { background: rgba(91, 140, 255, 0.3); }
+::selection { background: rgba(255, 255, 255, 0.22); }
 
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -664,21 +710,21 @@ h1, h2, h3, h4, h5, h6 {
 
 .nx-card-gradient-purple {
   background: var(--nx-gradient-nexus);
-  border: 1px solid rgba(139, 92, 246, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   box-shadow: var(--nx-glow-purple);
 }
 
 .nx-card-gradient-green {
   background: var(--nx-gradient-coaching);
-  border: 1px solid rgba(34, 197, 94, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   box-shadow: var(--nx-glow-green);
 }
 
 /* Sidebar active item */
 .nx-nav-active {
-  background: rgba(124, 58, 237, 0.18);
-  border: 1px solid rgba(139, 92, 246, 0.35);
-  color: var(--nx-primary-light);
+  background: var(--nav-active-bg, #FFFFFF);
+  border: 1px solid transparent;
+  color: var(--nav-active-fg, #000000);
 }
 
 /* Check-in action button */
@@ -722,249 +768,177 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* ===========================================================================
-   The lit column
+   The white theme
 
-   The main area stands on /images/main-page-bg-for-all-pages.png at full
-   strength — a pale lavender field — while the rail keeps its dark #0B1020.
-   So the product has two surfaces, and text has to know which one it is on.
+   The mirror of the black one, and it is a mirror rather than a second
+   design: white ground, near-white cards, black type, the same hairline doing
+   the same separating, the same three status hues. Nothing here is blue or
+   purple, in either theme.
 
-   THE RULE IS ONE SENTENCE: the page is lit, and anything wearing a card
-   class is a dark island on it.
+   ADDRESSED BY data-theme, NOT BY A CLASS ON ONE ELEMENT.
 
-   That is not a compromise, it is what the screen already looked like and was
-   liked: dark cards floating on a light ground, with real depth between them.
-   What was broken was everything OUTSIDE a card — page titles, standfirsts,
-   the Administration setup list, form labels, the header controls — all of
-   which were white on near-white and simply gone.
+   It used to be `.surface-lit` on the main column, which meant the rail was a
+   different theme from the page beside it and the sign-in screens were a
+   third. On <html> it covers everything, including /login and /onboarding,
+   and the inline script in app/layout.tsx sets it before first paint so the
+   product never flashes black and then turns white.
 
    HOW ONE VARIABLE TURNS THE PAGE OVER.
 
    There are ~720 hand-written `text-white/90`, `bg-white/[0.04]` and
    `border-white/[0.10]` utilities across 65 files. Tailwind v4 compiles every
-   one of them to
+   one to color-mix(in oklab, var(--color-white) N%, transparent), so
+   restating --color-white as ink re-points all of them at once and PRESERVES
+   what each opacity meant: 90% was body copy in the dark theme and is body
+   copy in the white one, 25% was decoration and stays decoration. A hand
+   sweep of 720 sites could not have kept that ordering straight.
 
-       color-mix(in oklab, var(--color-white) 90%, transparent)
-
-   so restating --color-white as ink re-points all of them at once, and does it
-   while PRESERVING what each opacity meant: 90% was body copy on the dark
-   surface and is body copy on the lit one; 25% was decoration and stays
-   decoration. A hand sweep of 720 sites could not have kept that ordering
-   straight, and would have to be redone for the next surface.
-
-   THE ONE BROWSER CAVEAT. Tailwind emits a literal `#fff` fallback outside
+   THE ONE BROWSER CAVEAT. Tailwind emits a literal #fff fallback outside
    `@supports (color: color-mix(in lab, red, red))`, so a browser without lab
    color-mix — pre-2023 Chrome/Safari/Firefox — paints white on white here.
    NEXUS already requires backdrop-filter, which scripts/smoke.mjs asserts, so
-   that floor is not new; it is worth knowing about.
-
-   SURFACES ARE NOT TOUCHED. --nx-surface, the glass fills and the shadows all
-   keep their dark values, because the cards are the part that already worked.
-   Only ink, and the hues that have to sit on light, are restated.
+   that floor is not new.
    =========================================================================== */
 
-.surface-lit {
+:root[data-theme="white"] {
   color-scheme: light;
 
-  /*
-   * BACKGROUND COLOURS AND TEXT COLOURS. That is the whole of this block.
-   *
-   * Sampled from the design that was handed over: a flat near-white page,
-   * white cards on it, a neutral near-black for type and two greys under it.
-   * Nothing structural is changed by any of this — no layout, no component,
-   * no spacing. Only what things are painted in.
-   *
-   * The previous version of this block was a lavender field with a violet
-   * ink; the design is neutral, so the field is flat #F5F6F7 and the ink is
-   * #0F1214. A gradient would be a decision the design does not make.
-   */
-  --lit-field: #F5F6F7;
-  background: var(--lit-field);
-  background-attachment: fixed;
+  /* The pivot. See above. */
+  --color-white: #000000;
 
-  /*
-   * THE PIVOT.
-   *
-   * Tailwind v4 compiles every text-white/*, bg-white/* and border-white/*
-   * to color-mix(in oklab, var(--color-white) N%, transparent), so this one
-   * line re-points all ~720 of them across 65 files and keeps what each
-   * opacity meant. It lands close to the design's own scale without anything
-   * being hand-matched: 90% reads #26292B, 60% reads #6E7173 against the
-   * design's #6B7280, and 8% on a border reads #E8E9EA against its #E5E7EB.
-   */
-  --color-white: #0F1214;
+  --text-primary: #000000;
+  --text-secondary: rgba(0, 0, 0, 0.66);
+  --text-tertiary: rgba(0, 0, 0, 0.52);
+  --text-quaternary: rgba(0, 0, 0, 0.34);
 
-  --text-primary: rgba(15, 18, 20, 0.92);
-  --text-secondary: rgba(15, 18, 20, 0.66);
-  /* 0.58, not the 0.55 of its dark twin: on #FFFFFF that measures about 5.6:1,
-     where 0.5 would fall under the 4.5:1 GUIDE §17 asks for. */
-  --text-tertiary: rgba(15, 18, 20, 0.58);
-  --text-quaternary: rgba(15, 18, 20, 0.34);
+  --nx-text-primary: #000000;
+  --nx-text-secondary: #5C5C63;
+  --nx-text-muted: #8A8A92;
 
-  --nx-text-primary: #0F1214;
-  --nx-text-secondary: #6B7280;
-  --nx-text-muted: #9CA3AF;
-
-  /* Card backgrounds. White on the near-white page, separated by a hairline
-     and the faintest lift rather than by a heavier fill. */
+  --nx-bg: #FFFFFF;
+  --nx-sidebar: #FAFAFA;
   --nx-surface: #FFFFFF;
   --nx-surface-strong: #FFFFFF;
-  --nx-border: #E5E7EB;
-  --nx-border-strong: #D1D5DB;
-  --nx-card-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
-
-  /* The remaining background tokens, so anything painting itself from one of
-     them lands on the page rather than punching a dark hole in it. */
-  --nx-bg: #FFFFFF;
+  --nx-border: rgba(0, 0, 0, 0.11);
+  --nx-border-strong: rgba(0, 0, 0, 0.18);
+  /* On black a card is separated by its hairline. On white it needs a little
+     lift as well, or a page of white cards on white reads as one sheet. */
+  --nx-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   --void: #FFFFFF;
   --native-surface: #FFFFFF;
 
-  --glass-fill-1: #FFFFFF;
-  --glass-fill-2: #FFFFFF;
+  --glass-fill-1: rgba(255, 255, 255, 0.86);
+  --glass-fill-2: rgba(255, 255, 255, 0.92);
   --glass-fill-3: #FFFFFF;
   --glass-fill-4: #FFFFFF;
-  --glass-line-1: #E5E7EB;
-  --glass-line-2: #E5E7EB;
-  --glass-line-3: #D1D5DB;
-  --glass-line-4: #D1D5DB;
+  --glass-line-1: rgba(0, 0, 0, 0.11);
+  --glass-line-2: rgba(0, 0, 0, 0.13);
+  --glass-line-3: rgba(0, 0, 0, 0.15);
+  --glass-line-4: rgba(0, 0, 0, 0.18);
   --glass-opaque: #FFFFFF;
-  /* screen over a light surface is a white wash, and the design has no sheen
-     at all. Nothing to blend. */
+  --skip-link-bg: #FFFFFF;
+  /* screen over a white surface is a white wash. There is no sheen here. */
   --sheen-image: none;
   --sheen-blend: normal;
 
-  --shadow-subtle: 0 1px 2px rgba(16, 24, 40, 0.04);
-  --shadow-medium: 0 4px 12px rgba(16, 24, 40, 0.06);
-  --shadow-heavy: 0 12px 32px rgba(16, 24, 40, 0.10);
-  --shadow-dramatic: 0 20px 48px rgba(16, 24, 40, 0.14);
+  --shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-medium: 0 4px 12px rgba(0, 0, 0, 0.07);
+  --shadow-heavy: 0 12px 32px rgba(0, 0, 0, 0.11);
+  --shadow-dramatic: 0 20px 48px rgba(0, 0, 0, 0.15);
 
-  --focus-ring: rgba(15, 18, 20, 0.55);
-  --scrollbar-thumb: rgba(15, 18, 20, 0.18);
+  --focus-ring: rgba(0, 0, 0, 0.7);
+  --scrollbar-thumb: rgba(0, 0, 0, 0.18);
+
+  /* Inverted: a black pill with white type. */
+  --nav-active-bg: #000000;
+  --nav-active-fg: #FFFFFF;
+  --nav-active-ring: none;
+  --nav-active-marker: #FFFFFF;
+  --on-accent: #FFFFFF;
+
+  /* Monochrome chrome, mirrored. */
+  --nx-primary: #000000;
+  --nx-primary-light: #000000;
+  --nx-purple: #27272A;
+  --nx-info: #3F3F46;
+
+  --dept-techspecialist: #000000;
+  --dept-media-hub: #3F3F46;
+  --dept-creative-hub: #6B6B73;
+  --dept-operations: #27272A;
+  --dept-growth: #8A8A92;
 
   /*
-   * TEXT COLOURS, CONTINUED.
-   *
-   * These are the hues the product writes text in — a link, a status word, a
-   * unit's name. Same hue, darkened until each clears 4.5:1 on white: a value
-   * tuned to sit on #070A15 measures around 2.5:1 here, which GUIDE §17 rules
-   * out. GUIDE §5 fixes the hues, not the surface they were sampled against.
+   * The three status hues, darkened until each clears 4.5:1 on white. Same
+   * hue: a value tuned for a black ground measures around 2:1 here, and
+   * GUIDE §17 rules that out.
    */
-  --nx-primary: #6D28D9;
-  --nx-primary-light: #6D28D9;
-  --nx-purple: #7E22CE;
   --nx-success: #15803D;
   --nx-success-light: #15803D;
-  --nx-info: #1D4ED8;
-  --nx-warning: #92400E;
+  --nx-warning: #A16207;
   --nx-error: #B91C1C;
 
-  --dept-techspecialist: #1D4ED8;
-  --dept-media-hub: #A81E52;
-  --dept-creative-hub: #854D0E;
-  --dept-operations: #0F766E;
-  --dept-growth: #6D28D9;
-
-  --color-in-progress: #1D4ED8;
+  --color-in-progress: #3F3F46;
   --color-delivered: #15803D;
-  --color-partial: #854D0E;
-  --color-blocked: #A81E52;
-  --color-promised: rgba(15, 18, 20, 0.5);
-  --color-deferred: rgba(15, 18, 20, 0.38);
-  --color-dropped: rgba(15, 18, 20, 0.24);
-  --color-superseded: rgba(15, 18, 20, 0.3);
+  --color-partial: #A16207;
+  --color-blocked: #B91C1C;
+  --color-promised: rgba(0, 0, 0, 0.5);
+  --color-deferred: rgba(0, 0, 0, 0.36);
+  --color-dropped: rgba(0, 0, 0, 0.24);
+  --color-superseded: rgba(0, 0, 0, 0.3);
 
   --color-healthy: #15803D;
-  --color-warning: #854D0E;
-  --color-critical: #A81E52;
-  --color-neutral: rgba(15, 18, 20, 0.42);
+  --color-warning: #A16207;
+  --color-critical: #B91C1C;
+  --color-neutral: rgba(0, 0, 0, 0.4);
 
-  --priority-critical: #A81E52;
-  --priority-high: #854D0E;
-  --priority-normal: rgba(15, 18, 20, 0.5);
-  --priority-low: rgba(15, 18, 20, 0.26);
+  --priority-critical: #B91C1C;
+  --priority-high: #A16207;
+  --priority-normal: rgba(0, 0, 0, 0.5);
+  --priority-low: rgba(0, 0, 0, 0.26);
 
-  /* body set `color` from the dark token and inheritance carries the computed
-     value, not the variable — so the lit shell has to state its own. */
+  /* The two painted cards are near-white here, not near-black. */
+  --nx-gradient-nexus: linear-gradient(135deg, #FAFAFA 0%, #F4F4F5 45%, #EDEDEF 100%);
+  --nx-gradient-coaching: linear-gradient(135deg, #FAFAFA 0%, #F4F4F5 45%, #EDEDEF 100%);
+  --nx-glow-purple: 0 12px 32px rgba(0, 0, 0, 0.08);
+  --nx-glow-green: 0 12px 32px rgba(0, 0, 0, 0.08);
+
+  --card-scrim: linear-gradient(
+    to right,
+    rgba(250, 250, 250, 0.96),
+    rgba(250, 250, 250, 0.84) 50%,
+    rgba(250, 250, 250, 0.5)
+  );
+
   color: var(--nx-text-primary);
 }
 
-/*
- * Dark islands on the lit page.
- *
- * ONLY THE PAINTED ONES.
- *
- * Cards, the glass elevations and dropdown overlays are all light now — they
- * read --nx-surface and the glass fills, which the block above restated — so
- * they are ordinary light surfaces and their type is ink like everything
- * else. The two gradient cards are different: they are artwork with their own
- * dark scrims, so their copy stays white wherever the page around them lands.
- * Each restores the dark palette for its own subtree, and the white utilities
- * inside it go back to being white.
- *
- * `.on-dark` IS THE ESCAPE HATCH, AND IT WAS NEEDED IMMEDIATELY. Three
- * surfaces are dark without wearing a card class — they paint themselves with
- * bg-[var(--nx-surface)], bg-[var(--nx-bg)] or bg-[var(--void)] instead. The
- * sweep caught two of them on the Tasks page rendering "No commitments yet"
- * and "All clear" as ink on near-black. A class list can only ever name what
- * exists today; the marker is how a new dark panel says so.
- *
- * The values come from the --dk-* prototypes rather than being repeated, so
- * there is still exactly one definition of the product's palette.
- *
- * Harmless outside .surface-lit, where all of this is already in force.
- */
-.surface-lit :is(
-  .nx-card-gradient-purple,
-  .nx-card-gradient-green,
-  .on-dark
-) {
-  --color-white: var(--dk-ink);
-
-  --text-primary: var(--dk-text-primary);
-  --text-secondary: var(--dk-text-secondary);
-  --text-tertiary: var(--dk-text-tertiary);
-  --text-quaternary: var(--dk-text-quaternary);
-
-  --nx-text-primary: var(--dk-nx-text-primary);
-  --nx-text-secondary: var(--dk-nx-text-secondary);
-  --nx-text-muted: var(--dk-nx-text-muted);
-
-  --focus-ring: var(--dk-focus-ring);
-  --scrollbar-thumb: var(--dk-scrollbar-thumb);
-
-  --nx-primary: var(--dk-nx-primary);
-  --nx-primary-light: var(--dk-nx-primary-light);
-  --nx-purple: var(--dk-nx-purple);
-  --nx-success: var(--dk-nx-success);
-  --nx-success-light: var(--dk-nx-success-light);
-  --nx-info: var(--dk-nx-info);
-  --nx-warning: var(--dk-nx-warning);
-  --nx-error: var(--dk-nx-error);
-
-  --dept-techspecialist: var(--dk-dept-techspecialist);
-  --dept-media-hub: var(--dk-dept-media-hub);
-  --dept-creative-hub: var(--dk-dept-creative-hub);
-  --dept-operations: var(--dk-dept-operations);
-  --dept-growth: var(--dk-dept-growth);
-
-  --color-in-progress: var(--dk-in-progress);
-  --color-delivered: var(--dk-delivered);
-  --color-partial: var(--dk-partial);
-  --color-blocked: var(--dk-blocked);
-  --color-promised: var(--dk-promised);
-  --color-deferred: var(--dk-deferred);
-  --color-dropped: var(--dk-dropped);
-  --color-superseded: var(--dk-superseded);
-
-  --color-healthy: var(--dk-delivered);
-  --color-warning: var(--dk-partial);
-  --color-critical: var(--dk-blocked);
-  --color-neutral: var(--dk-neutral);
-
-  --priority-critical: var(--dk-blocked);
-  --priority-high: var(--dk-partial);
-  --priority-normal: var(--dk-priority-normal);
-  --priority-low: var(--dk-priority-low);
-
-  color: var(--dk-nx-text-primary);
-  color-scheme: dark;
+:root[data-theme="white"] body {
+  background: var(--nx-bg);
 }
+
+/*
+ * The two painted cards stop being dark islands in the white theme.
+ *
+ * In the black theme they carry their own near-black grounds and their copy
+ * is white. In the white theme their grounds are near-white, so their copy
+ * has to be ink like everything else — the rule below would otherwise force
+ * white type onto a white card.
+ */
+:root[data-theme="white"] :is(
+  .nx-card-gradient-purple,
+  .nx-card-gradient-green
+) {
+  --color-white: #000000;
+  --text-primary: #000000;
+  --text-secondary: rgba(0, 0, 0, 0.66);
+  --text-tertiary: rgba(0, 0, 0, 0.52);
+  --nx-text-primary: #000000;
+  --nx-text-secondary: #5C5C63;
+  --nx-text-muted: #8A8A92;
+  --nx-primary-light: #000000;
+  --nx-success: #15803D;
+  --nx-success-light: #15803D;
+  color: #000000;
+}
+

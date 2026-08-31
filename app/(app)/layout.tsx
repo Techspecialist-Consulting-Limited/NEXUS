@@ -4,6 +4,7 @@ import { Settings2 } from "lucide-react";
 import { BottomNav, SideNav } from "@/components/layout/app-nav";
 import { PersonaSwitcher } from "@/components/layout/persona-switcher";
 import { AccountMenu } from "@/components/layout/account-menu";
+import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { CoachingRailCard } from "@/components/myweek/coaching-rail-card";
 import { requireViewer, demoPersonas } from "@/lib/session";
 import { assertProviderIsSafe, authMode, ROLE_LABEL } from "@/lib/auth";
@@ -34,10 +35,23 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const isDev = authMode() === "dev";
   const personas = isDev ? await demoPersonas() : [];
 
-  const account = isDev ? (
-    <PersonaSwitcher people={personas} currentId={membership.profileId} />
-  ) : (
-    <AccountMenu name={membership.fullName} email={identity.email} />
+  /*
+   * The account cluster, and the theme with it.
+   *
+   * This one value is rendered in TWO places — the rail's footer on desktop,
+   * and the phone header, which is the only chrome a phone has. Putting the
+   * toggle here rather than into a page header is what makes it reachable
+   * from every screen in the product without adding a control to any of them.
+   */
+  const account = (
+    <div className="flex min-w-0 items-center gap-2">
+      <ThemeToggle />
+      {isDev ? (
+        <PersonaSwitcher people={personas} currentId={membership.profileId} />
+      ) : (
+        <AccountMenu name={membership.fullName} email={identity.email} />
+      )}
+    </div>
   );
 
   /*
@@ -86,38 +100,6 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         footer={account}
       />
 
-      {/*
-        The main area's ground.
-
-        A pale lavender field, painted from the colours the artwork was made
-        of — see --lit-field at the foot of app/globals.css. It replaces the
-        1.1MB PNG that was here: same look, nothing to download, and it scales
-        to any viewport rather than being stretched from 1692x930.
-
-        It is painted by `.surface-lit` itself, and fixed to the viewport so a
-        long Tasks list scrolls over the ground rather than dragging it.
-
-        ON THE COLUMN, NOT ON A LAYER BEHIND IT. This was first written as a
-        `fixed inset-0 -z-10` child and never appeared: a negative-z-index
-        child paints at step 2 of its stacking context, but a non-positioned
-        element's own background paints at step 3 — so `body`, which carries an
-        opaque var(--nx-bg), covered it. Normally body's background would be
-        propagated to the canvas and the problem would not exist, but
-        propagation only happens when html has no background of its own, and
-        globals.css gives html one. On this element it paints after body's,
-        with no z-index at all, and it is inset from the rail for free because
-        the column begins where the rail ends.
-
-        `surface-lit` is what makes white type on a pale ground work. It
-        restates one variable, --color-white, as ink; Tailwind v4 compiles
-        every text-white/*, bg-white/* and border-white/* through it, so the
-        ~720 of them across 65 files turn over at once and keep what each
-        opacity meant.
-
-        THE CARDS ARE NOT TOUCHED. Anything wearing a card class is a dark
-        island on the lit page and restores the dark palette for its own
-        subtree. The rail is outside this element and keeps its opaque #0B1020.
-      */}
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Phones have no sidebar, so identity and the account live up here. */}
         {/*

@@ -83,12 +83,14 @@ export function NexusNoticedCard({
       */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-cover bg-center bg-no-repeat opacity-55"
+        className="pointer-events-none absolute inset-0 bg-cover bg-center bg-no-repeat grayscale opacity-55"
         style={{ backgroundImage: "url('/images/nexus-notice-bg.png')" }}
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#1B0B3A]/95 via-[#1B0B3A]/78 to-[#1B0B3A]/35"
+        className="pointer-events-none absolute inset-0"
+        /* Follows the theme — see --card-scrim in app/globals.css. */
+        style={{ background: "var(--card-scrim)" }}
       />
 
       <div className="relative z-10 flex min-h-0 flex-1 flex-col">

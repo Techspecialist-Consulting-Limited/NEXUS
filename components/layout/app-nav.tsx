@@ -265,12 +265,18 @@ export function SideNav({
       className="sticky top-0 hidden h-dvh shrink-0 flex-col border-y-0 border-l-0 md:flex
                  md:w-[76px] lg:w-[244px]"
       /*
-        White, with a hairline rather than a fill change to separate it from
-        the page. Background colour only — nothing about the rail's structure,
-        spacing or active state is touched here; its type follows --color-white
-        like the rest of the shell.
+        TOKENS, NOT LITERALS.
+ 
+        These were hardcoded, so the rail kept its near-black fill in the white
+        theme while its own `text-white/55` re-pointed at ink — black type on a
+        black rail, unreadable, and invisible to the sweep because the sweep
+        only ever runs the black theme. --nx-sidebar and --nx-border are
+        already stated per theme; the rail just has to read them.
       */
-      style={{ backgroundColor: "#0A0A0B", borderRight: "1px solid rgba(255,255,255,0.10)" }}
+      style={{
+        backgroundColor: "var(--nx-sidebar)",
+        borderRight: "1px solid var(--nx-border)",
+      }}
     >
       {/* identity */}
       <div className="flex items-center gap-2.5 px-4 py-4 lg:px-5">

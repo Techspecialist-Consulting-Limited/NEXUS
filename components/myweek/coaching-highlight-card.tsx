@@ -56,20 +56,22 @@ export function CoachingHighlightCard({
     >
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-cover bg-center bg-no-repeat opacity-30"
+        className="pointer-events-none absolute inset-0 bg-cover bg-center bg-no-repeat grayscale opacity-30"
         style={{ backgroundImage: "url('/images/coach-highlit-bg.png')" }}
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#04241F]/95 via-[#04241F]/82 to-[#04241F]/45"
+        className="pointer-events-none absolute inset-0"
+        /* Follows the theme — see --card-scrim in app/globals.css. */
+        style={{ background: "var(--card-scrim)" }}
       />
 
       <div className="relative z-10 flex min-h-0 flex-1 flex-col">
-        <p className="flex items-center gap-2 text-sm font-semibold text-[var(--nx-success-light)]">
+        <p className="flex items-center gap-2 text-sm font-semibold text-white">
           <Target size={16} aria-hidden="true" />
           Coaching highlight
         </p>
-        <p className="mt-0.5 text-xs text-[var(--nx-success)]/70">Just for you</p>
+        <p className="mt-0.5 text-xs text-white/55">Just for you</p>
 
         {hasCoaching && title ? (
           <>
@@ -97,7 +99,7 @@ export function CoachingHighlightCard({
 
         <Link
           href="/advice"
-          className="nx-focus-ring mt-auto inline-flex min-h-11 w-fit items-center gap-1.5 rounded-lg bg-gradient-to-r from-[var(--nx-success)] to-[var(--nx-success-light)] px-4 text-sm font-medium text-[#062D2A] transition-all hover:brightness-110"
+          className="nx-focus-ring mt-auto inline-flex min-h-11 w-fit items-center gap-1.5 rounded-lg bg-[var(--nav-active-bg)] px-4 text-sm font-medium text-[var(--nav-active-fg)] transition-opacity hover:opacity-90"
         >
           View coaching tips
         </Link>
