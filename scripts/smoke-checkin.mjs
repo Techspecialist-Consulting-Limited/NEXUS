@@ -48,7 +48,12 @@ for (const [label, width] of [["mobile", 390], ["desktop", 1440]]) {
 
   const urlBefore = page.url();
 
-  const mic = page.getByRole("button", { name: /voice check-in/i }).first();
+  /*
+   * "Speak it", not "Voice check-in". The chooser tile that carried the old
+   * label is gone — the composer is on the card now and this is its own
+   * microphone button. See components/myweek/check-in-card.tsx.
+   */
+  const mic = page.getByRole("button", { name: /speak it/i }).first();
   const hasMic = await mic.waitFor({ state: "visible", timeout: 6000 }).then(() => true).catch(() => false);
   log(hasMic, `${label}  the card offers a voice check-in`);
   if (!hasMic) { await context.close(); continue; }

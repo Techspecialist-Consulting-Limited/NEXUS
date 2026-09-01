@@ -83,8 +83,12 @@ export function NexusNoticedCard({
       */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-cover bg-center bg-no-repeat grayscale opacity-55"
-        style={{ backgroundImage: "url('/images/nexus-notice-bg.png')" }}
+        className="pointer-events-none absolute inset-0 bg-cover bg-center bg-no-repeat grayscale"
+        /* Opacity follows the theme — see --card-art-opacity in globals.css. */
+        style={{
+          backgroundImage: "url('/images/nexus-notice-bg.png')",
+          opacity: "var(--card-art-opacity)",
+        }}
       />
       <div
         aria-hidden="true"

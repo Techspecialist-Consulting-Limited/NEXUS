@@ -118,11 +118,16 @@ const SIGNED_OUT_ROUTES = ["/login"];
 const STRANGER_ROUTES = ["/onboarding"];
 
 /*
- * Three widths, chosen for what breaks at each: 360 is the guide's mobile
- * floor, 768 is where two-column grids first engage and things most often
- * collide, and 1440 is the desktop the Chairman actually uses.
+ * Four widths, chosen for what breaks at each: 320 is the narrowest phone
+ * still in use and the width the frontend-design floor names, 360 is the
+ * guide's mobile floor, 768 is where two-column grids first engage and things
+ * most often collide, and 1440 is the desktop the Chairman actually uses.
+ *
+ * 320 was missing for the whole life of this sweep, which is why a horizontal
+ * scrollbar on the narrowest device could never be caught by it.
  */
 const VIEWPORTS = [
+  { label: "narrow", width: 320, height: 720 },
   { label: "mobile", width: 360, height: 800 },
   { label: "tablet", width: 768, height: 1024 },
   { label: "desktop", width: 1440, height: 900 },

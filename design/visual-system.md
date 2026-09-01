@@ -68,8 +68,7 @@ thing", and most things on a page are not.
 
 ## Typography
 
-**Inter** for body and interface. **JetBrains Mono** for every figure.
-A **display face** carries titles, used with restraint — see the rule below.
+**Inter** for everything. **JetBrains Mono** for every figure.
 
 ### The scale — use it, never an arbitrary value
 
@@ -125,66 +124,82 @@ at each call site.
 4. `text-wrap: balance` on titles, `pretty` on prose.
 5. Body copy caps at 65–75ch.
 
-### The display face
-
-Reopened deliberately on 2026-08-31. This document previously said "do not
-introduce a new font, the typography system is settled", and Inter everywhere
-was the right call while the product was finding its shape: it is invisible,
-it never fights the content, and it let every other decision be made without
-typography arguing back.
-
-It is also why every screen reads as competent and none reads as *this
-product*. Inter is the single most-used interface face on the web; a page set
-entirely in it announces nothing about what it is. NEXUS is a record of what an
-organisation promised and what it did — that has a voice, and the titles are
-where it should be audible.
-
-**Three faces, three jobs, and no more:**
-
-| Role | Face | Where |
-|---|---|---|
-| Display | the chosen display face | page titles and card headings only |
-| Body | Inter | everything a person reads |
-| Figures | JetBrains Mono | every number, tabular |
-
-**The restraint is the whole point.** A display face on body copy is a costume;
-on a title it is a voice. It appears at `.page-title` and `.card-title` and
-nowhere else. Rules 1–5 below still hold: medium weight, never bolder.
-
-Nothing else joins them. Three faces is a system; four is a collection.
+Do not introduce a new font. The typography system is settled.
 
 ---
 
 ## Color
 
-Retain these. Do not introduce arbitrary new colors.
+Two themes, one family. The light theme is a warm cream ground with brown ink
+and a single deep teal; the dark theme is the same browns driven down in
+lightness with the teal lifted to match. Both live in `app/globals.css` — the
+dark values in `:root`, the light ones in `[data-theme="white"] .theme-surface`.
+That attribute value is historical: it is stamped before first paint and sits in
+every existing browser's storage, so it was not worth a rename.
+
+```css
+/* Ground and ink — light */
+--nx-bg:      #F4EFE6;   /* cream */
+--nx-sidebar: #EDE7DE;   /* warm sand */
+--nx-surface: #FCFAF6;   /* the sheet a card is */
+--text-primary:   #2E2420;  /* 13.20:1 */
+--text-secondary: #6E5E57;  /*  5.39:1 */
+--text-tertiary:  #7A6862;  /*  4.60:1 */
+--text-quaternary:#9C8A84;  /*  2.87:1 — decoration only, NEVER text */
+
+/* The one structural accent */
+--nx-primary: #1A7A6D;   /* 4.53:1 on cream; #4FBFA8 on the dark ground */
+--on-accent:  #FCFAF6;   /* 4.98:1 on the teal fill */
+```
+
+### The rule that keeps this from looking machine-made
+
+Cream with a terracotta accent is the most recognisable AI-generated look on the
+web. This palette contains both, so the rust is on a leash:
+
+**Rust appears only where the product is reporting that something is wrong.**
+Never as decoration, never on a heading, never a border flourish, never a
+gradient. Teal carries every structural job — navigation, links, delivered,
+focus. A screen with nothing wrong on it has no orange anywhere.
+
+If you are reaching for `--color-critical` to make something look considered,
+you have found the rule you are about to break.
 
 ### Department identity
 
 ```css
---dept-techspecialist: #5B8CFF;   /* engineering */
---dept-media-hub:      #F2789F;   /* production */
---dept-creative-hub:   #F5B942;   /* brand */
---dept-operations:     #48C9A9;   /* delivery */
---dept-growth:         #B18CF5;   /* revenue */
+--dept-techspecialist: #2E2420;
+--dept-media-hub:      #6E5E57;
+--dept-creative-hub:   #9C8A84;
+--dept-operations:     #4A3C36;
+--dept-growth:         #B8A79E;
 ```
+
+Warm neutrals, deliberately **not** the signal hues. A unit is an identity, not
+a state — give one the teal that means "delivered" and a roster reads as a
+verdict. They separate from each other by lightness.
+
+**Known gap:** departments also carry a `color` column, set per organisation,
+and a stored value overrides these tokens at render time. The seeded demo org
+has coloured units for that reason. Whether departments should carry colour at
+all is an open product question.
 
 ### Status — and the trap inside it
 
 ```css
---color-promised:    rgba(255,255,255,0.55);
---color-in-progress: #5B8CFF;
---color-delivered:   #48C9A9;
---color-partial:     #F5B942;
---color-deferred:    rgba(255,255,255,0.38);
---color-blocked:     #F2789F;
---color-dropped:     rgba(255,255,255,0.22);
---color-superseded:  rgba(255,255,255,0.30);
+--color-promised:    rgba(46,36,32,0.50);
+--color-in-progress: #6E5E57;
+--color-delivered:   #1A7A6D;
+--color-partial:     #8A6410;
+--color-deferred:    rgba(46,36,32,0.36);
+--color-blocked:     #D35E37;
+--color-dropped:     rgba(46,36,32,0.24);
+--color-superseded:  rgba(46,36,32,0.30);
 ```
 
-**Four of these are white at low alpha. They are fill colors, not text colors.**
+**Four of these are ink at low alpha. They are fill colors, not text colors.**
 
-A 6px dot at 0.22 alpha is perfectly legible. The word "Dropped" in that same
+A 6px dot at 0.24 alpha is perfectly legible. The word "Dropped" in that same
 value lands around 2:1 against the surface — below every contrast floor there
 is, on the one status a person most needs to notice about their own week.
 
@@ -193,20 +208,38 @@ So every status carries **two** colors:
 - `tone` paints the dot or fill
 - `text` paints the label — achromatic statuses map to `--text-secondary`
 
+**Blocked is the case that proves it.** `#D35E37` is the hottest mark in the
+palette and the right dot for the worst state, and at 3.38:1 on cream it is not
+allowed to set a word. Its label takes `#8E3E1B` at 6.42:1.
+
 ### Signal
 
 ```css
---color-healthy:  #48C9A9;
---color-warning:  #F5B942;
---color-critical: #F2789F;
---color-neutral:  rgba(255,255,255,0.4);
+--color-healthy:  #1A7A6D;   /* teal   — fine */
+--color-warning:  #8A6410;   /* bronze — slipping */
+--color-critical: #8E3E1B;   /* burnt  — stuck */
+--color-neutral:  rgba(46,36,32,0.40);
 ```
+
+One warm ramp. The three separate by **hue**, not only lightness, so they
+survive both themes and a greyscale print.
 
 **Color carries severity. The icon carries kind.** Deriving both from severity
 made a cross-team bottleneck and a dropped commitment arrive as identical amber
 rockets — which makes a scannable row unscannable. And a rocket on "commitments
 went quiet" reads as good news at a glance, exactly the wrong first impression
 for the finding this product exists to surface.
+
+### Measure it
+
+Every value above was computed against its own ground, not chosen by eye. Two
+of the supplied swatches failed and were demoted rather than used anyway:
+`#9C8A84` (2.87:1) is decoration, `#D35E37` (3.38:1) paints but never writes.
+If you add a color, compute its ratio before you commit it.
+
+Shadows are tinted with the palette's brown (`rgba(20,14,12,α)`), never pure
+black. A neutral shade over a warm ground desaturates it and drags the cream
+towards putty.
 
 ---
 

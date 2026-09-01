@@ -21,8 +21,6 @@ function metaLine(c: CommitmentRow) {
   if (c.category) bits.push(c.category);
   if (c.status === "blocked" && c.depends_on_department) {
     bits.push(`waiting on ${c.depends_on_department}`);
-  } else if (c.carry_depth > 1) {
-    bits.push(`carried ${c.carry_depth}×`);
   }
   if (!c.was_planned) bits.push("unplanned");
   return bits.join(" · ");
@@ -32,10 +30,20 @@ export function TaskRow({
   commitment: c,
   onClick,
   showChevron = true,
+  trailing = null,
 }: {
   commitment: CommitmentRow;
   onClick: () => void;
   showChevron?: boolean;
+  /**
+   * A short fact about WHEN, under the metadata line. "for 24 Aug–30 Aug".
+   *
+   * Passed in rather than derived, because only the caller knows whether the
+   * week is worth stating: on a list grouped by week it is already the
+   * heading, and on a list of open work spanning weeks it is the fact that
+   * stops a carried promise reading as one made today.
+   */
+  trailing?: string | null;
 }) {
   const meta = metaLine(c);
 
@@ -46,18 +54,20 @@ export function TaskRow({
       data-blocked-row={c.status === "blocked" ? "true" : undefined}
       aria-label={`${c.title} · ${statusShortLabel(c.status)}`}
       className={cn(
-        "group grid w-full grid-cols-[auto_1fr_auto] items-center gap-x-3 gap-y-1 rounded-xl border border-white/[0.05] bg-white/[0.02] px-3.5 py-2.5 text-left",
+        "group grid w-full grid-cols-[auto_1fr_auto] items-start gap-x-3 gap-y-1 rounded-xl border border-white/[0.05] bg-white/[0.02] px-3.5 py-2.5 text-left",
         "transition-colors duration-150 hover:border-white/[0.14] hover:bg-white/[0.05] focus-visible:outline focus-visible:outline-2 focus-visible:outline-white/40",
       )}
     >
       <span
         aria-hidden="true"
-        className="mt-0.5 size-2 shrink-0 rounded-full"
+        className="mt-[7px] size-2 shrink-0 rounded-full"
         style={{ background: dotColor(c.status) }}
       />
 
       <span className="min-w-0">
-        <span className="block truncate text-[15px] font-semibold leading-snug text-[var(--nx-text-primary)]">
+        {/* Never clamped — see working-on-card.tsx for why two lines is not
+            enough at 320px. */}
+        <span className="block text-[15px] font-semibold leading-snug text-[var(--nx-text-primary)]">
           {c.title}
         </span>
         {meta && (
@@ -80,15 +90,46 @@ export function TaskRow({
             &ldquo;{c.source_quote}&rdquo;
           </span>
         )}
-        {c.carry_depth > 1 && (
-          <span className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-[var(--color-partial)]">
-            <Repeat2 size={12} aria-hidden="true" />
-            carried {c.carry_depth}×
+        {trailing && (
+          <span className="mt-0.5 block text-[12px] leading-snug text-[var(--nx-text-muted)]">
+            {trailing}
           </span>
         )}
       </span>
 
-      <span className="flex shrink-0 items-center gap-2">
+      <span className="flex shrink-0 items-center gap-2.5">
+        {/*
+          CARRY IS THE LOUDEST THING ON A CARRIED ROW.
+
+          It was an 11px line reading "carried 3×", set under the metadata and
+          smaller than everything around it — and it was also in `metaLine`
+          above, so the same fact appeared twice on the rows that had it.
+
+          How long a promise has gone without moving is the most consequential
+          thing this product knows, and it is the one figure a weekly rhythm
+          is structurally bad at surfacing: each week on its own looks like a
+          small slip, and only the count says otherwise. It gets the row's
+          right edge, in the figure face, and it grows heavier the longer it
+          runs.
+
+          A fact about work. Never about a person — rejected-patterns.md #9.
+        */}
+        {c.carry_depth > 1 && (
+          <span
+            title={`Open for ${c.carry_depth} weeks`}
+            className={cn(
+              "metric inline-flex items-center gap-1 tabular-nums",
+              c.carry_depth >= 6
+                ? "text-[15px] font-semibold text-[var(--color-blocked)]"
+                : c.carry_depth >= 3
+                  ? "text-[14px] font-medium text-[var(--color-partial)]"
+                  : "text-[13px] text-[var(--nx-text-secondary)]",
+            )}
+          >
+            <Repeat2 size={13} aria-hidden="true" className="shrink-0 opacity-70" />
+            {c.carry_depth}w
+          </span>
+        )}
         <StatusBadge status={c.status} size="sm" />
         {showChevron && (
           <ChevronRight

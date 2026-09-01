@@ -2,18 +2,9 @@
 
 import Link from "next/link";
 import { m } from "motion/react";
-import {
-  ArrowRight,
-  Building2,
-  CircleCheck,
-  CircleSlash,
-  Rocket,
-  ShieldAlert,
-  Sparkles,
-  Target,
-  TriangleAlert,
-  Users,
-} from "lucide-react";
+import { ArrowRight, Sparkles } from "lucide-react";
+import { weekLabel } from "@/lib/cycle";
+import { unitTone, unitWash } from "@/lib/unit-tone";
 import { GlassCard } from "@/components/ui/glass-card";
 import { VoiceConsole } from "@/components/assistant/voice-console";
 import { WeeklyBriefModal } from "@/components/executive/weekly-brief-modal";
@@ -101,52 +92,26 @@ import type { AIInsight } from "@/lib/insights";
  * Severity is the only thing that orders this band, so it has to be visible
  * before the words are read.
  */
+/*
+ * THE WASH, IN THE THEME'S OWN INK.
+ *
+ * These were literal rgba(91,140,255) and rgba(124,124,255) — a blue and a
+ * purple, hardcoded. The monochrome pass re-pointed tokens, and a literal is
+ * by definition not a token, so the one screen the Chairman opens every
+ * morning kept a blue glow after every other surface had stopped.
+ *
+ * Mixed from --nx-primary, they also follow the theme: white ink on black,
+ * black ink on white, and the wash reads as depth in both instead of a
+ * bruise on one.
+ */
+const MIX_STRONG = "color-mix(in oklab, var(--nx-primary) 14%, transparent)";
+const MIX_SOFT = "color-mix(in oklab, var(--nx-primary) 9%, transparent)";
+
 const TONE = {
   critical: { ring: "var(--color-critical)", wash: "rgba(242,120,159,0.15)" },
   warning: { ring: "var(--color-warning)", wash: "rgba(245,185,66,0.15)" },
   normal: { ring: "var(--color-healthy)", wash: "rgba(72,201,169,0.13)" },
 } as const;
-
-const TYPE_ICON = {
-  blocker: ShieldAlert,
-  dependency: ShieldAlert,
-  risk: TriangleAlert,
-  /*
-   * A rocket on "commitments went quiet" reads as good news at a glance,
-   * which is precisely the wrong first impression for the finding this
-   * product exists to surface. CircleSlash says absence.
-   */
-  mismatch: CircleSlash,
-  silence: CircleSlash,
-  coaching: Rocket,
-} as const;
-
-const SHORTCUTS = [
-  {
-    href: "/departments",
-    icon: Building2,
-    title: "Department Overview",
-    blurb: "See performance & progress",
-  },
-  {
-    href: "/advice",
-    icon: Target,
-    title: "Strategic Initiatives",
-    blurb: "Track key programs",
-  },
-  {
-    href: "/notifications",
-    icon: ShieldAlert,
-    title: "Risk & Issues",
-    blurb: "Review attention areas",
-  },
-  {
-    href: "/departments",
-    icon: Users,
-    title: "Team Performance",
-    blurb: "People & productivity",
-  },
-] as const;
 
 /** "12m ago", "1h ago", "3d ago" — relative, because the exact clock time is noise. */
 function ago(iso: string): string {
@@ -213,8 +178,10 @@ export function ExecutiveHome({
             className="pointer-events-none absolute inset-0 opacity-70"
             style={{
               background:
-                "radial-gradient(120% 90% at 12% 120%, rgba(91,140,255,0.20), transparent 62%)," +
-                "radial-gradient(90% 70% at 78% 0%, rgba(124,124,255,0.14), transparent 60%)",
+                "radial-gradient(120% 90% at 12% 120%, " +
+                `${MIX_STRONG}, transparent 62%),` +
+                "radial-gradient(90% 70% at 78% 0%, " +
+                `${MIX_SOFT}, transparent 60%)`,
             }}
           />
 
@@ -226,22 +193,46 @@ export function ExecutiveHome({
             */}
             <p className="metric mb-1 text-xs text-tertiary md:hidden">{today}</p>
 
-            <div className="flex items-baseline justify-between gap-4">
-              <h1 className="text-3xl font-medium leading-tight tracking-tight md:text-3xl">
-                {greeting},{" "}
-                <span className="text-[var(--dept-techspecialist)]">{firstName}.</span>
-              </h1>
+            {/*
+              A GREETING AT GREETING SIZE.
+
+              This was a 30px headline, in accent colour, over a sentence
+              describing the page — the two largest things on the Chairman's
+              screen, and neither of them the reason he opened it. What he
+              came for is the week's finding, which is now the first thing
+              with any weight to it.
+
+              The name stays. Addressing somebody by name costs one line and
+              is not the same as spending the top of the page on it.
+            */}
+            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+              <p className="text-[15px] text-secondary">
+                {greeting}, {firstName}.
+              </p>
               <p className="metric hidden shrink-0 text-xs text-tertiary md:block">{today}</p>
             </div>
-            <p className="mt-1 text-[15px] text-secondary">
+            <h1 className="page-title mt-1">
+              {/*
+                THE DATES, NOT THE WEEK NUMBER.
+
+                `cycleLabel` is the raw database label, "W34 · 17 Aug–23 Aug".
+                Rendering it whole put the week number back on the one screen
+                lib/cycle.ts was written to keep it off — and it is the exact
+                string somebody had to ask the meaning of.
+              */}
               {cycleLabel
-                ? `Your organisation at a glance — settled through ${cycleLabel}.`
-                : "Your organisation at a glance. No reporting week has settled yet, so the figures below fill in after the first one closes."}
+                ? `The week of ${weekLabel(cycleLabel)}`
+                : "No week has settled yet"}
+            </h1>
+            <p className="mt-1.5 max-w-[54ch] text-[15px] leading-relaxed text-secondary">
+              {cycleLabel
+                ? "Everything below is counted from what people filed. Ask about any of it."
+                : "The figures below fill in once the first reporting week closes. Everything on this page is counted from what people file."}
             </p>
 
             <div className="mt-6 md:mt-8">
               <VoiceConsole
-                greeting="Your AI Executive Assistant"
+                greeting="Ask NEXUS"
                 /*
                   The half that says something.
 
@@ -268,7 +259,7 @@ export function ExecutiveHome({
 
         <GlassCard level={2} className="flex min-h-0 flex-col p-5">
           <div className="flex items-baseline justify-between gap-3">
-            <h2 className="text-base font-medium tracking-tight">Recent Staff Updates</h2>
+            <h2 className="card-title">Recent updates</h2>
             <Link
               href="/departments"
               /*
@@ -315,7 +306,7 @@ export function ExecutiveHome({
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex min-w-0 items-center gap-2.5">
-                        <Avatar name={u.full_name} color={u.department_color} />
+                        <Avatar name={u.full_name} unit={u.department_name} />
                         <div className="min-w-0">
                           <p className="truncate text-sm font-medium leading-tight text-white/90">
                             {u.full_name}
@@ -378,7 +369,7 @@ export function ExecutiveHome({
               className="text-[var(--dept-techspecialist)]"
               aria-hidden="true"
             />
-            <h2 className="text-base font-medium tracking-tight">Priority Updates</h2>
+            <h2 className="card-title">Priority updates</h2>
             {/*
               Plain text. It was an outlined pill, which gave a COUNT the same
               visual weight as the three findings below that actually need
@@ -419,12 +410,27 @@ export function ExecutiveHome({
                 : `${reporting.submitted} of ${reporting.expected} reported${cycleLabel ? ` for ${cycleLabel}` : ""}, and nothing came back blocked across units, carried without explanation, or dropped without being declared.`}
           </p>
         ) : (
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          /*
+            A LIST, NOT A GRID OF CARDS INSIDE A CARD.
+
+            This was three bordered, washed, icon-pucked cards nested in the
+            card that introduces them — rejected-patterns.md #7, and the nesting
+            was the smaller cost. Three columns at 1/3 width forced the finding
+            itself to `line-clamp-2`, so the Chairman read "…name one owner for
+            the…" and "…before treating the number as real…". The one sentence
+            on this page that tells him what to do about something was the one
+            sentence being cut.
+
+            Full width, one per row, nothing clamped. The coloured puck the
+            severity used to live in became a 2px rule at the left edge: it was
+            the most emphasised element on the card and carried the least, which
+            is exactly backwards on a finding.
+          */
+          <ul className="mt-4 flex flex-col gap-1.5">
             {priority.map((insight, i) => {
               const tone = TONE[insight.severity];
-              const Icon = TYPE_ICON[insight.type] ?? CircleCheck;
               return (
-                <m.div
+                <m.li
                   key={insight.id}
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -432,51 +438,40 @@ export function ExecutiveHome({
                 >
                   <Link
                     href="/advice"
-                    className="group flex h-full items-start gap-3 rounded-xl border p-4
-                               transition-colors"
-                    style={{
-                      borderColor: `color-mix(in oklab, ${tone.ring} 45%, transparent)`,
-                      background: tone.wash,
-                    }}
+                    className="group flex items-start gap-3.5 rounded-xl border border-white/[0.06]
+                               bg-white/[0.02] py-3.5 pl-3.5 pr-4 transition-colors
+                               hover:border-white/[0.14] hover:bg-white/[0.05]"
                   >
                     <span
                       aria-hidden="true"
-                      className="grid size-10 shrink-0 place-items-center rounded-full"
-                      style={{
-                        background: `color-mix(in oklab, ${tone.ring} 26%, transparent)`,
-                        color: tone.ring,
-                      }}
-                    >
-                      <Icon size={18} />
-                    </span>
+                      className="mt-0.5 w-[3px] shrink-0 self-stretch rounded-full"
+                      style={{ background: tone.ring }}
+                    />
 
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium leading-snug text-white/90">
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[15px] font-medium leading-snug text-white/90">
                         {insight.title}
-                      </p>
+                      </span>
                       {/*
-                        The action, at white/78 rather than the tertiary 55%.
-                        It is the half of a finding that says what to do about
-                        it, and it was the faintest text on the card.
+                        The half of a finding that says what to do about it.
+                        Never truncated, never clamped.
                       */}
-                      <p className="mt-1 line-clamp-2 text-[13px] leading-relaxed text-white/78">
+                      <span className="mt-1 block text-[13px] leading-relaxed text-white/78">
                         {insight.recommendedAction}
-                      </p>
-                    </div>
-
-                    <span
-                      aria-hidden="true"
-                      className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-full
-                                 border border-white/[0.16] bg-white/[0.06] text-white/75
-                                 transition-colors group-hover:text-white/95"
-                    >
-                      <ArrowRight size={14} />
+                      </span>
                     </span>
+
+                    <ArrowRight
+                      size={15}
+                      aria-hidden="true"
+                      className="mt-1 shrink-0 text-white/40 transition-transform duration-150
+                                 group-hover:translate-x-0.5 group-hover:text-white/80"
+                    />
                   </Link>
-                </m.div>
+                </m.li>
               );
             })}
-          </div>
+          </ul>
         )}
       </GlassCard>
 
@@ -485,46 +480,29 @@ export function ExecutiveHome({
         <UnitRoster roster={roster} dense />
       </GlassCard>
 
-      {/* ---- 5: where to go --------------------------------------------- */}
-      <GlassCard level={2} className="p-5">
-        <h2 className="text-base font-medium tracking-tight">Executive Shortcuts</h2>
+      {/*
+        EXECUTIVE SHORTCUTS: DELETED.
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {SHORTCUTS.map(({ href, icon: Icon, title, blurb }) => (
-            <Link
-              key={title}
-              href={href}
-              className="group flex items-center gap-3 rounded-xl border border-white/[0.13]
-                         bg-white/[0.05] p-4 transition-colors hover:border-white/[0.22]
-                         hover:bg-white/[0.09]"
-            >
-              <span
-                aria-hidden="true"
-                className="grid size-11 shrink-0 place-items-center rounded-xl
-                           bg-[var(--dept-techspecialist)]/20 text-[var(--dept-techspecialist)]"
-              >
-                <Icon size={19} />
-              </span>
-              <div className="min-w-0 flex-1">
-                {/* Wraps rather than truncates: "Department Overvi…" is not a label. */}
-                <p className="text-sm font-medium leading-snug text-white/90">{title}</p>
-                <p className="mt-0.5 truncate text-xs text-secondary">{blurb}</p>
-              </div>
-              <ArrowRight
-                size={15}
-                aria-hidden="true"
-                className="shrink-0 text-white/45 transition-colors group-hover:text-white/85"
-              />
-            </Link>
-          ))}
-        </div>
-      </GlassCard>
+        Four tiles — Department Overview, Strategic Initiatives, Risk & Issues,
+        Team Performance — each an icon, a title-case label and a blurb that
+        `truncate`d to "See performance & pro…". It was rejected-patterns.md #1
+        exactly: a grid that shows everything and decides nothing, on the one
+        screen in the product whose entire job is deciding.
+
+        Two of the four went to pages the rail already lists. The other two
+        named nothing that exists in this product — there is no "strategic
+        initiative" and no "risk register" in the data model, so a Chairman who
+        pressed them arrived somewhere that did not answer the label.
+
+        Nothing replaces it. The rail navigates, the findings above link to the
+        work, and the roster links to each unit. A short page is not a defect.
+      */}
     </div>
   );
 }
 
 /** Initials, coloured by unit. No photo uploads exist, so none are implied. */
-function Avatar({ name, color }: { name: string; color: string | null }) {
+function Avatar({ name, unit }: { name: string; unit: string | null }) {
   const initials = name
     .split(/\s+/)
     .slice(0, 2)
@@ -536,10 +514,7 @@ function Avatar({ name, color }: { name: string; color: string | null }) {
     <span
       aria-hidden="true"
       className="grid size-9 shrink-0 place-items-center rounded-full text-2xs font-semibold"
-      style={{
-        background: `color-mix(in oklab, ${color ?? "var(--dept-techspecialist)"} 22%, transparent)`,
-        color: color ?? "var(--dept-techspecialist)",
-      }}
+      style={{ background: unitWash(unit), color: unitTone(unit) }}
     >
       {initials}
     </span>

@@ -41,7 +41,7 @@ export function WorkingOnCard({
   return (
     <section
       aria-label="What you're working on"
-      className="nx-card flex min-h-0 flex-col overflow-hidden p-5 sm:p-6"
+      className="nx-card flex flex-col p-5 sm:p-6"
     >
       <div className="flex shrink-0 items-start justify-between gap-4">
         <div>
@@ -49,9 +49,11 @@ export function WorkingOnCard({
             What you&rsquo;re working on
           </h2>
           <p className="mt-0.5 text-sm text-[var(--nx-text-secondary)]">
-            {commitments.length === 0
-              ? "Everything you have promised, still open"
-              : `${commitments.length} open`}
+            {commitments.length === 0 ? (
+              "Everything you have promised, still open"
+            ) : (
+              <span className="metric">{commitments.length} open</span>
+            )}
           </p>
         </div>
         <Link
@@ -99,17 +101,16 @@ export function WorkingOnCard({
       ) : (
         <>
           {/*
-            The list flexes and scrolls; the count below it does not.
+            NO SCROLLER, NO CEILING. The list is as long as the work is.
 
-            Both were in normal flow inside a card with a fixed height on
-            desktop, so four rows pushed the "1 more open" line past the
-            bottom edge and overflow-hidden ate it — the overflow indicator
-            was itself overflowing, which is the one thing it must never do.
+            It used to be a `max-h-[26rem]` scroll area inside a card pinned to
+            the viewport, which cut the last row through the middle of its
+            second line — a row sliced in half reads as a rendering fault, not
+            as "there is more below". The page scrolls now, so this does not
+            have to, and the count under it is reached by scrolling like
+            everything else.
           */}
-          <ul
-            className="mt-4 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1
-                       max-h-[26rem] lg:max-h-none lg:space-y-2.5"
-          >
+          <ul className="mt-4 space-y-2 lg:space-y-2.5">
             {commitments.map((c) => {
               const s = statusBadge(c.status);
               return (
@@ -126,20 +127,27 @@ export function WorkingOnCard({
                     */
                     prefetch={false}
                     aria-label={`${c.title} — ${s.label}`}
-                    className="nx-focus-ring group flex items-center gap-3 rounded-xl border border-white/[0.07]
+                    className="nx-focus-ring group flex items-start gap-3 rounded-xl border border-white/[0.07]
                                bg-white/[0.02] px-3.5 py-2.5 transition-colors
                                hover:border-white/[0.14] hover:bg-white/[0.05]"
                   >
                     <span
                       aria-hidden="true"
-                      className="size-2.5 shrink-0 rounded-full"
+                      className="mt-[7px] size-2.5 shrink-0 rounded-full"
                       style={{ background: s.tone }}
                     />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[15px] leading-snug text-white/90">
+                      {/*
+                        NOT CLAMPED. A clamp is a truncation with a nicer
+                        name: at 320px two lines cut these titles in exactly
+                        the place `truncate` used to. The page scrolls, the
+                        card has no ceiling, and a row is allowed to be two
+                        lines tall or four.
+                      */}
+                      <p className="text-[15px] leading-snug text-white/90">
                         {c.title}
                       </p>
-                      <p className="truncate text-xs text-[var(--nx-text-muted)]">
+                      <p className="mt-0.5 text-xs leading-snug text-[var(--nx-text-muted)]">
                         {s.label}
                         {/*
                           Which week this was promised for, but only when it is

@@ -13,6 +13,7 @@ import { healthTone } from "@/lib/status";
 import { weekLabel } from "@/lib/cycle";
 import type { CoursePoint, PendingReview } from "@/lib/queries";
 import type { AIInsight, ExecutiveBrief } from "@/lib/insights";
+import { unitTone, unitWash } from "@/lib/unit-tone";
 
 const CoursePlot = dynamic(() => import("./course-plot").then((m) => m.CoursePlot), {
   loading: () => <div className="h-32 w-full animate-pulse rounded-lg bg-white/[0.04]" />,
@@ -161,7 +162,7 @@ export function CommandCenter({
                       <span
                         aria-hidden="true"
                         className="size-2 shrink-0 rounded-full"
-                        style={{ backgroundColor: d.color }}
+                        style={{ backgroundColor: unitTone(d.department_id) }}
                       />
                       <span className="min-w-0 flex-1 truncate text-xs font-medium text-white/85">
                         {d.department_name}
@@ -287,8 +288,8 @@ export function CommandCenter({
                       aria-hidden="true"
                       className="grid size-7 shrink-0 place-items-center rounded-full text-2xs font-medium"
                       style={{
-                        backgroundColor: `color-mix(in srgb, ${a.color ?? "#7d8590"} 20%, transparent)`,
-                        color: a.color ?? "#aab",
+                        backgroundColor: unitWash(a.department_name, 20),
+                        color: unitTone(a.department_name),
                       }}
                     >
                       {a.full_name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
@@ -358,7 +359,7 @@ function Row({ label, value, tone }: { label: string; value: number; tone?: stri
   return (
     <div className="flex items-baseline justify-between gap-2">
       <dt className="truncate text-tertiary">{label}</dt>
-      <dd className="metric shrink-0" style={{ color: tone ?? "rgba(255,255,255,0.65)" }}>
+      <dd className="metric shrink-0" style={{ color: tone ?? "var(--text-secondary)" }}>
         {value}
       </dd>
     </div>

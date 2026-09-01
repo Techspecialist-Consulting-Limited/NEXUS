@@ -23,6 +23,7 @@ import { useToast } from "@/components/ui/toast";
 import { staggerContainer, staggerItem } from "@/lib/motion-tokens";
 import { ROLE_BLURB, ROLE_LABEL, type OrgRole } from "@/lib/roles";
 import type { Invitation, Member } from "@/lib/team";
+import { unitTone, unitWash } from "@/lib/unit-tone";
 
 /*
  * The roster.
@@ -412,8 +413,8 @@ export function TeamManager({
                         aria-hidden="true"
                         className="grid size-8 shrink-0 place-items-center rounded-full text-2xs font-medium"
                         style={{
-                          backgroundColor: `color-mix(in srgb, ${p.color ?? "#7d8590"} 20%, transparent)`,
-                          color: p.color ?? "#aab",
+                          backgroundColor: unitWash(p.department_name, 20),
+                          color: unitTone(p.department_name),
                         }}
                       >
                         {p.full_name.split(" ").map((n) => n[0]).join("").slice(0, 2)}

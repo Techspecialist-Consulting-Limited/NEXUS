@@ -4,6 +4,7 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { PageHead } from "@/components/executive/page-head";
 import { weekLabel } from "@/lib/cycle";
 import type { DepartmentHealth } from "@/lib/queries";
+import { unitTone } from "@/lib/unit-tone";
 
 /*
  * Units, in one view.
@@ -118,13 +119,13 @@ export function UnitBoard({
                              rounded-xl px-3 py-3.5 transition-colors hover:bg-white/[0.05]
                              md:grid-cols-[auto_minmax(0,1.4fr)_minmax(0,1fr)_auto_auto] md:gap-x-5"
                   style={{
-                    borderTop: i === 0 ? undefined : "1px solid rgba(255,255,255,0.06)",
+                    borderTop: i === 0 ? undefined : "1px solid var(--nx-border)",
                   }}
                 >
                   <span
                     aria-hidden="true"
                     className="size-2.5 shrink-0 rounded-full"
-                    style={{ background: d.color }}
+                    style={{ background: unitTone(d.department_id) }}
                   />
 
                   <div className="min-w-0">

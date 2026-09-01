@@ -9,6 +9,7 @@ import {
   liveCommitments,
   openCheckInCycle,
   recentCycles,
+  weekLedger,
 } from "@/lib/queries";
 import { weeklyBrief } from "@/lib/coach";
 import { alertsFor } from "@/lib/alerts";
@@ -83,7 +84,7 @@ export default async function MyWeekPage() {
     );
   }
 
-  const [brief, live, checkIn, feed] = await Promise.all([
+  const [brief, live, checkIn, feed, ledger] = await Promise.all([
     weeklyBrief(actor, me.id, week.id, me.full_name, week.label),
     /*
      * What they are working on RIGHT NOW, which is a different question from
@@ -120,7 +121,48 @@ export default async function MyWeekPage() {
      * the second is never a serial wait on the first.
      */
     alertsFor(actor, me),
+    /*
+     * The shape of the record they are adding to. Counted from commitments
+     * rather than reconciliations so the week in progress is included — see
+     * weekLedger in lib/queries.ts.
+     */
+    /*
+     * Six, plus the current week, is seven columns — which is what fits the
+     * sidebar at a 56px floor without scrolling. Eight scrolled, and the
+     * column that went off the right edge was the current one, since the
+     * strip runs oldest to newest. A record whose most recent entry is the
+     * hidden one is a record nobody reads.
+     */
+    weekLedger(actor, me.id, 6),
   ]);
+
+  /*
+   * THE WEEK YOU ARE STANDING IN IS ALWAYS ON THE LEDGER.
+   *
+   * `weekLedger` joins commitments, so a week nobody has promised into yet
+   * has no row — and on a Monday that is precisely the current week. The
+   * strip then ended at the week before, and the reader had no mark for
+   * where they were standing.
+   *
+   * Zero promised is a fact about the week, not a gap in the record, so it
+   * is stated rather than skipped. Every value here comes from the cycle row
+   * itself; nothing is estimated.
+   */
+  const ledgerWeeks = ledger.some((w) => w.id === week.id)
+    ? ledger
+    : [
+        ...ledger,
+        {
+          id: week.id,
+          label: week.label,
+          starts_on: week.starts_on,
+          ends_on: week.ends_on,
+          promised: 0,
+          delivered: 0,
+        },
+      ];
+  /* Order is the strip's own business — it sorts by date. Appending rather
+     than prepending only avoids implying one here. */
 
   return (
     <MyWeekWorkspace
@@ -131,6 +173,7 @@ export default async function MyWeekPage() {
       coaching={brief.coaching}
       reportedAt={checkIn[0]?.responded_at ?? null}
       alerts={feed.alerts}
+      ledger={ledgerWeeks}
     />
   );
 }

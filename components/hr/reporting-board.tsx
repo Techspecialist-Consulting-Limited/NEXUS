@@ -6,6 +6,7 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { PageHead } from "@/components/executive/page-head";
 import { weekLabel } from "@/lib/cycle";
 import type { ComplianceRow } from "@/lib/team";
+import { unitTone, unitWash } from "@/lib/unit-tone";
 
 /*
  * Reporting — HR's view. PRD F18: who submitted, who was late, who did not.
@@ -157,8 +158,8 @@ export function ReportingBoard({
                         className="grid size-8 shrink-0 place-items-center rounded-full
                                    text-2xs font-semibold"
                         style={{
-                          background: `color-mix(in oklab, ${r.color ?? "var(--color-blocked)"} 22%, transparent)`,
-                          color: r.color ?? "var(--color-blocked)",
+                          background: unitWash(r.department_name),
+                          color: unitTone(r.department_name),
                         }}
                       >
                         {initials(r.full_name)}
@@ -205,8 +206,8 @@ export function ReportingBoard({
                   aria-hidden="true"
                   className="grid size-7 shrink-0 place-items-center rounded-full text-2xs font-semibold"
                   style={{
-                    background: `color-mix(in oklab, ${r.color ?? "var(--color-partial)"} 22%, transparent)`,
-                    color: r.color ?? "var(--color-partial)",
+                    background: unitWash(r.department_name),
+                    color: unitTone(r.department_name),
                   }}
                 >
                   {initials(r.full_name)}

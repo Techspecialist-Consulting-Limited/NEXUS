@@ -1,8 +1,8 @@
 "use client";
 
 import type { Alert } from "@/lib/alerts";
-import type { LiveCommitment, Person } from "@/lib/queries";
-import { weekLabel } from "@/lib/cycle";
+import type { LedgerWeek, LiveCommitment, Person } from "@/lib/queries";
+import { WeekLedger } from "@/components/ui/week-ledger";
 import { AlertBell } from "@/components/layout/alert-bell";
 import { CheckInCard } from "@/components/myweek/check-in-card";
 import { NexusNoticedCard } from "@/components/myweek/nexus-noticed-card";
@@ -63,6 +63,7 @@ export function MyWeekWorkspace({
   coaching,
   reportedAt,
   alerts,
+  ledger,
 }: {
   person: Person;
   cycleId: string;
@@ -80,6 +81,8 @@ export function MyWeekWorkspace({
   reportedAt: string | null;
   /** Exactly what /notifications shows, for the bell. See lib/alerts.ts. */
   alerts: Alert[];
+  /** Every week with work in it, for the strip under the check-in. */
+  ledger: LedgerWeek[];
 }) {
   const first = person.full_name.split(/\s+/)[0];
 
@@ -105,34 +108,25 @@ export function MyWeekWorkspace({
   ] as string[];
 
   return (
-    <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-5 lg:h-[calc(100dvh-3rem)] lg:gap-6">
+    <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-5 lg:gap-6">
       {/* ---- Header ---------------------------------------------------- */}
       <header className="flex items-center justify-between gap-6 pt-1">
         <div className="min-w-0">
-          <h1 className="text-[32px] font-semibold leading-tight tracking-[-0.02em] text-[var(--nx-text-primary)]">
+          {/*
+            A greeting, at greeting size.
+
+            This was 32px with a waving hand, over "Here's what's happening at
+            NEXUS this week" — the largest element on the screen, and the only
+            one carrying no information. What a person came here to do is
+            directly below it and now outranks it.
+          */}
+          <h1 className="text-xl font-medium tracking-tight text-[var(--nx-text-primary)]">
             {partOfDay()}, {first}
-            <span aria-hidden="true" className="ml-1">{'\u{1F44B}'}</span>
           </h1>
-          <p className="mt-1.5 text-[15px] leading-relaxed text-[var(--nx-text-secondary)]">
-            Here&rsquo;s what&rsquo;s happening at NEXUS this week.
-          </p>
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
           <AlertBell alerts={alerts} />
-
-          {/*
-            The week, stated. NOT a button.
-
-            It was a <button> carrying a chevron and no handler — a control
-            that looks like a week picker, takes the click and does nothing.
-            There is one week on this page and it is the week you are in;
-            saying so is the whole job, and a disclosure arrow that discloses
-            nothing is the same lie the bell beside it used to tell.
-          */}
-          <span className="hidden min-h-11 items-center rounded-full border border-white/[0.08] bg-white/[0.04] px-3.5 text-sm text-[var(--nx-text-secondary)] sm:inline-flex">
-            {weekLabel(cycleLabel)}
-          </span>
 
           <span
             title={person.full_name}
@@ -145,26 +139,47 @@ export function MyWeekWorkspace({
       </header>
 
       {/*
-        One asymmetric row, and it is the right column that splits.
+        CONTENT SETS THE HEIGHT. NOTHING HERE IS PINNED TO THE VIEWPORT.
 
-        The check-in is a single cell spanning the full height, so it can give
-        the composer everything the column has. The right column is its own
-        1.4fr / 1fr grid: the task list takes the larger share because it is a
-        list, and the insight under it is a headline and a sentence.
+        This row used to be `lg:h-[calc(100dvh-3rem)]` with fractional rows, so
+        every card was sized before anything was in it. One decision produced
+        three separate defects at once: the composer, which had nothing to fill
+        a 700px cell with, became a void; the task list, which had more than
+        its 1.4fr share, was sliced through a row by its own bottom edge; and
+        the right column was narrowed to make the fractions add up, so titles
+        were `truncate`d to "Ship the commitment reconciliation en…".
+
+        A card with nothing to say is allowed to be short. `items-start` is
+        what lets it be — the columns no longer stretch to match each other.
+
+        The right column has a 26rem floor because that is what a task title
+        needs to be read rather than guessed at.
 
         On mobile it collapses to a stack in the order somebody actually needs
         it — check in, see what is open, read what NEXUS made of it, then
         coaching.
       */}
-      <div className="flex min-h-0 flex-1 flex-col gap-5 lg:grid lg:grid-cols-[1.6fr_1fr] lg:grid-rows-1 lg:gap-6">
-        <CheckInCard
-          cycleId={cycleId}
-          alreadyReported={Boolean(reportedAt)}
-          openCount={openCount}
-        />
+      <div className="flex flex-col gap-5 lg:grid lg:grid-cols-[minmax(0,1.35fr)_minmax(26rem,1fr)] lg:items-start lg:gap-6">
+        <div className="flex flex-col gap-5 lg:gap-6">
+          <CheckInCard
+            cycleId={cycleId}
+            cycleLabel={cycleLabel}
+            alreadyReported={Boolean(reportedAt)}
+            openCount={openCount}
+          />
 
-        <div className="flex min-h-0 flex-col gap-5 lg:grid lg:grid-rows-[1.4fr_1fr] lg:gap-6">
-          <WorkingOnCard commitments={live} hasReported={Boolean(reportedAt)} />
+          {/*
+            UNDER THE COMPOSER, BECAUSE IT IS ABOUT THE COMPOSER.
+
+            This sat bottom-right, as far from the check-in box as the layout
+            allowed, while saying "say so in your check-in and it reaches the
+            people who can clear it". Advice about a control belongs beside the
+            control; from the opposite corner it is a remark.
+
+            It also balances the row. With the chooser gone the left column
+            ends around 440px against a right column near 900, and a column
+            two-thirds empty is the same defect the chooser was.
+          */}
           <NexusNoticedCard
             title={top?.title ?? null}
             body={top?.body ?? null}
@@ -175,6 +190,17 @@ export function MyWeekWorkspace({
             openCount={openCount}
             hasReported={Boolean(reportedAt)}
           />
+        </div>
+
+        <div className="flex flex-col gap-5 lg:gap-6">
+          {/*
+            The record, above what is open in it. Small, quiet, and the only
+            place on this page that shows more than one week — a person filing
+            an update can see the shape of what they are adding to.
+          */}
+          <WeekLedger weeks={ledger} currentCycleId={cycleId} className="px-0.5" />
+
+          <WorkingOnCard commitments={live} hasReported={Boolean(reportedAt)} />
         </div>
 
         {/*

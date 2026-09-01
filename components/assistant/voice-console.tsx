@@ -237,9 +237,17 @@ export function VoiceConsole({
       <div className="min-w-0 flex-1">
         {phaseNow === "idle" && !answer && (
           <>
-            <h2 className="text-xl font-medium tracking-tight text-white/95 md:text-2xl">
-              {greeting}
-            </h2>
+            {/*
+              A card heading, not a page heading.
+
+              At 24px this was the largest thing in the band and competed
+              with the page title directly above it — two headings, one card,
+              and the reader has to work out which subject they are under.
+              The console is unmissable because it is the widest element on
+              the first screen and carries the only orb in the product, not
+              because its label is set large.
+            */}
+            <h2 className="card-title text-white/95">{greeting}</h2>
             <p className="mt-1.5 max-w-md text-sm leading-relaxed text-secondary">
               {subtitle}
             </p>
@@ -490,14 +498,18 @@ function Orb({ listening, thinking }: { listening: boolean; thinking: boolean })
         className="absolute inset-0 rounded-full"
         style={{
           background:
-            "radial-gradient(circle at 50% 50%, rgba(124,124,255,0.30), rgba(124,124,255,0) 68%)",
+            "radial-gradient(circle at 50% 50%, " +
+            "color-mix(in oklab, var(--nx-primary) 26%, transparent), " +
+            "color-mix(in oklab, var(--nx-primary) 0%, transparent) 68%)",
         }}
         animate={{ scale: active ? [1, 1.09, 1] : [1, 1.03, 1], opacity: active ? 1 : 0.75 }}
         transition={{ duration: active ? 2 : 5, repeat: Infinity, ease: "easeInOut" }}
       />
       <m.span
         className="absolute inset-[14%] rounded-full border"
-        style={{ borderColor: "rgba(150,150,255,0.35)" }}
+        style={{
+          borderColor: "color-mix(in oklab, var(--nx-primary) 30%, transparent)",
+        }}
         animate={{ scale: active ? [1, 1.05, 1] : 1, opacity: active ? [0.9, 0.45, 0.9] : 0.5 }}
         transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
       />

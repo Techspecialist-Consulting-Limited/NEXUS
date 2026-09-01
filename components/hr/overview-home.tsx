@@ -16,6 +16,7 @@ import { PageHead } from "@/components/executive/page-head";
 import { weekLabel } from "@/lib/cycle";
 import type { ComplianceRow } from "@/lib/team";
 import type { DepartmentHealth } from "@/lib/queries";
+import { unitTone, unitWash } from "@/lib/unit-tone";
 
 /*
  * HR's landing view.
@@ -177,8 +178,8 @@ export function HrOverview({
                         className="grid size-8 shrink-0 place-items-center rounded-full
                                    text-2xs font-semibold"
                         style={{
-                          background: `color-mix(in oklab, ${r.color ?? "var(--color-blocked)"} 22%, transparent)`,
-                          color: r.color ?? "var(--color-blocked)",
+                          background: unitWash(r.department_name),
+                          color: unitTone(r.department_name),
                         }}
                       >
                         {r.full_name

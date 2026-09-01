@@ -38,11 +38,10 @@ export function PreviousWeeks({
   return (
     <section aria-label="Previous weeks" className="shrink-0">
       <div className="mb-2 flex items-center gap-2 px-0.5">
-        <h2 className="text-sm font-semibold tracking-tight text-[var(--nx-text-primary)]">
-          Previous weeks
-        </h2>
+        <h2 className="card-title text-[var(--nx-text-primary)]">The record</h2>
         <span className="text-xs text-[var(--nx-text-muted)]">
-          {ordered.length} {ordered.length === 1 ? "week" : "weeks"} on record
+          <span className="metric">{ordered.length}</span>{" "}
+          {ordered.length === 1 ? "week" : "weeks"}
         </span>
       </div>
 
@@ -74,7 +73,7 @@ export function PreviousWeeks({
                         }}
                       />
                     </span>
-                    <span className="text-xs tabular-nums text-[var(--nx-text-secondary)]">
+                    <span className="metric text-xs text-[var(--nx-text-secondary)]">
                       {delivered}/{total} delivered
                     </span>
                   </span>
@@ -125,7 +124,7 @@ function WeekDetailsDialog({
           <h2 id="week-detail-title" className="card-title text-lg">
             {weekLabel(week.cycle.label)}
           </h2>
-          <span className="shrink-0 text-sm tabular-nums text-[var(--nx-text-secondary)]">
+          <span className="metric shrink-0 text-sm text-[var(--nx-text-secondary)]">
             {delivered} of {week.commitments.length} delivered
           </span>
         </div>

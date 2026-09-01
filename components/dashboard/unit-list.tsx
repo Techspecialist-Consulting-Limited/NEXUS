@@ -8,6 +8,7 @@ import { cn } from "@/lib/cn";
 import { healthTone } from "@/lib/status";
 import { staggerContainer, staggerItem } from "@/lib/motion-tokens";
 import type { DepartmentHealth } from "@/lib/queries";
+import { unitTone, unitWash } from "@/lib/unit-tone";
 
 /**
  * The unit strip.
@@ -53,7 +54,10 @@ export function UnitList({
                 <span
                   aria-hidden="true"
                   className="size-2.5 shrink-0 rounded-full"
-                  style={{ backgroundColor: d.color, boxShadow: `0 0 10px 0 ${d.color}60` }}
+                  style={{
+                    backgroundColor: unitTone(d.department_id),
+                    boxShadow: `0 0 10px 0 ${unitWash(d.department_id, 38)}`,
+                  }}
                 />
                 <span
                   className={cn(
@@ -102,12 +106,12 @@ export function UnitList({
                   <Stat
                     label="Focus"
                     value={d.focus_ratio === null ? "—" : `${Math.round(d.focus_ratio)}%`}
-                    tone="rgba(255,255,255,0.75)"
+                    tone="var(--text-secondary)"
                   />
                   <Stat
                     label="Carried"
                     value={String(d.carryover_count)}
-                    tone={d.carryover_count > 0 ? "var(--color-warning)" : "rgba(255,255,255,0.75)"}
+                    tone={d.carryover_count > 0 ? "var(--color-warning)" : "var(--text-secondary)"}
                   />
                 </dl>
               )}

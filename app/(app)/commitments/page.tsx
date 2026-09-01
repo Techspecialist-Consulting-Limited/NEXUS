@@ -5,6 +5,7 @@ import {
   currentCycle,
   cyclesWithWork,
   getPerson,
+  liveCommitments,
 } from "@/lib/queries";
 import { alertsFor } from "@/lib/alerts";
 import { CommitmentList } from "@/components/employee/commitment-list";
@@ -44,11 +45,26 @@ export default async function CommitmentsPage({
    * because the page had asked about four weeks that were not the one holding
    * their work.
    */
-  const [withWork, current, feed] = await Promise.all([
+  const [withWork, current, feed, open] = await Promise.all([
     cyclesWithWork(actor, me.id, 6),
     currentCycle(actor),
     // The same list /notifications builds, for the bell in the header.
     alertsFor(actor, me),
+    /*
+     * WHAT IS STILL THEIRS TO MOVE — and the exact function My Week asks.
+     *
+     * This page used to open on the current week's promised set alone, which
+     * is a different question and on most Mondays answers zero. A person whose
+     * My Week said "5 open" arrived at the page called Tasks and read "No
+     * commitments yet", because five promises made for earlier weeks and never
+     * closed live in those weeks, not in this one.
+     *
+     * Both figures were arithmetically correct. The product still contradicted
+     * itself, which is worse than either being wrong. Calling liveCommitments
+     * here rather than re-deriving the same rule in the browser is what stops
+     * the two screens drifting apart again.
+     */
+    liveCommitments(actor, me.id, 100),
   ]);
 
   /*
@@ -89,6 +105,7 @@ export default async function CommitmentsPage({
     return (
       <TasksWorkspace
         person={me}
+        open={open}
         weeks={filled}
         currentCycleId={current?.id ?? null}
         openTaskId={openTaskId}

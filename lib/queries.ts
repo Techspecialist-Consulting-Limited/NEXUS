@@ -830,6 +830,16 @@ export type LiveCommitment = CommitmentRow & {
    * which nothing in the application has ever written — see the note below.
    */
   carry_weeks: number;
+  /**
+   * The Monday of the week this was promised for.
+   *
+   * For ordering open work by how long it has actually been outstanding.
+   * `carry_weeks` counts how many times the same promise was RE-made, which
+   * is a different thing: something promised once in July and never
+   * mentioned again has a carry of 1 and is nine weeks old, and the Tasks
+   * board was ranking it below work promised last Monday.
+   */
+  starts_on: string;
 };
 
 /**
@@ -882,7 +892,8 @@ export async function liveCommitments(
         t.deviation_declared, t.blocker_kind, t.depends_on_department,
         t.carry_depth, t.source_quote,
         t.estimated_effort_hours, t.actual_effort_hours,
-        t.target_cycle_id, t.target_label, t.is_current_week, t.carry_weeks
+        t.target_cycle_id, t.target_label, t.is_current_week, t.carry_weeks,
+        t.starts_on
       from (
         select distinct on (lower(btrim(c.title)))
           c.id, c.title, c.category, c.priority::text as priority,
@@ -1516,6 +1527,56 @@ export async function openCheckInCycle(
  * person have commitments in? No window, no guess, and it cannot omit a week
  * that has work in it.
  */
+export type LedgerWeek = {
+  id: string;
+  label: string;
+  starts_on: string;
+  ends_on: string;
+  /** Everything targeted at this week. */
+  promised: number;
+  /** How many of them closed as delivered. */
+  delivered: number;
+};
+
+/**
+ * One row per week that has work in it, with the two figures a week is judged
+ * on. For the week ledger — see components/ui/week-ledger.tsx.
+ *
+ * WHY NOT `personTrend`, WHICH ALREADY RETURNS A DELIVERY RATE.
+ *
+ * That reads `reconciliations`, and a reconciliation only exists once a week
+ * has settled. The ledger has to show the week you are standing in, which by
+ * definition has not settled, and the weeks behind it whether or not the
+ * rhythm has closed them. Counting the commitments themselves is the only
+ * form of the question that can answer for every week on screen.
+ *
+ * WHY NOT `cyclesWithWork` PLUS `commitmentsFor` PER WEEK, which is what the
+ * Tasks page does: that is six round trips to render seven numbers, and it
+ * pulls every commitment body across to count them.
+ */
+export async function weekLedger(
+  actor: string,
+  profileId: string,
+  limit = 8,
+): Promise<LedgerWeek[]> {
+  return asActor(
+    actor,
+    (sql) => sql<LedgerWeek>`
+      select
+        cy.id, cy.label, cy.starts_on, cy.ends_on,
+        count(*)::int as promised,
+        count(*) filter (where c.status = 'delivered')::int as delivered
+      from cycles cy
+      join commitments c on c.target_cycle_id = cy.id
+      where c.profile_id = ${profileId}
+        and c.deleted_at is null
+      group by cy.id, cy.label, cy.starts_on, cy.ends_on
+      order by cy.starts_on desc
+      limit ${limit}
+    `,
+  );
+}
+
 export async function cyclesWithWork(
   actor: string,
   profileId: string,

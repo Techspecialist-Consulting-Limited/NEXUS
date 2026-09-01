@@ -32,16 +32,7 @@
 
 :root {
   /* === Typography (GUIDE §4) === */
-  /*
-   * Titles only. Inter is invisible — which was right while the product was
-   * finding its shape, and is why every screen read as competent and none read
-   * as this product. NEXUS is a record of what an organisation promised and
-   * what it did; that has a voice, and the titles are where it is audible.
-   *
-   * The fallback is a serif on purpose: if the face fails to load, a title
-   * should still be a title rather than silently becoming body copy.
-   */
-  --font-display: var(--font-instrument), Georgia, "Times New Roman", serif;
+  --font-display: var(--font-inter), "SF Pro Display", system-ui, sans-serif;
   --font-body: var(--font-inter), "SF Pro Text", system-ui, sans-serif;
   --font-mono: var(--font-jetbrains), "SF Mono", ui-monospace, monospace;
 
@@ -82,49 +73,55 @@
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
   --ease: cubic-bezier(0.25, 0.1, 0.25, 1);
 
-  /* === Shadows (GUIDE §7) — always black, never coloured === */
-  --shadow-subtle: 0 4px 16px rgba(0, 0, 0, 0.2);
-  --shadow-medium: 0 8px 32px rgba(0, 0, 0, 0.35);
-  --shadow-heavy: 0 16px 64px rgba(0, 0, 0, 0.5);
-  --shadow-dramatic: 0 24px 80px rgba(0, 0, 0, 0.6);
+  /* === Shadows ===
+     Tinted with the palette's own brown rather than pure black. A neutral
+     black shadow over a warm ground desaturates it — the shade reads grey
+     and drags the cream towards putty. Same value, warm hue. */
+  --shadow-subtle: 0 4px 16px rgba(20, 14, 12, 0.22);
+  --shadow-medium: 0 8px 32px rgba(20, 14, 12, 0.36);
+  --shadow-heavy: 0 16px 64px rgba(20, 14, 12, 0.50);
+  --shadow-dramatic: 0 24px 80px rgba(20, 14, 12, 0.60);
 
-  /* === Premium dark navy palette === */
-  --nx-bg: #000000;
-  --nx-sidebar: #0A0A0B;
-  --nx-surface: rgba(16, 16, 19, 0.92);
-  --nx-surface-strong: rgba(22, 22, 26, 0.96);
-  --nx-border: rgba(255, 255, 255, 0.11);
-  --nx-border-strong: rgba(255, 255, 255, 0.18);
+  /* === The dark surface ===
+     Warm, not neutral. Every value is the cream palette's own brown driven
+     down in lightness, so the two themes are one family seen at two times
+     of day rather than two designs. Contrast measured, not assumed: cream
+     ink on this ground is 14.6:1. */
+  --nx-bg: #241C19;
+  --nx-sidebar: #1D1614;
+  --nx-surface: rgba(46, 36, 32, 0.92);
+  --nx-surface-strong: rgba(55, 43, 38, 0.96);
+  --nx-border: rgba(244, 239, 230, 0.12);
+  --nx-border-strong: rgba(244, 239, 230, 0.20);
 
-  /* Primary purple */
-  --nx-primary: #FFFFFF;
-  --nx-primary-light: #FFFFFF;
-  --nx-purple: #E4E4E7;
+  /* The one structural accent. Lightened for this ground: 7.45:1. */
+  --nx-primary: #4FBFA8;
+  --nx-primary-light: #6ACFBA;
+  --nx-purple: #C9BAB1;
 
-  /* Success green */
-  --nx-success: #34D399;
-  --nx-success-light: #6EE7B7;
+  --nx-success: #4FBFA8;
+  --nx-success-light: #6ACFBA;
 
   /* Signal */
-  --nx-info: #D4D4D8;
-  --nx-warning: #FBBF24;
-  --nx-error: #F87171;
+  --nx-info: #C9BAB1;
+  --nx-warning: #E3B24A;
+  --nx-error: #EC7A5A;
 
   /* Text */
-  --nx-text-primary: #FFFFFF;
-  --nx-text-secondary: #A1A1A8;
-  --nx-text-muted: #7A7A82;
+  --nx-text-primary: #F4EFE6;
+  --nx-text-secondary: #C9BAB1;
+  --nx-text-muted: #A08C84;
 
   /* Gradients */
-  --nx-gradient-nexus: linear-gradient(135deg, #0E0E11 0%, #16161A 45%, #1E1E23 100%);
-  --nx-gradient-coaching: linear-gradient(135deg, #0B0B0D 0%, #131316 45%, #1A1A1F 100%);
+  --nx-gradient-nexus: linear-gradient(135deg, #2E2420 0%, #372B26 45%, #40322C 100%);
+  --nx-gradient-coaching: linear-gradient(135deg, #281F1B 0%, #322722 45%, #3B2E28 100%);
 
   /* Glow */
-  --nx-glow-purple: 0 20px 60px rgba(0, 0, 0, 0.55);
-  --nx-glow-green: 0 20px 60px rgba(0, 0, 0, 0.55);
+  --nx-glow-purple: 0 20px 60px rgba(20, 14, 12, 0.55);
+  --nx-glow-green: 0 20px 60px rgba(20, 14, 12, 0.55);
 
   /* === Void === */
-  --void: #000000;
+  --void: #241C19;
 
   /*
    * The one opaque surface a native control — or a floating overlay — sits on.
@@ -141,94 +138,114 @@
    *
    * The same reasoning later covered dropdown menus — see .glass-overlay.
    */
-  --native-surface: #141417;
+  --native-surface: #2E2420;
 
   /* === Department colours (GUIDE §5, verified against seed.sql:48-52) === */
-  --dept-techspecialist: #FFFFFF;
-  --dept-media-hub: #C7C7CC;
-  --dept-creative-hub: #9C9CA3;
-  --dept-operations: #E4E4E7;
-  --dept-growth: #7E7E86;
+  /*
+   * Warm neutrals, deliberately NOT the signal hues. A unit is an identity,
+   * not a state: giving one the same teal that means "delivered" makes a
+   * roster look like a verdict. They differ from each other by lightness so
+   * they still separate at a glance.
+   */
+  --dept-techspecialist: #F4EFE6;
+  --dept-media-hub: #C9BAB1;
+  --dept-creative-hub: #A08C84;
+  --dept-operations: #DED0C6;
+  --dept-growth: #8A766E;
 
   /* === Status colours ===
      Hues exactly as GUIDE §5 specifies. See [FIX 2]/[FIX 3]: these are never
      the sole carrier of meaning — pair with .status-fill-* and an icon. */
-  --color-promised: rgba(255, 255, 255, 0.55);
-  --color-in-progress: #D4D4D8;
-  --color-delivered: #34D399;
-  --color-partial: #FBBF24;
-  --color-deferred: rgba(255, 255, 255, 0.40);
-  --color-blocked: #F87171;
-  --color-dropped: rgba(255, 255, 255, 0.26);
-  --color-superseded: rgba(255, 255, 255, 0.32); /* [FIX 6] */
+  --color-promised: rgba(244, 239, 230, 0.55);
+  --color-in-progress: #C9BAB1;
+  --color-delivered: #4FBFA8;
+  --color-partial: #E3B24A;
+  --color-deferred: rgba(244, 239, 230, 0.40);
+  --color-blocked: #EC7A5A;
+  --color-dropped: rgba(244, 239, 230, 0.26);
+  --color-superseded: rgba(244, 239, 230, 0.32); /* [FIX 6] */
 
-  /* === Signal === */
-  --color-healthy: #34D399;
-  --color-warning: #FBBF24;
-  --color-critical: #F87171;
-  --color-neutral: rgba(255, 255, 255, 0.42);
+  /* === Signal ===
+     One warm ramp: teal is fine, bronze is slipping, rust is stuck. The
+     three separate by hue, not only by lightness, so they survive both
+     themes and greyscale printing. */
+  --color-healthy: #4FBFA8;
+  --color-warning: #E3B24A;
+  --color-critical: #EC7A5A;
+  --color-neutral: rgba(244, 239, 230, 0.42);
 
   /* === Priority === */
-  --priority-critical: #F87171;
-  --priority-high: #FBBF24;
-  --priority-normal: rgba(255, 255, 255, 0.5);
-  --priority-low: rgba(255, 255, 255, 0.28);
+  --priority-critical: #EC7A5A;
+  --priority-high: #E3B24A;
+  --priority-normal: rgba(244, 239, 230, 0.5);
+  --priority-low: rgba(244, 239, 230, 0.28);
 
   /* === The dark palette, named ===
      Every value below is already the product's palette; naming it lets the lit
      column restate the live tokens and lets a card restore them, without a
      white theme restate them and lets a card restore them, without a second
      copy of the numbers. */
-  --dk-ink: #ffffff;
-  --dk-text-primary: #FFFFFF;
-  --dk-text-secondary: rgba(255, 255, 255, 0.68);
-  --dk-text-tertiary: rgba(255, 255, 255, 0.54);
-  --dk-text-quaternary: rgba(255, 255, 255, 0.36);
-  --dk-nx-text-primary: #FFFFFF;
-  --dk-nx-text-secondary: #A1A1A8;
-  --dk-nx-text-muted: #7A7A82;
-  --dk-nx-primary: #FFFFFF;
-  --dk-nx-primary-light: #FFFFFF;
-  --dk-nx-purple: #E4E4E7;
-  --dk-nx-success: #34D399;
-  --dk-nx-success-light: #6EE7B7;
-  --dk-nx-info: #D4D4D8;
-  --dk-nx-warning: #FBBF24;
-  --dk-nx-error: #F87171;
-  --dk-dept-techspecialist: #FFFFFF;
-  --dk-dept-media-hub: #C7C7CC;
-  --dk-dept-creative-hub: #9C9CA3;
-  --dk-dept-operations: #E4E4E7;
-  --dk-dept-growth: #7E7E86;
-  --dk-in-progress: #D4D4D8;
-  --dk-delivered: #34D399;
-  --dk-partial: #FBBF24;
-  --dk-blocked: #F87171;
-  --dk-promised: rgba(255, 255, 255, 0.55);
-  --dk-deferred: rgba(255, 255, 255, 0.40);
-  --dk-dropped: rgba(255, 255, 255, 0.26);
-  --dk-superseded: rgba(255, 255, 255, 0.32);
-  --dk-neutral: rgba(255, 255, 255, 0.42);
-  --dk-priority-normal: rgba(255, 255, 255, 0.5);
-  --dk-priority-low: rgba(255, 255, 255, 0.28);
-  --dk-focus-ring: rgba(255, 255, 255, 0.8);
-  --dk-scrollbar-thumb: rgba(255, 255, 255, 0.16);
+  --dk-ink: #F4EFE6;
+  --dk-text-primary: #F4EFE6;
+  --dk-text-secondary: rgba(244, 239, 230, 0.72);
+  --dk-text-tertiary: rgba(244, 239, 230, 0.56);
+  --dk-text-quaternary: rgba(244, 239, 230, 0.36);
+  --dk-nx-text-primary: #F4EFE6;
+  --dk-nx-text-secondary: #C9BAB1;
+  --dk-nx-text-muted: #A08C84;
+  --dk-nx-primary: #4FBFA8;
+  --dk-nx-primary-light: #6ACFBA;
+  --dk-nx-purple: #C9BAB1;
+  --dk-nx-success: #4FBFA8;
+  --dk-nx-success-light: #6ACFBA;
+  --dk-nx-info: #C9BAB1;
+  --dk-nx-warning: #E3B24A;
+  --dk-nx-error: #EC7A5A;
+  --dk-dept-techspecialist: #F4EFE6;
+  --dk-dept-media-hub: #C9BAB1;
+  --dk-dept-creative-hub: #A08C84;
+  --dk-dept-operations: #DED0C6;
+  --dk-dept-growth: #8A766E;
+  --dk-in-progress: #C9BAB1;
+  --dk-delivered: #4FBFA8;
+  --dk-partial: #E3B24A;
+  --dk-blocked: #EC7A5A;
+  --dk-promised: rgba(244, 239, 230, 0.55);
+  --dk-deferred: rgba(244, 239, 230, 0.40);
+  --dk-dropped: rgba(244, 239, 230, 0.26);
+  --dk-superseded: rgba(244, 239, 230, 0.32);
+  --dk-neutral: rgba(244, 239, 230, 0.42);
+  --dk-priority-normal: rgba(244, 239, 230, 0.5);
+  --dk-priority-low: rgba(244, 239, 230, 0.28);
+  --dk-focus-ring: rgba(244, 239, 230, 0.8);
+  --dk-scrollbar-thumb: rgba(244, 239, 230, 0.16);
+
+  /*
+   * The painted cards' background artwork.
+   *
+   * A greyscale PNG at 55% reads as a soft glow over a near-black card and
+   * as a grey smudge over a cream one — the asset was drawn for one ground.
+   * Rather than tint it, the light theme simply does not wear it: the card
+   * still separates by its sand gradient. Decoration that only works in one
+   * theme belongs to that theme.
+   */
+  --card-art-opacity: 0.55;
 
   /* Glass fills and lines, named so the white theme can restate them. */
-  --glass-fill-1: rgba(14, 14, 17, 0.82);
-  --glass-fill-2: rgba(16, 16, 19, 0.90);
-  --glass-fill-3: rgba(20, 20, 24, 0.95);
-  --glass-fill-4: rgba(24, 24, 28, 0.98);
-  --glass-line-1: rgba(255, 255, 255, 0.11);
-  --glass-line-2: rgba(255, 255, 255, 0.13);
-  --glass-line-3: rgba(255, 255, 255, 0.15);
-  --glass-line-4: rgba(255, 255, 255, 0.18);
-  --glass-opaque: #141417;
-  --skip-link-bg: rgba(255, 255, 255, 0.16);
+  --glass-fill-1: rgba(40, 31, 27, 0.82);
+  --glass-fill-2: rgba(46, 36, 32, 0.90);
+  --glass-fill-3: rgba(50, 39, 34, 0.95);
+  --glass-fill-4: rgba(55, 43, 38, 0.98);
+  --glass-line-1: rgba(244, 239, 230, 0.11);
+  --glass-line-2: rgba(244, 239, 230, 0.13);
+  --glass-line-3: rgba(244, 239, 230, 0.15);
+  --glass-line-4: rgba(244, 239, 230, 0.18);
+  --glass-opaque: #2E2420;
+  --skip-link-bg: rgba(244, 239, 230, 0.16);
   --sheen-image: linear-gradient(
     135deg,
-    rgba(255, 255, 255, 0.10) 0%,
-    rgba(255, 255, 255, 0.03) 28%,
+    rgba(244, 239, 230, 0.09) 0%,
+    rgba(244, 239, 230, 0.03) 28%,
     transparent 58%
   );
   --sheen-blend: screen;
@@ -236,15 +253,18 @@
   /*
    * The selected rail row, and every solid action in the product.
    *
-   * A white pill with black type — what the reference does with its own
-   * segmented control, and what is left when there is no accent hue to fill
-   * a button with. Named rather than hardcoded because the two themes invert
-   * it: black pill with white type on the white surface.
+   * A TINT OF THE ACCENT, NOT A SOLID SLAB.
+   *
+   * It was a white pill with black type, which is what is left when there is
+   * no accent hue to fill anything with. There is one now, so the selected
+   * row is the accent held at low alpha with the accent as its type — the
+   * row reads as selected without shouting louder than the page title above
+   * it. Both themes use the same construction rather than inverting.
    */
-  --nav-active-bg: #FFFFFF;
-  --nav-active-fg: #000000;
+  --nav-active-bg: rgba(79, 191, 168, 0.16);
+  --nav-active-fg: #6ACFBA;
   --nav-active-ring: none;
-  --nav-active-marker: #000000;
+  --nav-active-marker: #4FBFA8;
 
   /*
    * The scrim over the two painted cards.
@@ -256,20 +276,20 @@
    */
   --card-scrim: linear-gradient(
     to right,
-    rgba(11, 11, 14, 0.95),
-    rgba(11, 11, 14, 0.78) 50%,
-    rgba(11, 11, 14, 0.35)
+    rgba(36, 28, 25, 0.95),
+    rgba(36, 28, 25, 0.78) 50%,
+    rgba(36, 28, 25, 0.35)
   );
 
-  /* Type that sits ON a solid action, which is the inverse of the ground. */
-  --on-accent: #000000;
+  /* Type that sits ON a solid accent fill. 6.73:1 on the dark teal. */
+  --on-accent: #2E2420;
 
   /* === Text hierarchy (GUIDE §4 rule 5) ===
      white/opacity only — never Tailwind gray-*. */
-  --text-primary: #FFFFFF;
-  --text-secondary: rgba(255, 255, 255, 0.68);
-  --text-tertiary: rgba(255, 255, 255, 0.54); /* [FIX 1] */
-  --text-quaternary: rgba(255, 255, 255, 0.36); /* decoration only, never text */
+  --text-primary: #F4EFE6;
+  --text-secondary: rgba(244, 239, 230, 0.72);
+  --text-tertiary: rgba(244, 239, 230, 0.56); /* [FIX 1] */
+  --text-quaternary: rgba(244, 239, 230, 0.36); /* decoration only, never text */
 }
 
 @theme inline {
@@ -366,16 +386,6 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: 500;
   line-height: 1.25;
   letter-spacing: 0;
-  /*
-   * NO FAUX BOLD.
-   *
-   * Instrument Serif ships one weight. Without this, every `font-semibold`
-   * utility already written on a heading would ask the browser to invent a
-   * 600 by smearing the 400 — which on a high-contrast serif destroys exactly
-   * the thin strokes that make it worth using. Turned off, those utilities
-   * resolve to the one real weight and the face renders as drawn.
-   */
-  font-synthesis-weight: none;
 }
 
 /* ---------------------------------------------------------------------------
@@ -390,7 +400,7 @@ h1, h2, h3, h4, h5, h6 {
   z-index: -1; /* [FIX 5] */
   pointer-events: none;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 55%);
+    linear-gradient(180deg, rgba(244, 239, 230, 0.02), transparent 55%);
   animation: meshDrift 60s var(--ease-in-out) infinite alternate;
 }
 
@@ -588,12 +598,6 @@ h1, h2, h3, h4, h5, h6 {
 
 /* The label above a section. Reads as structure, not as content. */
 .eyebrow {
-  /*
-   * Inter, even on an <h2>. An eyebrow is a label — 11px, uppercase, letter-
-   * spaced — and a display serif at that size is illegible rather than
-   * characterful. The rail's group headings are the case that proves it.
-   */
-  font-family: var(--font-body);
   font-size: var(--text-2xs);
   font-weight: 500;
   text-transform: uppercase;
@@ -603,7 +607,6 @@ h1, h2, h3, h4, h5, h6 {
 
 /* A page title. One per page. */
 .page-title {
-  font-family: var(--font-display);
   font-size: var(--text-2xl);
   font-weight: 500;
   line-height: 1.15;
@@ -622,7 +625,6 @@ h1, h2, h3, h4, h5, h6 {
 
 /* A card or band heading, one level below the page title. */
 .card-title {
-  font-family: var(--font-display);
   font-size: var(--text-base);
   font-weight: 500;
   line-height: 1.3;
@@ -669,7 +671,7 @@ h1, h2, h3, h4, h5, h6 {
    =========================================================================== */
 
 :where(a, button, select, input, textarea, [tabindex]):focus-visible {
-  outline: 2px solid var(--focus-ring, rgba(255, 255, 255, 0.5));
+  outline: 2px solid var(--focus-ring, #4FBFA8);
   outline-offset: 2px;
   border-radius: 8px;
 }
@@ -709,12 +711,12 @@ h1, h2, h3, h4, h5, h6 {
   .status-pulse { animation: none; opacity: 0.75; }
 }
 
-::selection { background: rgba(255, 255, 255, 0.22); }
+::selection { background: rgba(79, 191, 168, 0.28); }
 
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: var(--scrollbar-thumb, rgba(255, 255, 255, 0.12));
+  background: var(--scrollbar-thumb, rgba(244, 239, 230, 0.14));
   border-radius: 999px;
 }
 
@@ -737,21 +739,21 @@ h1, h2, h3, h4, h5, h6 {
 
 .nx-card-gradient-purple {
   background: var(--nx-gradient-nexus);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  border: 1px solid var(--nx-border-strong);
   box-shadow: var(--nx-glow-purple);
 }
 
 .nx-card-gradient-green {
   background: var(--nx-gradient-coaching);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  border: 1px solid var(--nx-border-strong);
   box-shadow: var(--nx-glow-green);
 }
 
 /* Sidebar active item */
 .nx-nav-active {
-  background: var(--nav-active-bg, #FFFFFF);
+  background: var(--nav-active-bg, rgba(79, 191, 168, 0.16));
   border: 1px solid transparent;
-  color: var(--nav-active-fg, #000000);
+  color: var(--nav-active-fg, #6ACFBA);
 }
 
 /* Check-in action button */
@@ -833,114 +835,146 @@ h1, h2, h3, h4, h5, h6 {
    that floor is not new.
    =========================================================================== */
 
+/*
+ * THE CREAM THEME — the default, and the one nearly everybody sees.
+ *
+ * The attribute value is still "white" for one reason: app/layout.tsx stamps
+ * it in a blocking script before first paint, and browsers already hold that
+ * string in localStorage. Renaming it would flash the wrong theme once for
+ * every existing user to buy a tidier word in a stylesheet.
+ *
+ * WHAT THE PALETTE IS, AND THE ONE RULE THAT KEEPS IT FROM LOOKING GENERIC.
+ *
+ * Cream ground, warm brown ink, one deep teal. Terracotta is in here too, and
+ * cream-plus-terracotta is the single most recognisable machine-made look on
+ * the web right now — so the rust is on a leash: it appears ONLY where the
+ * product is reporting that something is wrong, never as decoration, never on
+ * a heading, never as a border flourish. Teal carries every structural job.
+ * A page with nothing wrong on it has no orange anywhere.
+ *
+ * Every text value below was measured against its own ground, not eyeballed:
+ * ink 13.2:1, secondary 5.39:1, tertiary 4.60:1, teal 4.53:1. Two of the
+ * supplied swatches fail as text and are used only as fills — #9C8A84 at
+ * 2.87:1 is decoration, and #D35E37 at 3.38:1 paints marks but never sets a
+ * word, which is why blocked has a hotter dot than its own label.
+ */
 [data-theme="white"] .theme-surface {
   color-scheme: light;
 
   /* The pivot. See above. */
-  --color-white: #000000;
+  --color-white: #2E2420;
 
-  --text-primary: #000000;
-  --text-secondary: rgba(0, 0, 0, 0.66);
-  --text-tertiary: rgba(0, 0, 0, 0.52);
-  --text-quaternary: rgba(0, 0, 0, 0.34);
+  --text-primary: #2E2420;
+  --text-secondary: #6E5E57;
+  --text-tertiary: #7A6862;
+  --text-quaternary: #9C8A84; /* 2.87:1 — decoration only, never text */
 
-  --nx-text-primary: #000000;
-  --nx-text-secondary: #5C5C63;
-  --nx-text-muted: #8A8A92;
+  --nx-text-primary: #2E2420;
+  --nx-text-secondary: #6E5E57;
+  --nx-text-muted: #7A6862;
 
-  --nx-bg: #FFFFFF;
-  --nx-sidebar: #FAFAFA;
-  --nx-surface: #FFFFFF;
+  --nx-bg: #F4EFE6;
+  /* Lighter than the content ground, not darker. On a cream page a recessed
+     rail turns muddy; a lighter one reads as the sheet the app is printed on
+     and lets the cream be the working area. */
+  --nx-sidebar: #FCFAF6;
+  --nx-surface: #FCFAF6;
   --nx-surface-strong: #FFFFFF;
-  --nx-border: rgba(0, 0, 0, 0.11);
-  --nx-border-strong: rgba(0, 0, 0, 0.18);
-  /* On black a card is separated by its hairline. On white it needs a little
-     lift as well, or a page of white cards on white reads as one sheet. */
-  --nx-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --void: #FFFFFF;
-  --native-surface: #FFFFFF;
+  --nx-border: rgba(46, 36, 32, 0.12);
+  --nx-border-strong: rgba(46, 36, 32, 0.20);
+  /* A card is a lighter sheet ON the cream, so it needs a hairline AND a lift;
+     the shadow is brown rather than black or the cream turns to putty. */
+  --nx-card-shadow: 0 1px 2px rgba(46, 36, 32, 0.06);
+  --void: #F4EFE6;
+  --native-surface: #FCFAF6;
 
-  --glass-fill-1: rgba(255, 255, 255, 0.86);
-  --glass-fill-2: rgba(255, 255, 255, 0.92);
-  --glass-fill-3: #FFFFFF;
+  --card-art-opacity: 0;
+
+  --glass-fill-1: rgba(252, 250, 246, 0.86);
+  --glass-fill-2: rgba(252, 250, 246, 0.92);
+  --glass-fill-3: #FCFAF6;
   --glass-fill-4: #FFFFFF;
-  --glass-line-1: rgba(0, 0, 0, 0.11);
-  --glass-line-2: rgba(0, 0, 0, 0.13);
-  --glass-line-3: rgba(0, 0, 0, 0.15);
-  --glass-line-4: rgba(0, 0, 0, 0.18);
-  --glass-opaque: #FFFFFF;
-  --skip-link-bg: #FFFFFF;
-  /* screen over a white surface is a white wash. There is no sheen here. */
+  --glass-line-1: rgba(46, 36, 32, 0.11);
+  --glass-line-2: rgba(46, 36, 32, 0.13);
+  --glass-line-3: rgba(46, 36, 32, 0.15);
+  --glass-line-4: rgba(46, 36, 32, 0.18);
+  --glass-opaque: #FCFAF6;
+  --skip-link-bg: #FCFAF6;
+  /* screen over a light surface is a white wash. There is no sheen here. */
   --sheen-image: none;
   --sheen-blend: normal;
 
-  --shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-medium: 0 4px 12px rgba(0, 0, 0, 0.07);
-  --shadow-heavy: 0 12px 32px rgba(0, 0, 0, 0.11);
-  --shadow-dramatic: 0 20px 48px rgba(0, 0, 0, 0.15);
+  --shadow-subtle: 0 1px 2px rgba(46, 36, 32, 0.06);
+  --shadow-medium: 0 4px 12px rgba(46, 36, 32, 0.08);
+  --shadow-heavy: 0 12px 32px rgba(46, 36, 32, 0.12);
+  --shadow-dramatic: 0 20px 48px rgba(46, 36, 32, 0.16);
 
-  --focus-ring: rgba(0, 0, 0, 0.7);
-  --scrollbar-thumb: rgba(0, 0, 0, 0.18);
+  --focus-ring: #1A7A6D;
+  --scrollbar-thumb: rgba(46, 36, 32, 0.18);
 
-  /* Inverted: a black pill with white type. */
-  --nav-active-bg: #000000;
-  --nav-active-fg: #FFFFFF;
+  /* The same construction as the dark theme: a tint of the accent, not a slab.
+     Mint fill with a darkened teal on it — 6.02:1. The plain teal measures
+     4.40 on this mint, which is under the floor. */
+  --nav-active-bg: #E3EFEC;
+  --nav-active-fg: #166358;
   --nav-active-ring: none;
-  --nav-active-marker: #FFFFFF;
-  --on-accent: #FFFFFF;
+  --nav-active-marker: #1A7A6D;
+  --on-accent: #FCFAF6; /* 4.98:1 on the teal fill */
 
-  /* Monochrome chrome, mirrored. */
-  --nx-primary: #000000;
-  --nx-primary-light: #000000;
-  --nx-purple: #27272A;
-  --nx-info: #3F3F46;
+  /* The one structural accent. */
+  --nx-primary: #1A7A6D;
+  --nx-primary-light: #166358;
+  --nx-purple: #6E5E57;
+  --nx-info: #6E5E57;
 
-  --dept-techspecialist: #000000;
-  --dept-media-hub: #3F3F46;
-  --dept-creative-hub: #6B6B73;
-  --dept-operations: #27272A;
-  --dept-growth: #8A8A92;
+  /* Identity, not state — warm neutrals that never borrow a signal hue. */
+  --dept-techspecialist: #2E2420;
+  --dept-media-hub: #6E5E57;
+  --dept-creative-hub: #9C8A84;
+  --dept-operations: #4A3C36;
+  --dept-growth: #B8A79E;
+
+  --nx-success: #1A7A6D;
+  --nx-success-light: #166358;
+  --nx-warning: #8A6410;
+  --nx-error: #8E3E1B;
 
   /*
-   * The three status hues, darkened until each clears 4.5:1 on white. Same
-   * hue: a value tuned for a black ground measures around 2:1 here, and
-   * GUIDE §17 rules that out.
+   * The ramp, darkened until each clears its floor on cream. Blocked is the
+   * one place tone and text genuinely differ: #D35E37 is the hottest mark in
+   * the palette and the right dot, and at 3.38:1 it is not allowed to set a
+   * word, so the label takes the deeper #8E3E1B at 6.42:1.
    */
-  --nx-success: #15803D;
-  --nx-success-light: #15803D;
-  --nx-warning: #A16207;
-  --nx-error: #B91C1C;
+  --color-in-progress: #6E5E57;
+  --color-delivered: #1A7A6D;
+  --color-partial: #8A6410;
+  --color-blocked: #D35E37;
+  --color-promised: rgba(46, 36, 32, 0.5);
+  --color-deferred: rgba(46, 36, 32, 0.36);
+  --color-dropped: rgba(46, 36, 32, 0.24);
+  --color-superseded: rgba(46, 36, 32, 0.3);
 
-  --color-in-progress: #3F3F46;
-  --color-delivered: #15803D;
-  --color-partial: #A16207;
-  --color-blocked: #B91C1C;
-  --color-promised: rgba(0, 0, 0, 0.5);
-  --color-deferred: rgba(0, 0, 0, 0.36);
-  --color-dropped: rgba(0, 0, 0, 0.24);
-  --color-superseded: rgba(0, 0, 0, 0.3);
+  --color-healthy: #1A7A6D;
+  --color-warning: #8A6410;
+  --color-critical: #8E3E1B;
+  --color-neutral: rgba(46, 36, 32, 0.4);
 
-  --color-healthy: #15803D;
-  --color-warning: #A16207;
-  --color-critical: #B91C1C;
-  --color-neutral: rgba(0, 0, 0, 0.4);
+  --priority-critical: #8E3E1B;
+  --priority-high: #8A6410;
+  --priority-normal: rgba(46, 36, 32, 0.5);
+  --priority-low: rgba(46, 36, 32, 0.26);
 
-  --priority-critical: #B91C1C;
-  --priority-high: #A16207;
-  --priority-normal: rgba(0, 0, 0, 0.5);
-  --priority-low: rgba(0, 0, 0, 0.26);
-
-  /* The two painted cards are near-white here, not near-black. */
-  --nx-gradient-nexus: linear-gradient(135deg, #FAFAFA 0%, #F4F4F5 45%, #EDEDEF 100%);
-  --nx-gradient-coaching: linear-gradient(135deg, #FAFAFA 0%, #F4F4F5 45%, #EDEDEF 100%);
-  --nx-glow-purple: 0 12px 32px rgba(0, 0, 0, 0.08);
-  --nx-glow-green: 0 12px 32px rgba(0, 0, 0, 0.08);
+  /* The two painted cards, in sand rather than grey. */
+  --nx-gradient-nexus: linear-gradient(135deg, #FCFAF6 0%, #F4EFE6 45%, #EDE7DE 100%);
+  --nx-gradient-coaching: linear-gradient(135deg, #FCFAF6 0%, #F1EBE1 45%, #E2D9CE 100%);
+  --nx-glow-purple: 0 12px 32px rgba(46, 36, 32, 0.09);
+  --nx-glow-green: 0 12px 32px rgba(46, 36, 32, 0.09);
 
   --card-scrim: linear-gradient(
     to right,
-    rgba(250, 250, 250, 0.96),
-    rgba(250, 250, 250, 0.84) 50%,
-    rgba(250, 250, 250, 0.5)
+    rgba(252, 250, 246, 0.96),
+    rgba(252, 250, 246, 0.84) 50%,
+    rgba(252, 250, 246, 0.5)
   );
 
   color: var(--nx-text-primary);
@@ -955,6 +989,82 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /*
+ * THE SIGN-IN SCREENS ARE THEIR OWN DESIGN, AND THEY PIN IT.
+ *
+ * A card floating on the NEXUS hero artwork — which is a logo lockup on
+ * neutral black. They were never part of the app's theming, and the way that
+ * was achieved was simply not wearing `.theme-surface`, so they fell through
+ * to whatever `:root` happened to hold.
+ *
+ * That worked while :root was neutral. It stopped working the moment :root
+ * became the warm dark palette: the card went brown against a black-and-blue
+ * artwork it has to sit on, and nobody asked for that — the app changed
+ * colour and the front door followed it by accident.
+ *
+ * So the values are restated here rather than inherited. These are exactly
+ * the neutral darks :root carried before the warm re-palette. The rule is
+ * the same one that governs .theme-surface, pointing the other way: a
+ * surface with its own design states its own palette.
+ */
+.auth-surface {
+  color-scheme: dark;
+
+  --color-white: #ffffff;
+  --text-primary: #FFFFFF;
+  --text-secondary: rgba(255, 255, 255, 0.68);
+  --text-tertiary: rgba(255, 255, 255, 0.54);
+  --text-quaternary: rgba(255, 255, 255, 0.36);
+
+  --nx-text-primary: #FFFFFF;
+  --nx-text-secondary: #A1A1A8;
+  --nx-text-muted: #7A7A82;
+
+  --nx-bg: #000000;
+  --nx-surface: rgba(16, 16, 19, 0.92);
+  --nx-surface-strong: rgba(22, 22, 26, 0.96);
+  --nx-border: rgba(255, 255, 255, 0.11);
+  --nx-border-strong: rgba(255, 255, 255, 0.18);
+  --void: #000000;
+  --native-surface: #141417;
+
+  --glass-fill-1: rgba(14, 14, 17, 0.82);
+  --glass-fill-2: rgba(16, 16, 19, 0.90);
+  --glass-fill-3: rgba(20, 20, 24, 0.95);
+  --glass-fill-4: rgba(24, 24, 28, 0.98);
+  --glass-line-1: rgba(255, 255, 255, 0.11);
+  --glass-line-2: rgba(255, 255, 255, 0.13);
+  --glass-line-3: rgba(255, 255, 255, 0.15);
+  --glass-line-4: rgba(255, 255, 255, 0.18);
+  --glass-opaque: #141417;
+  --sheen-image: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.10) 0%,
+    rgba(255, 255, 255, 0.03) 28%,
+    transparent 58%
+  );
+  --sheen-blend: screen;
+
+  --shadow-subtle: 0 4px 16px rgba(0, 0, 0, 0.2);
+  --shadow-medium: 0 8px 32px rgba(0, 0, 0, 0.35);
+  --shadow-heavy: 0 16px 64px rgba(0, 0, 0, 0.5);
+  --shadow-dramatic: 0 24px 80px rgba(0, 0, 0, 0.6);
+
+  --focus-ring: rgba(255, 255, 255, 0.8);
+
+  /* The one solid action on the page: a white sheet with black type. */
+  --on-accent: #000000;
+  --nx-primary: #FFFFFF;
+  --nx-primary-light: #FFFFFF;
+
+  /* The two it can still surface: a warning strip and a success tick. */
+  --color-healthy: #34D399;
+  --color-warning: #FBBF24;
+  --color-critical: #F87171;
+
+  color: var(--text-primary);
+}
+
+/*
  * The two painted cards stop being dark islands in the white theme.
  *
  * In the black theme they carry their own near-black grounds and their copy
@@ -966,16 +1076,16 @@ h1, h2, h3, h4, h5, h6 {
   .nx-card-gradient-purple,
   .nx-card-gradient-green
 ) {
-  --color-white: #000000;
-  --text-primary: #000000;
-  --text-secondary: rgba(0, 0, 0, 0.66);
-  --text-tertiary: rgba(0, 0, 0, 0.52);
-  --nx-text-primary: #000000;
-  --nx-text-secondary: #5C5C63;
-  --nx-text-muted: #8A8A92;
-  --nx-primary-light: #000000;
-  --nx-success: #15803D;
-  --nx-success-light: #15803D;
-  color: #000000;
+  --color-white: #2E2420;
+  --text-primary: #2E2420;
+  --text-secondary: #6E5E57;
+  --text-tertiary: #7A6862;
+  --nx-text-primary: #2E2420;
+  --nx-text-secondary: #6E5E57;
+  --nx-text-muted: #7A6862;
+  --nx-primary-light: #166358;
+  --nx-success: #1A7A6D;
+  --nx-success-light: #166358;
+  color: #2E2420;
 }
 

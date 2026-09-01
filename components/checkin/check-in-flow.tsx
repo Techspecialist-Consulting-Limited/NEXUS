@@ -417,7 +417,9 @@ function MobileWizard(props: {
             className="mb-10 block size-40 rounded-full"
             style={{
               background:
-                "radial-gradient(circle at 50% 50%, rgba(124,124,255,0.45), rgba(124,124,255,0) 68%)",
+                "radial-gradient(circle at 50% 50%, " +
+                "color-mix(in oklab, var(--nx-primary) 34%, transparent), " +
+                "color-mix(in oklab, var(--nx-primary) 0%, transparent) 68%)",
             }}
             animate={{ scale: [1, 1.06, 1], opacity: [0.85, 1, 0.85] }}
             transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
@@ -965,13 +967,13 @@ function CommitmentPrompt({
                   aria-hidden="true"
                   className="mt-[7px] size-2 shrink-0 rounded-full"
                   style={{
-                    background: active ? STATUS_TONE[r.value] : "rgba(255,255,255,0.18)",
+                    background: active ? STATUS_TONE[r.value] : "var(--nx-border-strong)",
                   }}
                 />
                 <span className="min-w-0">
                   <span
                     className="block text-base font-medium leading-snug"
-                    style={{ color: active ? STATUS_TONE[r.value] : "rgba(255,255,255,0.9)" }}
+                    style={{ color: active ? STATUS_TONE[r.value] : "var(--text-primary)" }}
                   >
                     {r.label}
                   </span>

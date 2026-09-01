@@ -2,43 +2,65 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Alert } from "@/lib/alerts";
-import type { Cycle, CommitmentRow, Person } from "@/lib/queries";
+import type { Cycle, CommitmentRow, LiveCommitment, Person } from "@/lib/queries";
 import { weekLabel } from "@/lib/cycle";
 import { AlertBell } from "@/components/layout/alert-bell";
-import { CurrentWeekList } from "@/components/tasks/current-week-list";
-import { NeedsAttention } from "@/components/tasks/needs-attention";
+import { OpenWork } from "@/components/tasks/open-work";
 import { PreviousWeeks } from "@/components/tasks/previous-weeks";
 import { TaskDetailsDialog } from "@/components/tasks/task-details-dialog";
 
 /*
- * Tasks — the redesigned workspace.
+ * Tasks — what is still yours to move, then the record of what was.
  *
- * Information hierarchy (desktop):
- *   HEADER   Tasks · “Your weekly commitments and what needs your attention.”
- *   SUMMARY  This week · In progress · Blocked · Delivered  (lightweight counts)
- *   MAIN     [ Current week            ] [ Needs attention ]
- *   HISTORY  Previous weeks — one compact row each, detail on demand
+ *   HEADER    Tasks
+ *   SUMMARY   5 open · 2 blocked · 1 carried 8 weeks
+ *   MAIN      Open work — every unclosed promise, longest-carried first
+ *   HISTORY   The record — one row per week, detail on demand
  *
- * The current week dominates; previous weeks are summarised, not expanded;
- * task details open on demand. The desktop layout is bounded to one viewport
- * by real design (a dvh-height column with an internally scrolling current
- * week), never overflow:hidden.
+ * IT USED TO ASK A DIFFERENT QUESTION THAN ITS OWN NAME.
+ *
+ * The main area was `[ Current week ] [ Needs attention ]`, both scoped to the
+ * week containing today. That is a real question, but it is not "what am I
+ * working on", and on a Monday it answers zero: a person whose My Week listed
+ * five open commitments opened Tasks and read "No commitments yet" beside a
+ * "0 of 0 delivered" chip, in two cards each over 400px tall and both empty.
+ *
+ * The five were real. They were promised for earlier weeks and never closed,
+ * so under a per-week model they were filed under those weeks and shown
+ * nowhere near the top. Carry is the normal state of unfinished work in this
+ * product — `liveCommitments` exists precisely because the two-cycle model
+ * puts a promise in a different week from the one you are in — so a task list
+ * organised strictly by week is a task list that hides its own subject.
+ *
+ * Both cards fold into one list, because "needs attention" was never a second
+ * set. It is blocked-or-long-carried, which is a filter over the same rows,
+ * and rendering it as its own card meant every blocked commitment appeared
+ * twice on one screen.
+ *
+ * NOTHING HERE IS PINNED TO THE VIEWPORT. The old comment on this spot
+ * defended `lg:h-[calc(100dvh-3rem)]` as "real design". It is what sized both
+ * cards before anything was in them.
  *
  * Component scope: staff, lead and admin — everyone who files a check-in.
  */
 
 type Week = { cycle: Cycle; commitments: CommitmentRow[] };
 
-const OPEN = new Set(["promised", "in_progress", "partial", "blocked"]);
-
 export function TasksWorkspace({
   person,
+  open,
   weeks,
   currentCycleId,
   openTaskId,
   alerts,
 }: {
   person: Person;
+  /**
+   * Still open, whichever week it was promised for — `liveCommitments`, the
+   * same function My Week asks. Shared on purpose: two screens deriving "open"
+   * separately is how this page came to contradict the one before it.
+   */
+  open: LiveCommitment[];
   weeks: Week[];
   /** The week containing today. The card headed "This week" must be this one. */
   currentCycleId: string | null;
@@ -112,65 +134,39 @@ export function TasksWorkspace({
       (!current || new Date(w.cycle.starts_on) < new Date(current.cycle.starts_on)),
   );
   /*
-   * Memoised on `current` rather than derived inline. `current?.commitments ?? []`
-   * builds a fresh array on every render when there is no current week, which
-   * makes it an unstable dependency for the count below — the counts would
-   * recompute on every keystroke elsewhere in the tree for no reason.
-   */
-  const currentCommitments = useMemo(
-    () => current?.commitments ?? [],
-    [current],
-  );
-
-  const blockedCurrent = currentCommitments.filter((c) => c.status === "blocked");
-
-  /*
-   * ONE SCOPE, AND IT IS THIS WEEK.
+   * ONE SCOPE, AND IT IS THE LIST DIRECTLY BELOW.
    *
-   * These four counts used to mix two: "This week" was the current week's open
-   * items while the other three spanned the entire record. Nothing on screen
-   * said so, so the strip read `12 Blocked` directly above a card saying
-   * "2 commitments are blocked this week", and `3 This week` beside a list
-   * headed "1 of 4 delivered".
+   * A figure means nothing without the set it was counted over, and this strip
+   * has been wrong about that twice. It first mixed the current week with the
+   * whole record, so it read `12 Blocked` above a card saying "2 commitments
+   * are blocked this week". Corrected to the current week, it then described a
+   * set the page no longer leads with.
    *
-   * The arithmetic was right in both cases and the screen was still wrong,
-   * because a figure means nothing without the set it was counted over. Two
-   * numbers on one screen that appear to disagree cost the reader more than
-   * either was worth.
+   * Every number here is counted over `open` — the rows underneath it. The
+   * per-week counts are in the record below, attached to the week they belong
+   * to, which is the only place they can be checked.
    *
-   * So everything here is the current week — the same set the two cards below
-   * describe. History is not lost: it is in Previous weeks, per week, where a
-   * count can be attached to the week it belongs to.
+   * `delivered` is deliberately absent: this is the open set, so it would read
+   * zero on every screen forever.
    */
   const counts = useMemo(() => {
-    const c = currentCommitments;
+    const longest = open.reduce((n, c) => Math.max(n, c.carry_weeks), 0);
     return {
-      total: c.length,
-      open: c.filter((x) => OPEN.has(x.status)).length,
-      inProgress: c.filter((x) => x.status === "in_progress" || x.status === "partial").length,
-      blocked: c.filter((x) => x.status === "blocked").length,
-      delivered: c.filter((x) => x.status === "delivered").length,
+      total: open.length,
+      blocked: open.filter((c) => c.status === "blocked").length,
+      inProgress: open.filter(
+        (c) => c.status === "in_progress" || c.status === "partial",
+      ).length,
+      longestCarry: longest,
     };
-  }, [currentCommitments]);
-
-  const scrollToBlocked = () => {
-    document.querySelector('[data-blocked-row="true"]')?.scrollIntoView({
-      behavior: "smooth",
-      block: "center",
-    });
-  };
+  }, [open]);
 
   return (
-    <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-4 lg:h-[calc(100dvh-3rem)] lg:gap-5">
+    <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-4 lg:gap-5">
       {/* ---- Header ---------------------------------------------------- */}
       <header className="flex items-center justify-between gap-6 pt-1">
         <div className="min-w-0">
-          <h1 className="text-[32px] font-semibold leading-tight tracking-[-0.02em] text-[var(--nx-text-primary)]">
-            Tasks
-          </h1>
-          <p className="mt-1.5 text-[15px] leading-relaxed text-[var(--nx-text-secondary)]">
-            Your weekly commitments and what needs your attention.
-          </p>
+          <h1 className="page-title">Tasks</h1>
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
@@ -191,25 +187,17 @@ export function TasksWorkspace({
         </div>
       </header>
 
-      {/* ---- Summary strip -------------------------------------------- */}
+      {/* ---- What is still open --------------------------------------- */}
       {counts.total > 0 && <SummaryStrip counts={counts} />}
 
-      {/* ---- Main workspace (fills remaining height) ------------------ */}
-      <div className="flex min-h-0 flex-1 flex-col gap-4 lg:grid lg:grid-cols-[1.6fr_1fr] lg:gap-5">
-        <CurrentWeekList
-          label={current?.cycle.label ?? ""}
-          commitments={currentCommitments}
-          onOpen={openTask}
-        />
+      <OpenWork
+        commitments={open}
+        currentWeekLabel={current ? weekLabel(current.cycle.label) : null}
+        hasRecord={previous.length > 0}
+        onOpen={openTask}
+      />
 
-        <NeedsAttention
-          blocked={blockedCurrent}
-          onOpen={openTask}
-          onViewAll={scrollToBlocked}
-        />
-      </div>
-
-      {/* ---- Previous weeks ------------------------------------------- */}
+      {/* ---- The record ------------------------------------------------ */}
       <PreviousWeeks weeks={previous} onOpenCommitment={openTask} />
 
       <TaskDetailsDialog
@@ -222,41 +210,57 @@ export function TasksWorkspace({
 }
 
 /**
- * Four counts over one set: the week on screen.
+ * One sentence of counts over the list below it.
  *
- * `Open` rather than `This week`, because every number here is this week and
- * repeating it four times says nothing. The set is named once, on the strip.
+ * It was a four-column grid of large figures. That is a KPI strip, and a KPI
+ * strip directly above the list it counts asks the reader to hold four numbers
+ * in order to read rows that state the same facts individually. The set is
+ * small enough to say in a line.
+ *
+ * The carry figure is here rather than on the grid it replaces because it is
+ * the only one that cannot be had by glancing down the rows: "blocked" is a
+ * colour on every row carrying it, but the longest carry is a maximum over the
+ * whole set, and eight weeks is the number somebody has to act on.
  */
 function SummaryStrip({
   counts,
 }: {
   counts: {
     total: number;
-    open: number;
-    inProgress: number;
     blocked: number;
-    delivered: number;
+    inProgress: number;
+    longestCarry: number;
   };
 }) {
-  const items = [
-    { label: "Open", value: counts.open },
-    { label: "In progress", value: counts.inProgress },
-    { label: "Blocked", value: counts.blocked },
-    { label: "Delivered", value: counts.delivered },
+  /*
+   * The FIGURE is set in the figure face, not the phrase around it. Setting
+   * "3 in progress" whole in monospace puts the words in a face chosen for
+   * digits, which reads as a code fragment rather than a sentence.
+   */
+  const parts: { n: number; label: string }[] = [
+    { n: counts.total, label: "open" },
   ];
+  if (counts.inProgress > 0) parts.push({ n: counts.inProgress, label: "in progress" });
+  if (counts.blocked > 0) parts.push({ n: counts.blocked, label: "blocked" });
+
   return (
-    <div
-      aria-label={`This week: ${counts.total} commitments`}
-      className="grid shrink-0 grid-cols-4 gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.02] px-4 py-3"
-    >
-      {items.map((it) => (
-        <div key={it.label} className="flex items-baseline justify-center gap-2">
-          <span className="metric text-xl font-semibold text-[var(--nx-text-primary)]">
-            {it.value}
-          </span>
-          <span className="text-[13px] text-[var(--nx-text-secondary)]">{it.label}</span>
-        </div>
+    <p className="text-[15px] leading-relaxed text-[var(--nx-text-secondary)]">
+      {parts.map((p, i) => (
+        <span key={p.label}>
+          {i > 0 && " · "}
+          <span className="metric text-[var(--nx-text-primary)]">{p.n}</span>{" "}
+          {p.label}
+        </span>
       ))}
-    </div>
+      {counts.longestCarry > 1 && (
+        <>
+          {". The oldest has been carried "}
+          <span className="metric text-[var(--color-partial)]">
+            {counts.longestCarry} weeks
+          </span>
+          .
+        </>
+      )}
+    </p>
   );
 }

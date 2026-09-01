@@ -26,7 +26,7 @@ import type { CoursePoint } from "@/lib/queries";
  */
 
 const AXIS_TICK = {
-  fill: "rgba(255,255,255,0.45)",
+  fill: "var(--text-tertiary)",
   fontSize: 11,
   fontFamily: "var(--font-mono)",
 };
@@ -85,14 +85,14 @@ export function CoursePlot({
             </defs>
 
             <CartesianGrid
-              stroke="rgba(255,255,255,0.05)"
+              stroke="var(--nx-border)"
               strokeDasharray="3 3"
               vertical={false}
             />
             <XAxis
               dataKey="week"
               tick={AXIS_TICK}
-              axisLine={{ stroke: "rgba(255,255,255,0.08)" }}
+              axisLine={{ stroke: "var(--nx-border)" }}
               tickLine={false}
               interval="preserveStartEnd"
             />
@@ -104,17 +104,17 @@ export function CoursePlot({
               allowDecimals={false}
             />
             <Tooltip
-              cursor={{ stroke: "rgba(255,255,255,0.18)", strokeWidth: 1 }}
+              cursor={{ stroke: "var(--nx-border-strong)", strokeWidth: 1 }}
               contentStyle={{
                 background: "rgba(20, 20, 28, 0.92)",
-                border: "1px solid rgba(255,255,255,0.12)",
+                border: "1px solid var(--nx-border)",
                 borderRadius: 12,
                 backdropFilter: "blur(20px)",
-                color: "rgba(255,255,255,0.9)",
+                color: "var(--text-primary)",
                 fontSize: 12,
                 fontFamily: "var(--font-body)",
               }}
-              labelStyle={{ color: "rgba(255,255,255,0.55)", marginBottom: 4 }}
+              labelStyle={{ color: "var(--text-tertiary)", marginBottom: 4 }}
             />
 
             <Area

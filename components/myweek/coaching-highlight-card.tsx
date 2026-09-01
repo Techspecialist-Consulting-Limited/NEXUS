@@ -56,8 +56,12 @@ export function CoachingHighlightCard({
     >
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-cover bg-center bg-no-repeat grayscale opacity-30"
-        style={{ backgroundImage: "url('/images/coach-highlit-bg.png')" }}
+        className="pointer-events-none absolute inset-0 bg-cover bg-center bg-no-repeat grayscale"
+        /* Opacity follows the theme — see --card-art-opacity in globals.css. */
+        style={{
+          backgroundImage: "url('/images/coach-highlit-bg.png')",
+          opacity: "var(--card-art-opacity)",
+        }}
       />
       <div
         aria-hidden="true"

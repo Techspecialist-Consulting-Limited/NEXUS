@@ -25,6 +25,7 @@ import type {
   TeamMember,
   PersonWeek,
 } from "@/lib/queries";
+import { unitTone, unitWash } from "@/lib/unit-tone";
 
 /*
  * GUIDE §12 Department Drill-Down.
@@ -78,7 +79,7 @@ export function DepartmentView({
             <span
               aria-hidden="true"
               className="size-3 shrink-0 rounded-full"
-              style={{ backgroundColor: department.color }}
+              style={{ backgroundColor: unitTone(department.id) }}
             />
             <h1 className="truncate text-2xl font-medium tracking-tight">
               {department.name}
@@ -211,8 +212,8 @@ export function DepartmentView({
                         aria-hidden="true"
                         className="grid size-9 shrink-0 place-items-center rounded-full text-2xs font-medium"
                         style={{
-                          backgroundColor: `color-mix(in srgb, ${department.color} 20%, transparent)`,
-                          color: department.color,
+                          backgroundColor: unitWash(department.id, 20),
+                          color: unitTone(department.id),
                         }}
                       >
                         {p.full_name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
@@ -349,7 +350,7 @@ export function DepartmentView({
                         <span
                           className="rounded-md px-1.5 py-0.5 text-2xs"
                           style={{
-                            color: c.depends_on_color ?? "rgba(255,255,255,0.6)",
+                            color: c.depends_on_color ?? "var(--text-secondary)",
                             backgroundColor: `color-mix(in srgb, ${c.depends_on_color ?? "#888"} 14%, transparent)`,
                           }}
                         >

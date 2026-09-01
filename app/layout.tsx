@@ -1,33 +1,17 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
-import { Inter, Instrument_Serif, JetBrains_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import { Providers } from "@/components/layout/providers";
 import "./globals.css";
 
 /*
- * Three faces, three jobs — design/visual-system.md, "The display face".
- *
- * Instrument Serif carries titles, Inter carries everything a person reads,
- * JetBrains Mono carries every figure. next/font self-hosts and emits the
- * preload links itself, so the manual <link rel="preload"> the guide mentions
- * in §16 would be a duplicate.
+ * GUIDE §4: Inter for display and body, JetBrains Mono for every metric.
+ * next/font self-hosts and emits the preload links itself, so the manual
+ * <link rel="preload"> the guide mentions in §16 would be a duplicate.
  */
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
-  display: "swap",
-});
-
-/*
- * One weight, and that is the whole face — Instrument Serif ships 400 only.
- * The heading rule in globals.css turns off weight synthesis so a
- * `font-semibold` utility renders as the real 400 rather than a faux-bold
- * smear of it.
- */
-const instrument = Instrument_Serif({
-  variable: "--font-instrument",
-  subsets: ["latin"],
-  weight: "400",
   display: "swap",
 });
 
@@ -51,7 +35,8 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#FFFFFF",
+  /* The cream ground, so a phone's browser chrome matches the page. */
+  themeColor: "#F4EFE6",
   width: "device-width",
   initialScale: 1,
   // The interface is dark and full-bleed; let it paint under the status bar.
@@ -75,7 +60,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     */
     <html
       lang="en"
-      className={`${inter.variable} ${instrument.variable} ${jetbrains.variable}`}
+      className={`${inter.variable} ${jetbrains.variable}`}
       suppressHydrationWarning
     >
       <body className="bg-mesh">

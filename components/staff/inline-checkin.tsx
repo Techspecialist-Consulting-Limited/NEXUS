@@ -73,11 +73,26 @@ export function InlineCheckIn({
   alreadyReported,
   openCount = 0,
   autoStart = false,
+  hideIntro = false,
 }: {
   cycleId: string;
   alreadyReported: boolean;
   /** Open commitments this week — decides whether the guided path is offered. */
   openCount?: number;
+  /**
+   * Drop the eyebrow and the two prompt lines above the box.
+   *
+   * For a caller that has already named this thing and said what it is for.
+   * On My Week the card heading is the week itself, and repeating "Automated
+   * check-in / How is it going? / Say it or type it in plain sentences" under
+   * it put three lines of instruction between a person and the box they came
+   * to type in.
+   *
+   * The listening state is NOT hidden by this — "Listening…" is feedback, not
+   * an introduction, and it is the only thing on screen that confirms the
+   * microphone is actually open.
+   */
+  hideIntro?: boolean;
   /**
    * Open with the microphone already listening.
    *
@@ -489,21 +504,23 @@ export function InlineCheckIn({
   // ---- capture ------------------------------------------------------------
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <p className="eyebrow">
-        Automated check-in
-      </p>
-      <p className="mt-1.5 text-base text-white/90">
-        {listening
-          ? "Listening…"
-          : alreadyReported
-            ? "Anything to add?"
-            : "How is it going?"}
-      </p>
-      <p className="mt-1 text-sm leading-relaxed text-secondary">
-        {listening
-          ? "Say what you did and what is next. Stop when you are done."
-          : "Say it or type it in plain sentences. NEXUS sorts it out and shows you before anything is filed."}
-      </p>
+      {(!hideIntro || listening) && (
+        <>
+          {!hideIntro && <p className="eyebrow">Automated check-in</p>}
+          <p className={hideIntro ? "text-base text-white/90" : "mt-1.5 text-base text-white/90"}>
+            {listening
+              ? "Listening…"
+              : alreadyReported
+                ? "Anything to add?"
+                : "How is it going?"}
+          </p>
+          <p className="mt-1 text-sm leading-relaxed text-secondary">
+            {listening
+              ? "Say what you did and what is next. Stop when you are done."
+              : "Say it or type it in plain sentences. NEXUS sorts it out and shows you before anything is filed."}
+          </p>
+        </>
+      )}
 
       {listening ? (
         <>
@@ -613,7 +630,7 @@ export function InlineCheckIn({
             ) : (
               <>
                 <Mic size={15} aria-hidden="true" />
-                Voice check-in
+                Speak it
               </>
             )}
           </button>
@@ -628,7 +645,15 @@ export function InlineCheckIn({
                      transition-colors hover:bg-white/[0.09] disabled:opacity-40"
         >
           <PenLine size={14} aria-hidden="true" />
-          {raw.trim() ? "Sort what I typed" : "Type check-in"}
+          {/*
+            ONE LABEL, AND IT NAMES WHAT THE BUTTON DOES.
+
+            It read "Type check-in" while empty — which was the chooser tile's
+            label, on a disabled button, directly under the box you type in.
+            It invited a press that could not work and pointed away from the
+            control that did. A button keeps one name through a flow.
+          */}
+          Sort what I wrote
         </button>
       </div>
 

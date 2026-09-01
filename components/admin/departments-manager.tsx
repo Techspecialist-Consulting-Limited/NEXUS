@@ -8,6 +8,7 @@ import { useToast } from "@/components/ui/toast";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Building2 } from "lucide-react";
 import type { DepartmentMember, DepartmentRow } from "@/lib/departments";
+import { unitTone } from "@/lib/unit-tone";
 
 /*
  * Units, their leads and their members.
@@ -142,7 +143,7 @@ export function DepartmentsManager({
                       <span
                         aria-hidden="true"
                         className="size-2 shrink-0 rounded-full"
-                        style={{ background: dept.color }}
+                        style={{ background: unitTone(dept.id) }}
                       />
                       {dept.name}
                       {isArchived && (

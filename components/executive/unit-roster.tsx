@@ -11,6 +11,7 @@ import type { UnitMember, UnitRoster as Roster } from "@/lib/queries";
  * depends on next/headers". lib/roles is the definition and is pure data.
  */
 import { ROLE_LABEL, type OrgRole } from "@/lib/roles";
+import { unitTone, unitWash } from "@/lib/unit-tone";
 
 /*
  * The organisation's shape: every unit, and who is in it.
@@ -86,8 +87,8 @@ export function UnitRoster({
                     aria-hidden="true"
                     className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg"
                     style={{
-                      background: `color-mix(in oklab, ${u.color} 22%, transparent)`,
-                      color: u.color,
+                      background: unitWash(u.department_id),
+                      color: unitTone(u.department_id),
                     }}
                   >
                     <Building2 size={16} />
@@ -97,9 +98,14 @@ export function UnitRoster({
                       {u.name}
                     </p>
                     <p className="truncate text-xs text-secondary">
-                      {u.members.length === 0
-                        ? "Nobody in it yet"
-                        : `${u.members.length} ${u.members.length === 1 ? "person" : "people"}`}
+                      {u.members.length === 0 ? (
+                        "Nobody in it yet"
+                      ) : (
+                        <span className="metric">
+                          {u.members.length}{" "}
+                          {u.members.length === 1 ? "person" : "people"}
+                        </span>
+                      )}
                       {u.lead_name && ` · led by ${u.lead_name}`}
                     </p>
                   </div>

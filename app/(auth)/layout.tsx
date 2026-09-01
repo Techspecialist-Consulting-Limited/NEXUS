@@ -26,7 +26,13 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
       parent — which pushed 135px of horizontal scroll onto the sign-in page.
       The visual sweep caught it; nothing else would have.
     */
-    <div className="relative flex min-h-dvh flex-col items-center justify-center overflow-hidden px-4 py-10">
+    /*
+      `auth-surface` pins the neutral dark palette these screens were drawn
+      against — see the block of that name in app/globals.css. Without it
+      they inherit :root, which is now the app's warm theme, and the card
+      turns brown on artwork that is black.
+    */
+    <div className="auth-surface relative flex min-h-dvh flex-col items-center justify-center overflow-hidden px-4 py-10">
       <Image
         src="/brand/nexus.png"
         alt=""

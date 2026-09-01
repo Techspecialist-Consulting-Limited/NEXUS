@@ -19,7 +19,7 @@ import { Moon, Sun } from "lucide-react";
  * anybody who chose white. This component only keeps its own icon in step
  * with what that script already decided.
  *
- * THE DEFAULT IS WHITE, AND DELIBERATELY NOT THE SYSTEM SETTING. A reporting
+ * THE DEFAULT IS THE LIGHT THEME, AND DELIBERATELY NOT THE SYSTEM SETTING. A reporting
  * tool that changes colour because the sun went down is a reporting tool
  * people think is broken. The choice is explicit, remembered, and per-browser
  * — and because nothing stored now means white, BOTH choices are written
@@ -89,8 +89,16 @@ export function ThemeToggle() {
     <button
       type="button"
       onClick={() => apply(white ? "black" : "white")}
-      aria-label={white ? "Switch to the black theme" : "Switch to the white theme"}
-      title={white ? "Black theme" : "White theme"}
+      /*
+        The words are light/dark; the stored value is still white/black.
+        That string is stamped on <html> by a blocking script in
+        app/layout.tsx and already sits in every existing browser's
+        localStorage — renaming it would flash the wrong theme once for
+        everybody, to buy a tidier token. The label is what a person reads;
+        the key is not.
+      */
+      aria-label={white ? "Switch to the dark theme" : "Switch to the light theme"}
+      title={white ? "Dark theme" : "Light theme"}
       /*
         size-11, not size-9. GUIDE §11 sets a 44px minimum with no exceptions,
         and scripts/smoke.mjs asserts it — this shipped at 36px and the sweep
@@ -103,7 +111,7 @@ export function ThemeToggle() {
     >
       {/*
         The icon shows the theme you would GET, not the one you are in — a sun
-        on the black theme, a moon on the white one. Both labels say it in
+        on the dark theme, a moon on the light one. Both labels say it in
         words as well, because an icon alone cannot distinguish "this is what
         you have" from "this is what you would get".
       */}
