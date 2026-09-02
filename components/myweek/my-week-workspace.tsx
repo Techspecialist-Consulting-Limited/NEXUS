@@ -1,9 +1,7 @@
 "use client";
 
-import type { Alert } from "@/lib/alerts";
 import type { LedgerWeek, LiveCommitment, Person } from "@/lib/queries";
 import { WeekLedger } from "@/components/ui/week-ledger";
-import { AlertBell } from "@/components/layout/alert-bell";
 import { CheckInCard } from "@/components/myweek/check-in-card";
 import { NexusNoticedCard } from "@/components/myweek/nexus-noticed-card";
 import { WorkingOnCard } from "@/components/myweek/working-on-card";
@@ -62,7 +60,6 @@ export function MyWeekWorkspace({
   live,
   coaching,
   reportedAt,
-  alerts,
   ledger,
 }: {
   person: Person;
@@ -79,8 +76,6 @@ export function MyWeekWorkspace({
   coaching: { title: string; body: string; based_on: string }[];
   /** When they last filed, or null if this week is still open. */
   reportedAt: string | null;
-  /** Exactly what /notifications shows, for the bell. See lib/alerts.ts. */
-  alerts: Alert[];
   /** Every week with work in it, for the strip under the check-in. */
   ledger: LedgerWeek[];
 }) {
@@ -124,18 +119,12 @@ export function MyWeekWorkspace({
             {partOfDay()}, {first}
           </h1>
         </div>
-
-        <div className="flex shrink-0 items-center gap-2">
-          <AlertBell alerts={alerts} />
-
-          <span
-            title={person.full_name}
-            className="grid size-11 shrink-0 place-items-center rounded-full bg-[var(--nx-primary)]/20 text-sm font-semibold text-[var(--nx-primary-light)] ring-1 ring-white/10"
-            aria-label={`Signed in as ${person.full_name}`}
-          >
-            {first.charAt(0).toUpperCase()}
-          </span>
-        </div>
+        {/*
+          The bell and the avatar moved to the shell's own header, which every
+          page now has — see components/layout/page-header.tsx. They were built
+          here and in Tasks and nowhere else, which is why Settings, Coaching
+          and Check-in had no chrome at all.
+        */}
       </header>
 
       {/*

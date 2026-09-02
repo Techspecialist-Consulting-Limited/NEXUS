@@ -1,10 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { Alert } from "@/lib/alerts";
-import type { Cycle, CommitmentRow, LiveCommitment, Person } from "@/lib/queries";
+import type { Cycle, CommitmentRow, LiveCommitment } from "@/lib/queries";
 import { weekLabel } from "@/lib/cycle";
-import { AlertBell } from "@/components/layout/alert-bell";
 import { OpenWork } from "@/components/tasks/open-work";
 import { PreviousWeeks } from "@/components/tasks/previous-weeks";
 import { TaskDetailsDialog } from "@/components/tasks/task-details-dialog";
@@ -47,14 +45,11 @@ import { TaskDetailsDialog } from "@/components/tasks/task-details-dialog";
 type Week = { cycle: Cycle; commitments: CommitmentRow[] };
 
 export function TasksWorkspace({
-  person,
   open,
   weeks,
   currentCycleId,
   openTaskId,
-  alerts,
 }: {
-  person: Person;
   /**
    * Still open, whichever week it was promised for — `liveCommitments`, the
    * same function My Week asks. Shared on purpose: two screens deriving "open"
@@ -66,8 +61,6 @@ export function TasksWorkspace({
   currentCycleId: string | null;
   /** `?task=` from the URL — the commitment whose detail should be open. */
   openTaskId: string | null;
-  /** Exactly what /notifications shows, for the bell. See lib/alerts.ts. */
-  alerts: Alert[];
 }) {
   /*
    * THE OPEN COMMITMENT LIVES IN THE URL.
@@ -166,25 +159,11 @@ export function TasksWorkspace({
       {/* ---- Header ---------------------------------------------------- */}
       <header className="flex items-center justify-between gap-6 pt-1">
         <div className="min-w-0">
-          <h1 className="page-title">Tasks</h1>
+          {/* Agrees with the rail. The page and the link to it must not
+              have different names. */}
+          <h1 className="page-title">Pending Tasks</h1>
         </div>
-
-        <div className="flex shrink-0 items-center gap-2">
-          <AlertBell alerts={alerts} />
-
-          {/* The week, stated. Not a picker — see my-week-workspace.tsx. */}
-          <span className="hidden min-h-11 items-center rounded-full border border-white/[0.08] bg-white/[0.04] px-3.5 text-sm text-[var(--nx-text-secondary)] sm:inline-flex">
-            {current ? weekLabel(current.cycle.label) : "No week yet"}
-          </span>
-
-          <span
-            title={person.full_name}
-            aria-label={`Signed in as ${person.full_name}`}
-            className="grid size-11 shrink-0 place-items-center rounded-full bg-[var(--nx-primary)]/20 text-sm font-semibold text-[var(--nx-primary-light)] ring-1 ring-white/10"
-          >
-            {person.full_name.charAt(0).toUpperCase()}
-          </span>
-        </div>
+        {/* Bell and avatar are in the shell header now — one header, not three. */}
       </header>
 
       {/* ---- What is still open --------------------------------------- */}

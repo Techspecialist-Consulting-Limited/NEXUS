@@ -6,11 +6,13 @@ import { PersonaSwitcher } from "@/components/layout/persona-switcher";
 import { AccountMenu } from "@/components/layout/account-menu";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { CoachingRailCard } from "@/components/myweek/coaching-rail-card";
+import { PageHeader } from "@/components/layout/page-header";
 import { requireViewer, demoPersonas } from "@/lib/session";
 import { assertProviderIsSafe, authMode, ROLE_LABEL } from "@/lib/auth";
 import { launcherFor, tabsFor } from "@/lib/nav";
 import { hasAdministration, hasPersonalWorkspace } from "@/lib/capabilities";
-import { latestCoaching } from "@/lib/queries";
+import { getPerson, latestCoaching } from "@/lib/queries";
+import { alertsFor } from "@/lib/alerts";
 
 /*
  * The authenticated shell.
@@ -63,6 +65,16 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     ? await latestCoaching(actor, membership.profileId)
     : [];
   const tip = coaching[1] ?? coaching[0] ?? null;
+
+  /*
+   * The bell, for every page rather than the two that happened to build one.
+   *
+   * The SAME list /notifications renders — see lib/alerts.ts — so the count
+   * on the bell and the page it opens cannot disagree. Database reads only,
+   * no model call, which is what makes it affordable on every navigation.
+   */
+  const me = await getPerson(actor);
+  const feed = me ? await alertsFor(actor, me) : { alerts: [] };
 
   return (
     /*
@@ -146,6 +158,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           id="main"
           className="mx-auto w-full max-w-[1400px] flex-1 px-4 pb-28 pt-4 md:px-6 md:pb-8 lg:px-8"
         >
+          <PageHeader name={membership.fullName} alerts={feed.alerts} />
           {children}
         </main>
       </div>

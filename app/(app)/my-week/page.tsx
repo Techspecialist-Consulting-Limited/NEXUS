@@ -12,7 +12,6 @@ import {
   weekLedger,
 } from "@/lib/queries";
 import { weeklyBrief } from "@/lib/coach";
-import { alertsFor } from "@/lib/alerts";
 import { MyWeekWorkspace } from "@/components/myweek/my-week-workspace";
 
 export const dynamic = "force-dynamic";
@@ -84,7 +83,7 @@ export default async function MyWeekPage() {
     );
   }
 
-  const [brief, live, checkIn, feed, ledger] = await Promise.all([
+  const [brief, live, checkIn, ledger] = await Promise.all([
     weeklyBrief(actor, me.id, week.id, me.full_name, week.label),
     /*
      * What they are working on RIGHT NOW, which is a different question from
@@ -112,15 +111,6 @@ export default async function MyWeekPage() {
         order by responded_at desc limit 1
       `,
     ),
-    /*
-     * What the bell in the header shows — the SAME list /notifications builds,
-     * from lib/alerts.ts, so the two cannot disagree about what is waiting.
-     *
-     * It calls weeklyBrief for its own week, which is already cached by the
-     * time this resolves in the common case; both are in one Promise.all so
-     * the second is never a serial wait on the first.
-     */
-    alertsFor(actor, me),
     /*
      * The shape of the record they are adding to. Counted from commitments
      * rather than reconciliations so the week in progress is included — see
@@ -172,7 +162,6 @@ export default async function MyWeekPage() {
       live={live}
       coaching={brief.coaching}
       reportedAt={checkIn[0]?.responded_at ?? null}
-      alerts={feed.alerts}
       ledger={ledgerWeeks}
     />
   );
