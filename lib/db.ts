@@ -299,12 +299,70 @@ async function remote() {
 // Public interface
 // ---------------------------------------------------------------------------
 
-/** Tagged template → parameterised SQL. Values never reach the query text. */
-function compile(strings: TemplateStringsArray, values: unknown[]) {
-  return strings.reduce(
-    (acc, part, i) => acc + part + (i < values.length ? `$${i + 1}` : ""),
-    "",
-  );
+/*
+ * A piece of SQL waiting to be spliced into a bigger one.
+ *
+ * WHY THIS EXISTS AT ALL.
+ *
+ * postgres.js — what production runs — returns a lazy query object from its
+ * tagged template. Nesting one inside another composes them, which is why the
+ * codebase can write:
+ *
+ *     sql`... and ${orgId ? sql`r.org_id = ${orgId}` : sql`true`}`
+ *
+ * The local PGlite tag was an ordinary async function, so the inner call
+ * EXECUTED — as its own query, `r.org_id = $1`, which is not a statement — and
+ * the outer query received a Promise where it expected a value. Two symptoms,
+ * both baffling on their own: `syntax error at or near "p"`, and `invalid
+ * input for boolean type` where a Promise had been handed to a `::boolean`.
+ *
+ * It made `runReconcile` and `runDigest` fail on the local demo database while
+ * working perfectly against Supabase — so the one path the demo harness exists
+ * to exercise, "Send it now", was the one path it could not.
+ *
+ * A fragment is therefore inert until awaited: `then` is what runs it, and the
+ * compiler splices anything that never got awaited.
+ */
+type Fragment = {
+  readonly __sqlFragment: true;
+  strings: TemplateStringsArray;
+  values: unknown[];
+};
+
+function isFragment(v: unknown): v is Fragment {
+  return typeof v === "object" && v !== null && "__sqlFragment" in v;
+}
+
+/**
+ * Tagged template → parameterised SQL. Values never reach the query text.
+ *
+ * Nested fragments are spliced in place and their values renumbered into the
+ * outer parameter list, so `$1` always means the same thing to the driver as
+ * it does to the reader.
+ */
+function compile(
+  strings: TemplateStringsArray,
+  values: unknown[],
+): { text: string; params: unknown[] } {
+  let text = "";
+  const params: unknown[] = [];
+
+  const walk = (parts: readonly string[], vals: readonly unknown[]) => {
+    parts.forEach((part, i) => {
+      text += part;
+      if (i >= vals.length) return;
+      const v = vals[i];
+      if (isFragment(v)) {
+        walk(v.strings, v.values);
+      } else {
+        params.push(v);
+        text += `$${params.length}`;
+      }
+    });
+  };
+
+  walk(strings, values);
+  return { text, params };
 }
 
 /**
@@ -370,10 +428,24 @@ export async function asActor<T>(
       ]);
       await db.exec("set role authenticated;");
 
-      const sql: Sql = async <T2>(strings: TemplateStringsArray, ...values: unknown[]) => {
-        const res = await db.query(compile(strings, values), values);
-        return res.rows as T2[];
-      };
+      /*
+       * Lazy, like postgres.js. Returning a thenable rather than a Promise is
+       * what lets a fragment be nested in another query without running: only
+       * `await` executes it, and `compile` splices whatever was never awaited.
+       * See the Fragment note above compile().
+       */
+      const sql = (<T2>(strings: TemplateStringsArray, ...values: unknown[]) => ({
+        __sqlFragment: true as const,
+        strings,
+        values,
+        then: (
+          resolve: (rows: T2[]) => unknown,
+          reject: (err: unknown) => unknown,
+        ) => {
+          const { text, params } = compile(strings, values);
+          return db.query(text, params).then((res) => resolve(res.rows as T2[]), reject);
+        },
+      })) as unknown as Sql;
 
       try {
         return await fn(sql);
@@ -406,10 +478,24 @@ export async function asService<T>(fn: (sql: Sql) => Promise<T>): Promise<T> {
   if (MODE === "local") {
     return withLock(async () => {
       const db = await localHandle();
-      const sql: Sql = async <T2>(strings: TemplateStringsArray, ...values: unknown[]) => {
-        const res = await db.query(compile(strings, values), values);
-        return res.rows as T2[];
-      };
+      /*
+       * Lazy, like postgres.js. Returning a thenable rather than a Promise is
+       * what lets a fragment be nested in another query without running: only
+       * `await` executes it, and `compile` splices whatever was never awaited.
+       * See the Fragment note above compile().
+       */
+      const sql = (<T2>(strings: TemplateStringsArray, ...values: unknown[]) => ({
+        __sqlFragment: true as const,
+        strings,
+        values,
+        then: (
+          resolve: (rows: T2[]) => unknown,
+          reject: (err: unknown) => unknown,
+        ) => {
+          const { text, params } = compile(strings, values);
+          return db.query(text, params).then((res) => resolve(res.rows as T2[]), reject);
+        },
+      })) as unknown as Sql;
       return fn(sql);
     });
   }
