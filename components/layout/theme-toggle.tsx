@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { Moon, Sun } from "lucide-react";
+import { THEME_COOKIE, THEME_MAX_AGE, type Theme } from "@/lib/theme";
 
 /*
  * Black or white.
@@ -11,13 +12,13 @@ import { Moon, Sun } from "lucide-react";
  * theme block at the foot of app/globals.css. There is no second stylesheet
  * and no class to remember to put on a wrapper.
  *
- * WHY THE ATTRIBUTE IS SET BEFORE REACT RUNS.
+ * WHY THE ATTRIBUTE IS ALREADY SET WHEN THIS MOUNTS.
  *
- * app/layout.tsx carries a tiny blocking script that reads the stored choice
- * and stamps the attribute during head parsing. Without it, every page would
- * paint black, hydrate, and then turn white — a flash on every navigation for
- * anybody who chose white. This component only keeps its own icon in step
- * with what that script already decided.
+ * app/layout.tsx renders `data-theme` straight into the served HTML, read from
+ * the cookie this component writes. Nothing has to run in the browser for the
+ * right palette to paint, so there is no frame in which the wrong one is on
+ * screen. This component only keeps its own icon in step with what the server
+ * already decided, and records the new choice for the next request.
  *
  * THE DEFAULT IS THE LIGHT THEME, AND DELIBERATELY NOT THE SYSTEM SETTING. A reporting
  * tool that changes colour because the sun went down is a reporting tool
@@ -25,10 +26,6 @@ import { Moon, Sun } from "lucide-react";
  * — and because nothing stored now means white, BOTH choices are written
  * rather than only the non-default one.
  */
-
-type Theme = "black" | "white";
-
-const STORAGE_KEY = "nexus-theme";
 
 /*
  * A two-line store, because the DOM attribute is the state.
@@ -55,9 +52,14 @@ function getSnapshot(): Theme {
     : "black";
 }
 
-/* On the server there is no document, and the default is black. */
+/*
+ * On the server there is no document. White is what the layout renders when no
+ * cookie says otherwise, so white is the honest server answer — anything else
+ * would have React render the wrong icon for everybody who never touched the
+ * toggle, which is almost everybody.
+ */
 function getServerSnapshot(): Theme {
-  return "black";
+  return "white";
 }
 
 function apply(next: Theme) {
@@ -68,15 +70,20 @@ function apply(next: Theme) {
   }
 
   /*
-   * Storage can throw — a private window, or a browser set to block site
-   * data. Losing the preference is a smaller failure than a toggle that
-   * refuses to toggle, so the write is allowed to fail quietly.
+   * A cookie, because the server reads this on the next request to render
+   * `data-theme` into the HTML. It is deliberately not httpOnly — this is a
+   * display preference the browser has to be able to set, and it carries
+   * nothing worth protecting.
+   *
+   * SameSite=Lax so it survives an ordinary navigation back into the app.
+   * Secure only over HTTPS: setting it on http://localhost would make the
+   * browser drop the cookie silently and the toggle would appear not to stick
+   * in development.
    */
-  try {
-    window.localStorage.setItem(STORAGE_KEY, next);
-  } catch {
-    /* not fatal */
-  }
+  const secure = window.location.protocol === "https:" ? "; secure" : "";
+  document.cookie =
+    `${THEME_COOKIE}=${next}; path=/; max-age=${THEME_MAX_AGE}; samesite=lax` +
+    secure;
 
   for (const fn of listeners) fn();
 }
@@ -91,10 +98,9 @@ export function ThemeToggle() {
       onClick={() => apply(white ? "black" : "white")}
       /*
         The words are light/dark; the stored value is still white/black.
-        That string is stamped on <html> by a blocking script in
-        app/layout.tsx and already sits in every existing browser's
-        localStorage — renaming it would flash the wrong theme once for
-        everybody, to buy a tidier token. The label is what a person reads;
+        That string is what app/layout.tsx stamps on <html>, and it is the
+        cookie value too — renaming it would buy a tidier token and cost
+        everybody their remembered choice. The label is what a person reads;
         the key is not.
       */
       aria-label={white ? "Switch to the dark theme" : "Switch to the light theme"}

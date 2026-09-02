@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
+import { cookies } from "next/headers";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { Providers } from "@/components/layout/providers";
+import { THEME_COOKIE } from "@/lib/theme";
 import "./globals.css";
 
 /*
@@ -43,7 +45,41 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  /*
+   * THE THEME IS DECIDED ON THE SERVER, AND ARRIVES IN THE HTML.
+   *
+   * WHAT THIS REPLACED, AND WHY IT HAD TO GO.
+   *
+   * A tiny blocking <script> used to sit first in the body, read localStorage
+   * and stamp this attribute before anything painted. React 19 refuses that
+   * pattern outright — "Scripts inside React components are never executed
+   * when rendering on the client" — and it is right: React only ever creates
+   * the element, so the code ran solely because the initial HTML parser
+   * happened to see it. Any render React drove itself was silently a no-op.
+   *
+   * next/script with beforeInteractive is NOT the answer either. It emits
+   *   (self.__next_s=self.__next_s||[]).push(...)
+   * which hands the code to Next's loader to run later — after hydration, and
+   * so after the first paint. That is the black-then-white flash the original
+   * script existed to prevent, reintroduced in the name of tidying a warning.
+   *
+   * A cookie is readable here, before a single byte is sent, so the attribute
+   * is simply part of the markup. No script, no flash, no hydration mismatch,
+   * and nothing to execute — the failure mode is gone rather than handled.
+   *
+   * WHITE IS THE DEFAULT, so the attribute is present unless somebody has
+   * explicitly chosen black. A first visit, a cleared browser and a private
+   * window all send no cookie, and all three should land on white — which is
+   * why the test is `!== "black"` rather than `=== "white"`.
+   */
+  const stored = (await cookies()).get(THEME_COOKIE)?.value;
+  const theme = stored === "black" ? undefined : "white";
+
   return (
     /*
       NO MANUAL <head> HERE.
@@ -53,44 +89,13 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       whole product rendered as unstyled HTML under `<html id="__next_error__">`.
       Next's own example carries only <html> and <body> — see
       node_modules/next/dist/docs/01-app/03-api-reference/02-components/script.md.
-
-      `suppressHydrationWarning` because the script below stamps an attribute on
-      <html> before React hydrates, so the server's markup and the browser's
-      first paint legitimately differ on this one element.
     */
     <html
       lang="en"
+      data-theme={theme}
       className={`${inter.variable} ${jetbrains.variable}`}
-      suppressHydrationWarning
     >
       <body className="bg-mesh">
-        {/*
-          THE THEME, BEFORE ANYTHING PAINTS.
-
-          Inline and first in the body, so it runs while the parser is still
-          working and nothing below it has been drawn. Anything asynchronous —
-          an effect, a deferred script, a client component — runs after the
-          first paint, so a person would watch the product paint one theme and
-          then switch on every single navigation.
-
-          WHITE IS THE DEFAULT, so the attribute is set unless somebody has
-          explicitly chosen black. That is why the test is `!== "black"` rather
-          than `=== "white"`: a first visit, a cleared browser and a private
-          window all have nothing stored, and all three should land on white.
-
-          It touches one attribute and swallows its own errors — localStorage
-          throws in a private window and in browsers set to block site data —
-          and the catch sets white too, because a preference that cannot be
-          read is not a reason to serve the theme nobody asked for.
-        */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html:
-              "(function(){var t='white';try{if(localStorage.getItem('nexus-theme')==='black')" +
-              "t='black'}catch(e){}" +
-              "if(t==='white')document.documentElement.setAttribute('data-theme','white')})()",
-          }}
-        />
         <Providers>{children}</Providers>
       </body>
     </html>
