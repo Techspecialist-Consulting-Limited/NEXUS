@@ -90,11 +90,11 @@ describe("seed integrity", () => {
         (select count(*) from reconciliations where org_id = $1) as reconciliations
     `, [org.id]);
 
-    expect(Number(counts.departments)).toBe(5);
-    expect(Number(counts.people)).toBe(18); // 15 in units + Chairman, HR, Administrator
-    expect(Number(counts.commitments)).toBeGreaterThan(400);
+    expect(Number(counts.departments)).toBe(4);
+    expect(Number(counts.people)).toBe(13); // 11 in units + Chairman, Administrator
+    expect(Number(counts.commitments)).toBeGreaterThan(300);
     expect(Number(counts.check_ins)).toBeGreaterThan(80);
-    expect(Number(counts.reconciliations)).toBeGreaterThan(100);
+    expect(Number(counts.reconciliations)).toBeGreaterThan(80);
   });
 });
 
@@ -139,7 +139,7 @@ describe("narrative: blocked by another team", () => {
       select r.cycle_id, r.delivery_rate, r.protected_count, r.blocked_count
       from reconciliations r
       join profiles p on p.id = r.profile_id
-      where p.email = 'chidi@nexus.demo' and r.protected_count > 0
+      where p.email = 'sade.adeniyi@nexus.invalid' and r.protected_count > 0
     `);
     expect(weeks.length).toBeGreaterThan(0);
 
@@ -150,7 +150,7 @@ describe("narrative: blocked by another team", () => {
         `select c.status, c.priority, c.was_planned, c.blocker_kind, c.deviation_declared
            from commitments c
            join profiles p on p.id = c.profile_id
-          where p.email = 'chidi@nexus.demo' and c.target_cycle_id = $1`,
+          where p.email = 'sade.adeniyi@nexus.invalid' and c.target_cycle_id = $1`,
         [w.cycle_id],
       );
 
@@ -214,14 +214,14 @@ describe("narrative: blocked by another team", () => {
       select sum(blocked_count)::int as blocked
       from dependency_edges de
       join departments d on d.id = de.to_department_id
-      where d.slug = 'creative-hub'
+      where d.slug = 'finance'
     `);
     expect(Number(edge.blocked)).toBeGreaterThan(0);
   });
 });
 
 describe("narrative: the silent dropper", () => {
-  // Tunde checks in every single week and sounds positive. What he never
+  // Olusola checks in every single week and sounds positive. What he never
   // mentions is the thing he quietly abandoned. A tool that only reads the
   // check-in text would report him as healthy.
   it("catches drops that were never declared", async () => {
@@ -233,7 +233,7 @@ describe("narrative: the silent dropper", () => {
         bool_and(r.responded)              as always_responded
       from reconciliations r
       join profiles p on p.id = r.profile_id
-      where p.email = 'tunde@nexus.demo'
+      where p.email = 'olusola.ajayi@nexus.invalid'
     `);
 
     expect(Number(agg.silent_drops)).toBeGreaterThanOrEqual(6);
@@ -244,11 +244,11 @@ describe("narrative: the silent dropper", () => {
   it("scores the model citizen's integrity above the silent dropper's", async () => {
     const [row] = await q(`
       select
-        avg(case when p.email = 'ngozi@nexus.demo' then r.signal_integrity end) as model_citizen,
-        avg(case when p.email = 'tunde@nexus.demo' then r.signal_integrity end) as dropper
+        avg(case when p.email = 'aisha.lawal@nexus.invalid' then r.signal_integrity end) as model_citizen,
+        avg(case when p.email = 'olusola.ajayi@nexus.invalid' then r.signal_integrity end) as dropper
       from reconciliations r
       join profiles p on p.id = r.profile_id
-      where p.email in ('ngozi@nexus.demo', 'tunde@nexus.demo')
+      where p.email in ('aisha.lawal@nexus.invalid', 'olusola.ajayi@nexus.invalid')
     `);
     // Ngozi defers openly and on time; that must read as integrity, not failure.
     expect(Number(row.model_citizen)).toBeGreaterThan(Number(row.dropper));
@@ -263,7 +263,7 @@ describe("narrative: the chronic over-committer", () => {
         select c.id, 1 as depth
         from commitments c
         join profiles p on p.id = c.profile_id
-        where p.email = 'amara@nexus.demo' and c.carried_from_commitment_id is null
+        where p.email = 'ifeanyi.obiora@nexus.invalid' and c.carried_from_commitment_id is null
         union all
         select c.id, ch.depth + 1
         from commitments c
@@ -281,10 +281,10 @@ describe("narrative: the chronic over-committer", () => {
              (select round(avg(r2.promised_count), 2)
                 from reconciliations r2
                 join profiles p2 on p2.id = r2.profile_id
-               where p2.email = 'ngozi@nexus.demo') as steady
+               where p2.email = 'aisha.lawal@nexus.invalid') as steady
       from reconciliations r
       join profiles p on p.id = r.profile_id
-      where p.email = 'amara@nexus.demo'
+      where p.email = 'ifeanyi.obiora@nexus.invalid'
     `);
     expect(Number(row.amara)).toBeGreaterThan(Number(row.steady));
   });
@@ -296,7 +296,7 @@ describe("narrative: the estimation optimist", () => {
       select round(sum(c.actual_effort_hours) / sum(c.estimated_effort_hours), 3) as bias
       from commitments c
       join profiles p on p.id = c.profile_id
-      where p.email = 'zainab@nexus.demo'
+      where p.email = 'rotimi.balogun@nexus.invalid'
         and c.category = 'backend'
         and c.actual_effort_hours is not null
     `);
@@ -313,7 +313,7 @@ describe("narrative: the firefighter", () => {
         round(avg(r.focus_ratio), 2)  as focus
       from reconciliations r
       join profiles p on p.id = r.profile_id
-      where p.email = 'kelechi@nexus.demo'
+      where p.email = 'folake.durojaiye@nexus.invalid'
     `);
     expect(Number(row.unplanned)).toBeGreaterThan(5);
     expect(Number(row.focus)).toBeLessThan(85);
@@ -353,7 +353,7 @@ describe("recomputation is idempotent", () => {
       select r.id, r.profile_id, r.cycle_id, r.delivery_rate, r.signal_integrity
       from reconciliations r
       join profiles p on p.id = r.profile_id
-      where p.email = 'amara@nexus.demo'
+      where p.email = 'ifeanyi.obiora@nexus.invalid'
       order by r.cycle_id
       limit 1
     `);
@@ -374,7 +374,7 @@ describe("recomputation is idempotent", () => {
       select r.id, r.profile_id, r.cycle_id
       from reconciliations r
       join profiles p on p.id = r.profile_id
-      where p.email = 'ngozi@nexus.demo'
+      where p.email = 'aisha.lawal@nexus.invalid'
       limit 1
     `);
     await q(

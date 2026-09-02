@@ -34,11 +34,11 @@ import {
 
 let db: PGlite;
 
-const EXEC = "exec@nexus.demo";
-const TECH_LEAD = "amara@nexus.demo";   // lead, Techspecialist
-const TECH_STAFF = "chidi@nexus.demo";  // staff, Techspecialist
-const MEDIA_LEAD = "tunde@nexus.demo";  // lead, Media Hub
-const MEDIA_STAFF = "ngozi@nexus.demo"; // staff, Media Hub
+const EXEC = "chairman@nexus.invalid";
+const TECH_LEAD = "ifeanyi.obiora@nexus.invalid";   // lead, Techspecialist
+const TECH_STAFF = "sade.adeniyi@nexus.invalid";  // staff, Techspecialist
+const MEDIA_LEAD = "temitope.oladele@nexus.invalid";  // lead, Media Hub
+const MEDIA_STAFF = "aisha.lawal@nexus.invalid"; // staff, Media Hub
 
 async function q(sql: string, params: unknown[] = []) {
   return (await db.query(sql, params)).rows as Record<string, any>[];
@@ -505,7 +505,7 @@ describe("raw check-in text is append-only", () => {
  * real unprivileged user, whatever the interface happens to offer.
  */
 describe("administration is enforced by policy, not by a hidden link", () => {
-  const ADMIN = "admin@nexus.demo";
+  const ADMIN = "admin@nexus.invalid";
 
   it("lets nobody but the administrator read the audit log", async () => {
     /*

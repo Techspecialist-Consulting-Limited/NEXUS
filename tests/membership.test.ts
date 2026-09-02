@@ -28,7 +28,7 @@ import {
 
 let db: PGlite;
 let orgId: string;
-let techDeptId: string;
+let unitId: string;
 
 type Row = Record<string, string | number | boolean | null>;
 
@@ -47,8 +47,8 @@ beforeAll(async () => {
   db = await createSeededDb();
   await actAsService(db);
   orgId = String((await q("select id from organizations where slug = 'nexus-demo'"))[0].id);
-  techDeptId = String(
-    (await q("select id from departments where slug = 'techspecialist'"))[0].id,
+  unitId = String(
+    (await q("select id from departments where slug = 'automation'"))[0].id,
   );
   // Publish a domain so the self-signup path is reachable at all.
   await q("update organizations set allowed_domains = array['nexus.demo'] where id = $1", [
@@ -110,7 +110,7 @@ describe("self-signup", () => {
     const user = await newAuthUser("hopeful@nexus.demo");
     const [{ request_to_join: profileId }] = await q(
       "select request_to_join($1, $2, $3, $4, $5, $6)",
-      [user, "nexus-demo", "Hopeful Person", "hopeful@nexus.demo", techDeptId, "executive"],
+      [user, "nexus-demo", "Hopeful Person", "hopeful@nexus.demo", unitId, "executive"],
     );
 
     const [p] = await q(
@@ -171,7 +171,7 @@ describe("self-signup", () => {
 describe("invitations", () => {
   async function invite(email: string, role: string, dept: string | null = null) {
     await actAsService(db);
-    const [inviter] = await q("select id from profiles where email = 'exec@nexus.demo'");
+    const [inviter] = await q("select id from profiles where email = 'chairman@nexus.invalid'");
     const [row] = await q(
       `insert into invitations (org_id, email, role, department_id, invited_by)
        values ($1, $2, $3::org_role, $4, $5) returning token`,
@@ -181,7 +181,7 @@ describe("invitations", () => {
   }
 
   it("grants exactly the role the sender chose", async () => {
-    const token = await invite("newlead@nexus.demo", "lead", techDeptId);
+    const token = await invite("newlead@nexus.demo", "lead", unitId);
     const user = await newAuthUser("newlead@nexus.demo");
 
     const [{ accept_invitation: profileId }] = await q(
@@ -198,7 +198,7 @@ describe("invitations", () => {
     expect(p.role).toBe("lead");
     expect(p.status).toBe("active"); // invited people skip the waiting room
     expect(p.via).toBe("invitation");
-    expect(p.department_id).toBe(techDeptId);
+    expect(p.department_id).toBe(unitId);
   });
 
   it("cannot be claimed by a different email address", async () => {
@@ -253,11 +253,11 @@ describe("invitations", () => {
 
   it("can only be issued by an admin or the Chairman", async () => {
     // A lead runs a unit; they do not get to mint another lead.
-    await loginAs(db, "amara@nexus.demo"); // lead
+    await loginAs(db, "ifeanyi.obiora@nexus.invalid"); // lead
     const attempt = await q(
       `insert into invitations (org_id, email, role, invited_by)
        select $1, 'sneaky@nexus.demo', 'executive'::org_role, id
-         from profiles where email = 'amara@nexus.demo'
+         from profiles where email = 'ifeanyi.obiora@nexus.invalid'
        returning id`,
       [orgId],
     ).catch(() => []);
@@ -267,7 +267,7 @@ describe("invitations", () => {
   it("cannot be issued by the Chairman either", async () => {
     // PRD F17: his signed-in view "is read-only and carries no administrative
     // capability". He reads the organisation; he does not decide who may.
-    const { profileId } = await loginAs(db, "exec@nexus.demo");
+    const { profileId } = await loginAs(db, "chairman@nexus.invalid");
     const attempt = await q(
       `insert into invitations (org_id, email, role, invited_by)
        values ($1, 'chairmansent@nexus.demo', 'staff'::org_role, $2)
@@ -278,7 +278,7 @@ describe("invitations", () => {
   });
 
   it("is issuable by the Administrator", async () => {
-    const { profileId } = await loginAs(db, "admin@nexus.demo");
+    const { profileId } = await loginAs(db, "admin@nexus.invalid");
     const rows = await q(
       `insert into invitations (org_id, email, role, invited_by)
        values ($1, 'legit@nexus.demo', 'staff'::org_role, $2)
@@ -291,14 +291,14 @@ describe("invitations", () => {
 
 describe("nobody promotes themselves", () => {
   it("blocks a staff member editing their own role", async () => {
-    const { profileId } = await loginAs(db, "chidi@nexus.demo");
+    const { profileId } = await loginAs(db, "sade.adeniyi@nexus.invalid");
     await expect(
       db.query("update profiles set role = 'executive' where id = $1", [profileId]),
     ).rejects.toThrow(/only an admin/i);
   });
 
   it("blocks a lead promoting themselves", async () => {
-    const { profileId } = await loginAs(db, "amara@nexus.demo");
+    const { profileId } = await loginAs(db, "ifeanyi.obiora@nexus.invalid");
     await expect(
       db.query("update profiles set role = 'admin' where id = $1", [profileId]),
     ).rejects.toThrow(/only an admin/i);
@@ -357,10 +357,10 @@ describe("nobody promotes themselves", () => {
     const user = await newAuthUser("placeme@nexus.demo");
     const [{ request_to_join: profileId }] = await q(
       "select request_to_join($1, $2, $3, $4, $5, $6)",
-      [user, "nexus-demo", "Place Me", "placeme@nexus.demo", techDeptId, "lead"],
+      [user, "nexus-demo", "Place Me", "placeme@nexus.demo", unitId, "lead"],
     );
 
-    await loginAs(db, "admin@nexus.demo");
+    await loginAs(db, "admin@nexus.invalid");
     await db.query(
       "update profiles set role = 'lead', status = 'active' where id = $1",
       [profileId],
@@ -377,10 +377,10 @@ describe("nobody promotes themselves", () => {
 
   it("refuses to move a profile between organisations", async () => {
     await actAsService(db);
-    const [victim] = await q("select id from profiles where email = 'chidi@nexus.demo'");
+    const [victim] = await q("select id from profiles where email = 'sade.adeniyi@nexus.invalid'");
     const [other] = await q("select id from organizations where slug = 'acme'");
 
-    await loginAs(db, "admin@nexus.demo");
+    await loginAs(db, "admin@nexus.invalid");
     await expect(
       db.query("update profiles set org_id = $1 where id = $2", [other.id, victim.id]),
     ).rejects.toThrow(/between organisations/i);
@@ -389,7 +389,7 @@ describe("nobody promotes themselves", () => {
 
 describe("HR", () => {
   async function makeHr() {
-    return loginAs(db, "hr@nexus.demo");
+    return loginAs(db, "folake.durojaiye@nexus.invalid");
   }
 
   it("sees the whole organisation's commitments", async () => {
@@ -405,7 +405,7 @@ describe("HR", () => {
     // The promise that makes people write the truth instead of writing for an
     // audience. HR is the enforcement partner and still does not get this.
     await actAsService(db);
-    const [other] = await q("select id from profiles where email = 'chidi@nexus.demo'");
+    const [other] = await q("select id from profiles where email = 'sade.adeniyi@nexus.invalid'");
 
     await makeHr();
     const rows = await q("select count(*)::int as n from check_ins where profile_id = $1", [

@@ -5,7 +5,7 @@
  *
  * A freshly connected project has one account and no data, so every screen is
  * an empty state and nothing about the product is visible. The local demo has
- * eight weeks of history and eighteen people; this puts the same thing where
+ * eight weeks of history and thirteen people; this puts the same thing where
  * real authentication can reach it, and — the part that matters — creates a
  * password login for each person, so you can sit in the Chairman's seat, then
  * HR's, then a blocked engineer's, and see three genuinely different products.
@@ -13,7 +13,9 @@
  * WHAT IT WRITES
  *
  * One organisation, slug `nexus-demo`, and one auth user per seeded profile at
- * @nexus.demo. Everything is namespaced and removable in a single command:
+ * @nexus.invalid — an RFC 2606 reserved TLD, so those mailboxes cannot exist
+ * and no digest addressed to one can leave the building. Everything is
+ * namespaced and removable in a single command:
  *
  *   node --env-file-if-exists=.env.local scripts/seed-remote.ts --remove
  *
@@ -53,7 +55,7 @@ try {
      * with no foreign key, so deleting the org first would orphan the logins.
      */
     const users = await sql`
-      delete from auth.users where email like '%@nexus.demo' returning id
+      delete from auth.users where email like '%@nexus.invalid' returning id
     `;
     const orgs = await sql`
       delete from organizations where slug = 'nexus-demo' returning id
@@ -130,7 +132,7 @@ try {
         where o.slug = 'nexus-demo')::int as people,
       (select count(*) from commitments c join organizations o on o.id = c.org_id
         where o.slug = 'nexus-demo')::int as commitments,
-      (select count(*) from auth.users where email like '%@nexus.demo')::int as logins
+      (select count(*) from auth.users where email like '%@nexus.invalid')::int as logins
   `;
 
   const roster = await sql<{ email: string; full_name: string; role: string }[]>`
@@ -152,10 +154,16 @@ try {
   console.log(`Every account uses the password:  ${PASSWORD}\n`);
   console.log("Worth signing in as:");
   for (const r of roster) {
-    console.log(`  ${r.role.padEnd(10)} ${r.email.padEnd(24)} ${r.full_name}`);
+    console.log(`  ${r.role.padEnd(10)} ${r.email.padEnd(32)} ${r.full_name}`);
   }
-  console.log("  staff      chidi@nexus.demo         Chidi Nwosu (blocked by another team)");
-  console.log("  staff      tunde@nexus.demo         Tunde Balogun (the silent dropper)");
+  /*
+   * Three seats the roster query cannot surface, because what makes them worth
+   * sitting in is a story in the data rather than a role in the schema.
+   */
+  console.log("\nAnd the seats where the data has something to say:");
+  console.log("  staff      sade.adeniyi@nexus.invalid     Sade Adeniyi (held up by Finance for weeks)");
+  console.log("  staff      uche.nwankwo@nexus.invalid     Uche Nwankwo (held up by Finance too — same cause, other unit)");
+  console.log("  staff      aisha.lawal@nexus.invalid      Aisha Lawal (delivers what she promises)");
 
   await sql.end();
 } catch (err) {

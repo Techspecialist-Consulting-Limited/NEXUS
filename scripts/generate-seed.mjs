@@ -53,7 +53,7 @@ function mulberry32(seed) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-const rnd = mulberry32(20260818);
+const rnd = mulberry32(20260902);
 const pick = (arr) => arr[Math.floor(rnd() * arr.length)];
 const chance = (p) => rnd() < p;
 const between = (a, b) => a + rnd() * (b - a);
@@ -67,126 +67,134 @@ const n = (v) =>
 // the organisation
 // ---------------------------------------------------------------------------
 
+/*
+ * FOUR UNITS THAT DEPEND ON EACH OTHER.
+ *
+ * The point of this organisation is not that it has departments — it is that
+ * the departments need things from each other, and the seed plants a single
+ * bottleneck whose consequences show up in two other units' figures. An
+ * executive brief that cannot join those dots is not doing its job, and with
+ * five unrelated teams there were no dots to join.
+ */
 const DEPARTMENTS = [
-  { slug: "techspecialist", name: "Techspecialist", color: "#5B8CFF",
-    desc: "Platform engineering, integrations and internal tooling." },
-  { slug: "media-hub", name: "Media Hub", color: "#F2789F",
-    desc: "Production, editorial and channel distribution." },
-  { slug: "creative-hub", name: "Creative Hub", color: "#F5B942",
-    desc: "Brand, design systems and campaign creative." },
-  { slug: "operations", name: "Operations", color: "#48C9A9",
-    desc: "Delivery management, vendors and client onboarding." },
-  { slug: "growth", name: "Growth", color: "#B18CF5",
-    desc: "Partnerships, pipeline and revenue programmes." },
+  { slug: "automation", name: "Automation", color: "#2E2420",
+    desc: "Process automation, integrations and internal tooling." },
+  { slug: "finance", name: "Finance", color: "#4A3C36",
+    desc: "Budgeting, procurement, payables and financial control." },
+  { slug: "marketing", name: "Marketing", color: "#6E5E57",
+    desc: "Campaigns, brand, content and demand generation." },
+  { slug: "people", name: "HR", color: "#9C8A84",
+    desc: "Hiring, onboarding, policy and employee relations." },
 ];
 
-// narrative: which planted story, if any, this person carries
+/*
+ * WHO CARRIES WHICH STORY, AND WHY IT LANDS ON THEM.
+ *
+ * `blocks` names the unit somebody is waiting on, so a dependency is a
+ * property of the person's situation rather than a constant buried in the
+ * generator. Two different people wait on Finance, from two different units —
+ * that is the finding the Chairman's brief has to surface on its own.
+ *
+ * The chain the data tells, if the engine is working:
+ *
+ *   Finance drops work silently (Segun)      -> nobody upstream knows why
+ *      \-> Marketing's campaign spend stalls (Kelechi, declares it weekly)
+ *      \-> Automation's licence never lands  (Chidi, declares it weekly)
+ *   HR is firefighting (Bisi)                -> the policy sign-off slips
+ *      \-> Automation's onboarding bot waits (Emeka)
+ *   Automation's lead keeps re-promising the one thing that is blocked (Amara)
+ *
+ * Both blocked people declare every time, so their delivery must come out
+ * PROTECTED — the single most important scoring rule in the product, and the
+ * reason this seed exists rather than random data.
+ */
 const PEOPLE = [
-  // Techspecialist
-  { email: "amara@nexus.demo",    name: "Amara Okonkwo",   dept: "techspecialist", role: "lead",  title: "Head of Engineering",     story: "over_committer" },
-  { email: "chidi@nexus.demo",    name: "Chidi Nwosu",     dept: "techspecialist", role: "staff", title: "Senior Engineer",         story: "blocked" },
-  { email: "zainab@nexus.demo",   name: "Zainab Yusuf",    dept: "techspecialist", role: "staff", title: "Backend Engineer",        story: "optimist" },
-  { email: "emeka@nexus.demo",    name: "Emeka Obi",       dept: "techspecialist", role: "staff", title: "Data Engineer",           story: null },
-  { email: "fatima@nexus.demo",   name: "Fatima Bello",    dept: "techspecialist", role: "staff", title: "QA Engineer",             story: null },
+  // Automation — the unit most exposed to everybody else's delays.
+  { email: "ifeanyi.obiora@nexus.invalid",  name: "Ifeanyi Obiora",   dept: "automation", role: "lead",  title: "Head of Automation",   story: "over_committer" },
+  { email: "sade.adeniyi@nexus.invalid",    name: "Sade Adeniyi",     dept: "automation", role: "staff", title: "Automation Engineer",  story: "blocked", blocks: "finance" },
+  { email: "rotimi.balogun@nexus.invalid",  name: "Rotimi Balogun",   dept: "automation", role: "staff", title: "Integration Engineer", story: "optimist" },
+  { email: "chinaza.mbah@nexus.invalid",    name: "Chinaza Mbah",     dept: "automation", role: "staff", title: "Data Engineer",        story: "blocked", blocks: "people" },
 
-  // Media Hub
-  { email: "tunde@nexus.demo",    name: "Tunde Balogun",   dept: "media-hub",      role: "lead",  title: "Head of Media",           story: "silent_dropper" },
-  { email: "ngozi@nexus.demo",    name: "Ngozi Eze",       dept: "media-hub",      role: "staff", title: "Producer",                story: "model_citizen" },
-  { email: "yusuf@nexus.demo",    name: "Yusuf Ibrahim",   dept: "media-hub",      role: "staff", title: "Video Editor",            story: null },
+  // Finance — the bottleneck, and it does not know it is one.
+  { email: "olusola.ajayi@nexus.invalid",   name: "Olusola Ajayi",    dept: "finance",    role: "lead",  title: "Head of Finance",      story: "silent_dropper" },
+  { email: "grace.etim@nexus.invalid",      name: "Grace Etim",       dept: "finance",    role: "staff", title: "Financial Analyst",    story: null },
 
-  // Creative Hub
-  { email: "adaeze@nexus.demo",   name: "Adaeze Nnamdi",   dept: "creative-hub",   role: "lead",  title: "Creative Director",       story: null },
-  { email: "kelechi@nexus.demo",  name: "Kelechi Anyanwu", dept: "creative-hub",   role: "staff", title: "Designer",                story: "firefighter" },
-  { email: "halima@nexus.demo",   name: "Halima Sani",     dept: "creative-hub",   role: "staff", title: "Copywriter",              story: null },
+  // Marketing — waiting on Finance, and saying so every week.
+  { email: "temitope.oladele@nexus.invalid", name: "Temitope Oladele", dept: "marketing", role: "lead",  title: "Head of Marketing",    story: null },
+  { email: "uche.nwankwo@nexus.invalid",    name: "Uche Nwankwo",     dept: "marketing",  role: "staff", title: "Campaign Manager",     story: "blocked", blocks: "finance" },
+  { email: "aisha.lawal@nexus.invalid",     name: "Aisha Lawal",      dept: "marketing",  role: "staff", title: "Content Lead",         story: "model_citizen" },
 
-  // Operations
-  { email: "segun@nexus.demo",    name: "Segun Adeyemi",   dept: "operations",     role: "lead",  title: "Head of Operations",      story: null },
-  { email: "blessing@nexus.demo", name: "Blessing Okoro",  dept: "operations",     role: "staff", title: "Delivery Manager",        story: null },
-
-  // Growth
-  { email: "ifeoma@nexus.demo",   name: "Ifeoma Chukwu",   dept: "growth",         role: "lead",  title: "Head of Growth",          story: null },
-  { email: "musa@nexus.demo",     name: "Musa Danjuma",    dept: "growth",         role: "staff", title: "Partnerships Lead",       story: null },
+  // HR — the unit, staffed by the person who also holds the HR capability.
+  { email: "folake.durojaiye@nexus.invalid", name: "Folake Durojaiye", dept: "people",    role: "hr",    title: "Head of People",       story: "firefighter" },
+  { email: "kunle.oyelaran@nexus.invalid",  name: "Kunle Oyelaran",   dept: "people",     role: "staff", title: "People Operations",    story: null },
 
   // The Chairman — change this address to your own to receive the real digest.
   // He reads and drills in; PRD F17 makes his view read-only, so he is NOT the
-  // person who administers accounts.
-  { email: "exec@nexus.demo",     name: "Damilola Ogunlesi", dept: null,            role: "executive", title: "Chairman",            story: null },
-
-  // HR: the enforcement partner. Sees the whole organisation and who reported,
-  // and still cannot read anybody's raw check-in text.
-  { email: "hr@nexus.demo",       name: "Bisi Adewale",    dept: null,             role: "hr",    title: "Head of People",          story: null },
+  // person who administers accounts. No unit: he files nothing.
+  { email: "chairman@nexus.invalid",        name: "Adebayo Fashola",  dept: null,         role: "executive", title: "Chairman",         story: null },
 
   // The Administrator. Somebody has to be able to invite people and place
   // them, and it is deliberately not the Chairman.
-  { email: "admin@nexus.demo",    name: "Tolu Adebayo",    dept: null,             role: "admin", title: "IT Administrator",        story: null },
+  { email: "admin@nexus.invalid",           name: "Nkechi Okafor",    dept: null,         role: "admin", title: "IT Administrator",     story: null },
 ];
 
+/*
+ * The work each unit actually does.
+ *
+ * Titles are written so a reader can tell WHY something is stuck without being
+ * told: "Wait on Finance for the RPA licence" and "Release the Q4 campaign
+ * budget" are two halves of one sentence, held by two different units. The
+ * reconciler never reads these strings — it works from statuses and declared
+ * dependencies — but a person reading the brief does, and the demo has to be
+ * legible to a person.
+ */
 const WORK = {
-  techspecialist: {
-    backend: [
-      "Ship the commitment reconciliation endpoint",
-      "Migrate the reporting pipeline to the new warehouse",
-      "Add retry + backoff to the webhook dispatcher",
-      "Cut API p95 latency below 300ms",
-      "Move session storage off the primary database",
-      "Harden the inbound email parser against malformed MIME",
+  automation: {
+    integration: [
+      "Ship the invoice ingestion connector",
+      "Wire payroll exports into the data warehouse",
+      "Add retry and backoff to the webhook dispatcher",
+      "Replace the nightly CSV drop with a live feed",
+      "Harden the inbound email parser against malformed attachments",
     ],
-    frontend: [
-      "Rebuild the department drill-down view",
-      "Fix layout shift on the dashboard header",
-      "Add keyboard navigation to the commitment list",
+    bots: [
+      "Roll the supplier onboarding bot to production",
+      "Automate the monthly reconciliation run",
+      "Cut the statement-matching job below five minutes",
     ],
-    infra: [
-      "Roll staging onto the new deployment pipeline",
-      "Set up alerting for failed background jobs",
-      "Rotate the production credentials",
-    ],
-  },
-  "media-hub": {
-    production: [
-      "Cut the Q3 client showreel",
-      "Record and edit three founder interviews",
-      "Deliver the campaign launch film",
-      "Rebuild the podcast publishing checklist",
-    ],
-    editorial: [
-      "Publish the September editorial calendar",
-      "Draft five channel scripts for the product launch",
-      "Close out captions and subtitles for the archive",
+    platform: [
+      "Move the scheduler onto the new deployment pipeline",
+      "Set up alerting for failed overnight jobs",
+      "Rotate the production service credentials",
     ],
   },
-  "creative-hub": {
-    design: [
-      "Deliver the rebrand key visuals",
-      "Finish the design token documentation",
-      "Produce campaign assets for the launch",
-      "Refresh the pitch deck template",
+  finance: {
+    control: [
+      "Close the September management accounts",
+      "Finish the quarterly VAT return",
+      "Reconcile the supplier statements for Q3",
+      "Rebuild the cash-flow forecast model",
     ],
-    copy: [
-      "Write the landing page copy",
-      "Rewrite onboarding email sequence",
-      "Name and position the new service line",
-    ],
-  },
-  operations: {
-    delivery: [
-      "Close out the Q3 vendor reconciliation",
-      "Onboard two new client accounts",
-      "Rewrite the delivery handover checklist",
-    ],
-    process: [
-      "Run the quarterly access review",
-      "Document the escalation path for late deliverables",
+    procurement: [
+      "Approve the RPA licence renewal",
+      "Release the Q4 campaign budget",
+      "Settle the outstanding vendor invoices",
+      "Renegotiate the payment terms with the two largest suppliers",
     ],
   },
-  /*
-   * HR reports too, so HR needs work to report on.
-   *
-   * They sit outside the delivery units, so this is deliberately the work of
-   * running the organisation rather than a department's output — but it is
-   * real weekly work, and it goes through exactly the same reconciliation as
-   * everybody else's.
-   */
+  marketing: {
+    campaign: [
+      "Launch the Q4 demand campaign",
+      "Ship the campaign landing page",
+      "Book the paid media flight for October",
+      "Run the customer story interviews",
+    ],
+    content: [
+      "Publish the October editorial calendar",
+      "Rewrite the onboarding email sequence",
+      "Produce the product launch explainer",
+    ],
+  },
   people: {
     hiring: [
       "Close out the two open engineering offers",
@@ -194,20 +202,10 @@ const WORK = {
       "Publish the updated role scorecards",
     ],
     policy: [
+      "Sign off the employee data handling policy",
       "Refresh the onboarding handbook",
       "Finish the annual leave policy update",
       "Complete the quarterly right-to-work checks",
-    ],
-  },
-  growth: {
-    pipeline: [
-      "Qualify the inbound partnership pipeline",
-      "Close the two outstanding renewal conversations",
-      "Build the Q4 outbound sequence",
-    ],
-    partnerships: [
-      "Sign the distribution partnership",
-      "Run the partner enablement session",
     ],
   },
 };
@@ -232,7 +230,38 @@ const WORK = {
  * in the backend list too, so a person could be handed it twice in one week:
  * once by the planted narrative and once at random.
  */
-const ROLLING_TITLE = "Migrate the reporting pipeline to the new warehouse";
+/* Slug -> the name a person would say out loud. */
+const DEPT_NAME = Object.fromEntries(DEPARTMENTS.map((d) => [d.slug, d.name]));
+
+/*
+ * What each blocked person is actually waiting for.
+ *
+ * Written as the OTHER side of a real commitment in WORK: Chidi waits on the
+ * licence Finance has to approve, Kelechi waits on the budget Finance has to
+ * release, Emeka waits on the policy HR has to sign off. Read the two units'
+ * boards side by side and the sentence completes itself.
+ */
+const BLOCKED_WORK = {
+  finance: [
+    "Wait on Finance to licence the RPA platform",
+    "Hold the campaign flight until the Q4 budget is released",
+    "Pause supplier automation pending procurement sign-off",
+  ],
+  people: [
+    "Wait on HR to sign off the employee data handling policy",
+    "Hold the onboarding bot until the data policy lands",
+  ],
+};
+
+/*
+ * The commitment that has been "next week" for six weeks running.
+ *
+ * Deliberately the automation that Finance has to licence before it can go
+ * anywhere. The carry and the cross-team blocker are one story, not two:
+ * Amara keeps re-promising a thing her unit cannot finish alone, and each
+ * week on its own looks like a small slip.
+ */
+const ROLLING_TITLE = "Roll the supplier onboarding bot to production";
 
 function weekOfWork(dept, count, exclude = []) {
   const groups = WORK[dept] ?? WORK.operations;
@@ -357,16 +386,24 @@ for (const person of PEOPLE) {
         status = "dropped";
         declared = false; // never mentioned — the whole point
       } else if (story === "blocked" && i < 2) {
+        /*
+         * Waiting on another unit, and saying so EVERY time.
+         *
+         * Two people carry this, in two different units, both waiting on the
+         * same Finance team — which is the finding the executive brief has to
+         * arrive at without being told. `blocks` comes from PEOPLE so the
+         * dependency is a fact about their situation.
+         *
+         * `declared: true` every week is the regression test: their delivery
+         * rate must come out PROTECTED. A product that penalises somebody for
+         * a dependency they flagged in time teaches people to stop flagging.
+         */
         status = "blocked";
         blocker = "external_team";
-        dependsDept = "creative-hub";
+        dependsDept = person.blocks ?? "finance";
         declared = true; // always says so, in time
-        title = firstUnused([
-          "Integrate the new brand assets into the app shell",
-          "Ship the campaign landing page",
-          "Wire up the redesigned dashboard components",
-        ]);
-        category = "frontend";
+        title = firstUnused(BLOCKED_WORK[person.blocks] ?? BLOCKED_WORK.finance);
+        category = person.blocks === "people" ? "bots" : "campaign";
       } else if (story === "optimist") {
         // Backend work reliably runs ~1.4x over the estimate.
         category = "backend";
@@ -385,10 +422,10 @@ for (const person of PEOPLE) {
         wasPlanned = false;
         status = "delivered";
         title = firstUnused([
-          "Emergency asset resize for the client pitch",
-          "Unplanned rework after the brand feedback session",
-          "Last-minute deck for the board meeting",
-          "Fix the broken export in the campaign template",
+          "Handle the escalated grievance case",
+          "Cover the unplanned exit interview and handover",
+          "Pull the headcount numbers for the board meeting",
+          "Re-run payroll checks after the supplier error",
         ]);
       } else {
         // ordinary humans
@@ -412,11 +449,18 @@ for (const person of PEOPLE) {
       // If they never checked in, nothing could have been declared.
       if (!responded) declared = false;
 
+      /*
+       * The unit named here is the one they are actually waiting on — it is
+       * what `source_quote` carries, and the Chairman reads it back in
+       * quotation marks under their name. A quote that names the wrong team
+       * is the one thing on his screen that cannot be checked against a row.
+       */
+      const waitingOn = DEPT_NAME[dependsDept] ?? "another team";
       const quote =
         status === "delivered"
           ? `Finished ${title.toLowerCase()} this week.`
           : status === "blocked"
-            ? `Still stuck on ${title.toLowerCase()} — waiting on Creative Hub.`
+            ? `Still stuck on ${title.toLowerCase()} — waiting on ${waitingOn}.`
             : `Planning to ${title.toLowerCase()}.`;
 
       weekRows.push({
@@ -453,7 +497,10 @@ for (const person of PEOPLE) {
 
       const parts = [];
       if (done.length) parts.push(`Shipped this week: ${done.join("; ")}.`);
-      if (stuck.length) parts.push(`Blocked on ${stuck.join("; ")} — waiting on Creative Hub to sign off.`);
+      if (stuck.length) {
+        const on = DEPT_NAME[person.blocks] ?? "another team";
+        parts.push(`Blocked on ${stuck.join("; ")} — waiting on ${on} to sign off.`);
+      }
       if (slipped.length) parts.push(`Still in flight: ${slipped.join("; ")}.`);
       if (!parts.length) parts.push("Quiet week — mostly support and interrupts.");
 
@@ -805,63 +852,64 @@ begin
   -- the correction window (GUIDE section 8): a briefing on an unsettled week
   -- reports numbers its subjects have not seen.
   --
-  -- The prose restates the same three narratives the reconciliation engine
-  -- finds on its own — the eight-week carry, the Creative Hub dependency, the
-  -- silent drops. It sits on the same screen as those findings, so anything
-  -- else here would read as the system contradicting itself.
+  -- The prose restates the same narratives the reconciliation engine finds on
+  -- its own — the six-week carry, the Finance bottleneck holding up two
+  -- separate units, and the silent drops inside Finance that explain it. It
+  -- sits on the same screen as those findings, so anything else here would
+  -- read as the system contradicting itself.
   insert into digests (org_id, scope, scope_id, period, cycle_id, status,
                        subject, summary_json, recipients, sent_at, created_at)
   select
     v_org, 'executive', null, 'weekly', cy.id, 'sent',
-    'Delivery held, and Creative Hub is now blocking a second unit',
+    'Finance is now holding up two units, and it does not know it',
     '{
-      "subject": "Delivery held, and Creative Hub is now blocking a second unit",
-      "headline": "Delivery held at last week''s level, but the Creative Hub dependency is now in its third cycle and five commitments closed without anyone saying what happened to them.",
+      "subject": "Finance is now holding up two units, and it does not know it",
+      "headline": "Delivery held at last week''s level, but the same Finance approvals are now blocking both Automation and Marketing, and five commitments closed inside Finance without anyone saying what happened to them.",
       "whatChanged": [
-        "The warehouse migration has now been carried eight weeks running.",
-        "Creative Hub has been blocking Techspecialist for three cycles.",
-        "Five commitments across five people closed with no status update.",
-        "Growth declared every deviation in time for the second week running."
+        "The supplier onboarding bot has now been carried six weeks running.",
+        "Finance is blocking Automation and Marketing at the same time.",
+        "Five commitments across Finance closed with no status update.",
+        "Marketing declared every deviation in time for the second week running."
       ],
       "decisions": [
         {
-          "risk": "The reporting pipeline migration has moved eight weeks in a row. Each week on its own looks like a small slip; the chain is the finding.",
-          "action": "Ask what the smallest shippable piece of it would be, and let the rest wait for it.",
-          "concerns": "Techspecialist"
+          "risk": "Two units are waiting on the same Finance approvals — the licence and the Q4 budget — and both flagged it every week. This is one decision, not two delays.",
+          "action": "Clear both approvals in one sitting this week, or say which of the two waits and until when.",
+          "concerns": "Finance"
         },
         {
-          "risk": "Creative Hub has held up Techspecialist for three cycles and it has not cleared on its own.",
-          "action": "Put both leads in one conversation this week and name who owns the unblock.",
-          "concerns": "Creative Hub"
+          "risk": "The supplier onboarding bot has moved six weeks in a row, and every one of those weeks it was waiting on the same licence. Each week on its own looks like a small slip; the chain is the finding.",
+          "action": "Ask what ships without the licence, and let the rest wait for procurement rather than the team.",
+          "concerns": "Automation"
         },
         {
-          "risk": "Five commitments went quiet rather than being deferred, so the delivery figure is softer than it reads.",
-          "action": "Ask what happened to those five before treating the percentage as settled."
+          "risk": "Five commitments inside Finance went quiet rather than being deferred, which is the likeliest reason the approvals above keep slipping without an explanation.",
+          "action": "Ask what happened to those five before treating the delivery figure as settled."
         }
       ],
       "praise": [
-        "Growth flagged every change as it happened, which is what makes their figures worth comparing."
+        "Sade and Uche flagged the same dependency every week rather than absorbing it quietly. Their figures are protected because of it, and that is what makes them worth comparing."
       ],
       "threads": [
         {
-          "headline": "Reporting pipeline migration to the new warehouse",
-          "detail": "Still moving. It has now been carried eight weeks running, and each week on its own has looked like a small slip. Amara is carrying it into next week again.",
-          "people": ["Amara Okonkwo"]
+          "headline": "Supplier onboarding bot, and the licence it needs",
+          "detail": "Still moving. It has now been carried six weeks running, and each week has looked like a small slip on its own. Ifeanyi is carrying it into next week again, and it has been waiting on the same procurement approval throughout.",
+          "people": ["Ifeanyi Obiora", "Sade Adeniyi"]
         },
         {
-          "headline": "Deployment pipeline and the reconciliation endpoint",
-          "detail": "Both landed. Zainab and Emeka closed the staging rollout together, and Zainab shipped the reconciliation endpoint; the retry and backoff work went in alongside it.",
-          "people": ["Zainab Yusuf", "Emeka Obi"]
+          "headline": "Q4 campaign budget and the launch flight",
+          "detail": "The campaign is built and cannot start. Uche has held the paid media flight for three cycles waiting on the budget release, and said so each time before the week closed.",
+          "people": ["Uche Nwankwo", "Temitope Oladele"]
         },
         {
-          "headline": "Design tokens and the brand assets in the app shell",
-          "detail": "The token documentation is finished. The brand assets it feeds are still waiting on Creative Hub, so that piece has not moved for a third week — the people waiting are not scored down for it.",
-          "people": ["Adaeze Nnamdi", "Halima Sani"]
+          "headline": "Invoice ingestion and the payroll export",
+          "detail": "Both landed. Rotimi and Chinaza closed the warehouse feed together; the retry and backoff work went in alongside it.",
+          "people": ["Rotimi Balogun", "Chinaza Mbah"]
         },
         {
-          "headline": "Inbound partnership pipeline",
-          "detail": "Qualified and handed on. Ifeoma and Musa worked the same list and both flagged their changes before the week closed rather than afterwards.",
-          "people": ["Ifeoma Chukwu", "Musa Danjuma"]
+          "headline": "The employee data policy sign-off",
+          "detail": "Not moved. HR has been pulled into unplanned casework for most of the period, and the onboarding bot cannot ship without the policy behind it.",
+          "people": ["Folake Durojaiye", "Chinaza Mbah"]
         }
       ]
     }'::jsonb

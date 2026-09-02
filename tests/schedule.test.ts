@@ -214,8 +214,8 @@ describe("digest delivery", () => {
      * scheduler on seed data would quietly wreck the deliverability of the
      * one email this product is judged on.
      */
-    expect(isDeliverable("exec@nexus.demo")).toBe(false);
-    expect(isDeliverable("hr@nexus.demo")).toBe(false);
+    expect(isDeliverable("chairman@nexus.invalid")).toBe(false);
+    expect(isDeliverable("folake.durojaiye@nexus.invalid")).toBe(false);
     for (const tld of ["test", "example", "invalid", "local", "localhost"]) {
       expect(isDeliverable(`someone@thing.${tld}`)).toBe(false);
     }
