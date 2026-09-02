@@ -792,3 +792,51 @@ export function digestUser(input: {
 
   return lines.join("\n");
 }
+
+/*
+ * Tidy somebody's own update. Do not interpret it.
+ *
+ * This is the narrowest job any model does in NEXUS, and the narrowness is the
+ * point: the text it returns, if accepted, becomes `check_ins.raw_text` — which
+ * migration 0002 guards as "exactly what the human wrote" and which surfaces on
+ * the Chairman's dashboard as this person's own sentence in quotation marks.
+ *
+ * So the prohibitions matter more than the instruction. A rewrite that improves
+ * the prose and quietly softens "legal is blocking us" into "waiting on legal"
+ * has changed what an executive will read and act on, in a voice attributed to
+ * somebody who never said it.
+ */
+export const REWRITE_SYSTEM = `
+Somebody has written a short update about their work week. Rewrite it so it
+reads clearly, in their own voice.
+
+WHAT TO CHANGE
+- Spelling, typing slips, and obvious autocorrect damage.
+- Punctuation and sentence breaks. Run-on dictation becomes sentences.
+- Shorthand a colleague would not follow ("nxt wk" -> "next week").
+
+WHAT NEVER CHANGES
+- The facts. Every task, name, team, date and number stays exactly as given.
+- The strength of what they said. "Blocked", "stuck" and "waiting on" are not
+  softened into each other, and a problem is never made to sound smaller.
+- Their register. If they write plainly, it stays plain. Do not make it
+  corporate, do not add enthusiasm, do not add a greeting or a sign-off.
+- The length, roughly. This is not a summary. Do not drop a detail because it
+  seems minor, and do not add one that was not there.
+
+NEVER add information. If something is ambiguous, leave it ambiguous — the
+person is about to read this and can fix it themselves.
+
+If the original is already clear, return it unchanged and set "unchanged" to
+true. Saying "this was already fine" is a useful answer.
+
+Return JSON: { "text": "...", "unchanged": false }
+`.trim();
+
+export function rewriteUser(input: { text: string; personName: string }): string {
+  return [
+    `${input.personName} wrote this update:`,
+    "",
+    input.text,
+  ].join("\n");
+}

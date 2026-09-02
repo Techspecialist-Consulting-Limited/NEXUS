@@ -3,6 +3,7 @@ import {
   adjudicationResult,
   assistantAnswer,
   checkInDraft,
+  checkInRewrite,
   extractionResult,
   extractionResultLenient,
   digestResult,
@@ -20,6 +21,8 @@ import {
   ASSISTANT_SYSTEM,
   DRAFT_SYSTEM,
   draftUser,
+  REWRITE_SYSTEM,
+  rewriteUser,
   assistantUser,
   EXTRACTION_SYSTEM,
   NARRATIVE_SYSTEM,
@@ -514,6 +517,22 @@ export class AzureProvider implements AiProvider {
       "draft",
       "fast",
       800,
+    );
+  }
+
+  async rewrite(input: { text: string; personName: string }) {
+    /*
+     * Fast tier, and the cap is generous relative to the input because the
+     * output should be the same length as what went in. A rewrite that has
+     * to be truncated has stopped being a rewrite.
+     */
+    return this.structured(
+      REWRITE_SYSTEM,
+      rewriteUser(input),
+      checkInRewrite,
+      "rewrite",
+      "fast",
+      1200,
     );
   }
 

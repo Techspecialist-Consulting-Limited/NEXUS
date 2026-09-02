@@ -11,6 +11,7 @@ import type {
   AssistantContext,
   AssistantAnswer,
   CheckInDraft,
+  CheckInRewrite,
   WeeklyHistory,
 } from "./types";
 
@@ -243,6 +244,45 @@ export class MockProvider implements AiProvider {
         updates,
         question: blockedWithoutOwner ? "Who is that blocked on?" : null,
       },
+      started,
+    );
+  }
+
+  /*
+   * A deterministic tidy-up, so the whole accept-rewrite flow can be built and
+   * tested with no deployment.
+   *
+   * Rules only, and deliberately timid ones: capitalise sentences, expand the
+   * few shorthands people actually type, collapse doubled spaces, and end the
+   * text with a full stop. It never reorders, never drops a clause and never
+   * touches a word it does not recognise — which is the same contract the real
+   * prompt is held to, expressed as code.
+   */
+  async rewrite(input: {
+    text: string;
+    personName: string;
+  }): Promise<AiResult<CheckInRewrite>> {
+    const started = Date.now();
+
+    const SHORTHAND: [RegExp, string][] = [
+      [/\bnxt\b/gi, "next"],
+      [/\bwk\b/gi, "week"],
+      [/\bthx\b/gi, "thanks"],
+      [/\btmrw\b/gi, "tomorrow"],
+      [/\bpls\b/gi, "please"],
+      [/\basap\b/gi, "as soon as possible"],
+      [/\bw\/\s/gi, "with "],
+    ];
+
+    let text = input.text.trim().replace(/[ \t]+/g, " ");
+    for (const [pattern, word] of SHORTHAND) text = text.replace(pattern, word);
+
+    // Sentence case, without disturbing anything already capitalised.
+    text = text.replace(/(^|[.!?]\s+)([a-z])/g, (_m, lead, ch) => lead + ch.toUpperCase());
+    if (text && !/[.!?]$/.test(text)) text += ".";
+
+    return this.timed(
+      { text, unchanged: text === input.text.trim() },
       started,
     );
   }

@@ -14,6 +14,7 @@ import {
   PenLine,
   Send,
   Square,
+  Wand2,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useDictation } from "@/lib/voice";
@@ -118,6 +119,66 @@ export function InlineCheckIn({
   const [progress, setProgress] = useState("");
   const [plan, setPlan] = useState("");
   const [question, setQuestion] = useState<string | null>(null);
+
+  /*
+   * The rewrite, held beside the original rather than applied to it.
+   *
+   * Null means none has been asked for. A value means one is waiting on a
+   * decision, and until that decision is made `raw` is untouched — the
+   * person's own words stay on screen and stay what would be filed.
+   */
+  const [suggestion, setSuggestion] = useState<string | null>(null);
+  const [rewriting, setRewriting] = useState(false);
+
+  async function askForRewrite() {
+    setRewriting(true);
+    setSuggestion(null);
+    try {
+      const res = await fetch("/api/check-in/rewrite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: raw }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        text?: string;
+        unchanged?: boolean;
+        error?: string;
+      };
+
+      if (!res.ok || !data.text) {
+        toast({
+          variant: "error",
+          title: "No rewrite this time",
+          description: data.error ?? "Your words are unchanged.",
+        });
+        return;
+      }
+
+      /*
+       * Nothing to decide is said, not shown. Offering an identical
+       * "suggestion" asks somebody to compare two copies of their own
+       * sentence and pick one.
+       */
+      if (data.unchanged) {
+        toast({
+          variant: "success",
+          title: "That already reads well",
+          description: "NEXUS would not change anything.",
+        });
+        return;
+      }
+
+      setSuggestion(data.text);
+    } catch {
+      toast({
+        variant: "error",
+        title: "NEXUS could not be reached",
+        description: "Your words are unchanged.",
+      });
+    } finally {
+      setRewriting(false);
+    }
+  }
   const [updates, setUpdates] = useState<Update[]>([]);
   const [dropped, setDropped] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
@@ -578,6 +639,81 @@ export function InlineCheckIn({
                        focus:border-[var(--nx-primary)]/70 focus:bg-white/[0.09]
                        focus:outline-none"
           />
+
+          {/*
+            THE REWRITE SITS BESIDE THE ORIGINAL, NEVER ON TOP OF IT.
+
+            Both are on screen while the choice is open, because the choice is
+            only meaningful if you can see what you would be giving up. `raw`
+            is not touched until Accept is pressed — close the card, reload,
+            or press Keep mine, and what you wrote is still exactly what would
+            be filed.
+          */}
+          {suggestion && (
+            <div className="mt-3 rounded-xl border border-[var(--nx-primary)]/35
+                            bg-[var(--nx-primary)]/[0.07] p-3.5">
+              <p className="eyebrow text-[var(--nx-primary-light)]">
+                Suggested rewrite
+              </p>
+              <p className="mt-1.5 text-sm leading-relaxed text-white/90">
+                {suggestion}
+              </p>
+              <p className="mt-2 text-xs leading-relaxed text-secondary">
+                Same facts, tidier wording. Accept it and it becomes your
+                update; keep yours and nothing changes.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRaw(suggestion);
+                    setSuggestion(null);
+                  }}
+                  className="nx-focus-ring inline-flex min-h-11 items-center gap-1.5
+                             rounded-lg bg-[var(--nx-primary)] px-3.5 text-sm
+                             font-medium text-[var(--on-accent)]
+                             transition-opacity hover:opacity-90"
+                >
+                  <Check size={14} aria-hidden="true" />
+                  Accept rewrite
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSuggestion(null)}
+                  className="nx-focus-ring inline-flex min-h-11 items-center rounded-lg
+                             border border-white/[0.14] px-3.5 text-sm text-white/85
+                             transition-colors hover:bg-white/[0.06]"
+                >
+                  Keep mine
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/*
+            Offered only once there is something to tidy. Below the box, because
+            it acts on what is in it — above, it reads as a thing to press
+            before writing.
+          */}
+          {raw.trim().split(/\s+/).filter(Boolean).length >= 3 && !suggestion && (
+            <button
+              type="button"
+              onClick={() => void askForRewrite()}
+              /* Not while the microphone is open — the text is still arriving. */
+              disabled={rewriting || listening}
+              className="nx-focus-ring mt-2 inline-flex min-h-11 items-center gap-1.5
+                         self-start rounded-lg px-2 text-[13px]
+                         text-[var(--nx-primary-light)] transition-opacity
+                         hover:opacity-80 disabled:opacity-45"
+            >
+              {rewriting ? (
+                <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+              ) : (
+                <Wand2 size={14} aria-hidden="true" />
+              )}
+              {rewriting ? "Rewriting…" : "Auto rewrite"}
+            </button>
+          )}
         </>
       )}
 

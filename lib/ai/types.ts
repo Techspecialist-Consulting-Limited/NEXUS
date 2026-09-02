@@ -456,6 +456,19 @@ export interface AiProvider {
     openCommitments: { id: string; title: string }[];
   }): Promise<AiResult<CheckInDraft>>;
 
+  /**
+   * Tidy somebody's own words, for them to accept or reject.
+   *
+   * Fast tier: they are watching. It rewrites ONLY — it must not summarise,
+   * add, infer or drop a fact, because the accepted text becomes
+   * `check_ins.raw_text`, which the whole product treats as authorship and
+   * quotes back to the Chairman as this person's own sentence.
+   */
+  rewrite(input: {
+    text: string;
+    personName: string;
+  }): Promise<AiResult<CheckInRewrite>>;
+
   /** Rule on promise/report pairs the cheap matcher could not settle. */
   adjudicate(input: {
     report: string;
@@ -611,6 +624,29 @@ export const checkInDraft = z.preprocess(
 );
 
 export type CheckInDraft = z.infer<typeof checkInDraft>;
+
+/**
+ * A tidied version of what somebody wrote, for them to accept or discard.
+ *
+ * NOT AN EXTRACTION. `draft` turns words into structured commitments; this
+ * returns the same update in the same person's voice with the typing cleaned
+ * up, and it is only ever a SUGGESTION — nothing is filed until the person
+ * accepts it, and the words they authored remain theirs to keep.
+ */
+export const checkInRewrite = z.object({
+  /** The tidied update. Same facts, same voice, same length or shorter. */
+  text: z.string().min(1).max(4000),
+  /**
+   * True when the model judged the original already clear.
+   *
+   * Offering a “rewrite” identical to the input wastes the reader's
+   * attention on a decision that changes nothing, so the caller says so
+   * instead of showing a diff of nothing.
+   */
+  unchanged: z.boolean().default(false),
+});
+
+export type CheckInRewrite = z.infer<typeof checkInRewrite>;
 
 // ---------------------------------------------------------------------------
 // The assistant
