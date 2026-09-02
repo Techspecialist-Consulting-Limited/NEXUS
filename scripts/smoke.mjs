@@ -41,12 +41,12 @@ const OUT = join(process.cwd(), ".smoke");
 const ROLES = [
   {
     name: "chairman",
-    email: "exec@nexus.demo",
+    email: "chairman@nexus.invalid",
     routes: ["/dashboard", "/departments", "/advice", "/notifications", "/settings"],
   },
   {
     name: "admin",
-    email: "admin@nexus.demo",
+    email: "admin@nexus.invalid",
     /*
      * The Administrator is a staff member with capability on top, so their
      * sweep covers both halves: their own week AND every Administration page.
@@ -75,7 +75,7 @@ const ROLES = [
   },
   {
     name: "hr",
-    email: "hr@nexus.demo",
+    email: "folake.durojaiye@nexus.invalid",
     // HR both monitors and reports, so both halves are walked.
     routes: [
       "/dashboard",
@@ -89,7 +89,7 @@ const ROLES = [
   },
   {
     name: "lead",
-    email: "amara@nexus.demo",
+    email: "ifeanyi.obiora@nexus.invalid",
     routes: [
       "/my-week",
       "/my-team",
@@ -102,7 +102,7 @@ const ROLES = [
   },
   {
     name: "staff",
-    email: "chidi@nexus.demo",
+    email: "sade.adeniyi@nexus.invalid",
     routes: ["/my-week", "/commitments", "/check-in", "/advice", "/notifications", "/settings"],
   },
 ];

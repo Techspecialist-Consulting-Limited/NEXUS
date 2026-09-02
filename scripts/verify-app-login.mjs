@@ -8,10 +8,17 @@
 import { chromium } from "playwright";
 
 const BASE = process.argv[2] ?? "http://localhost:3500";
+/*
+ * Where each role SHOULD land, per homeFor() in lib/nav.ts — the Chairman on
+ * the command view, everybody else in their own workspace. HR used to be
+ * asserted against /compliance here, which had stopped being true: monitoring
+ * is a place HR goes to, not the place they live, and this check was still
+ * failing the app for getting that right.
+ */
 const CASES = [
-  { email: "exec@nexus.demo", expect: "/dashboard", heading: /command/i },
-  { email: "hr@nexus.demo", expect: "/compliance", heading: /reporting/i },
-  { email: "chidi@nexus.demo", expect: "/my-week", heading: /hello/i },
+  { email: "chairman@nexus.invalid", expect: "/dashboard", heading: /week of/i },
+  { email: "folake.durojaiye@nexus.invalid", expect: "/my-week", heading: /folake/i },
+  { email: "sade.adeniyi@nexus.invalid", expect: "/my-week", heading: /sade/i },
 ];
 
 const browser = await chromium.launch();
@@ -32,12 +39,21 @@ for (const c of CASES) {
 
   await page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 45_000 })
     .catch(() => {});
-  await page.waitForTimeout(1500);
+
+  /*
+   * Wait for the destination to have RENDERED, not merely to have been
+   * navigated to. Reading the URL after a fixed 1500ms sampled a redirect
+   * still in flight, and reported "/login" next to a heading that could only
+   * have come from the page it had already reached — a failure that said
+   * nothing about the product.
+   */
+  await page.locator("h1").first().waitFor({ state: "visible", timeout: 45_000 })
+    .catch(() => {});
 
   const path = new URL(page.url()).pathname;
   const h1 = (await page.locator("h1").first().textContent().catch(() => "")) ?? "";
   const ok = path === c.expect && c.heading.test(h1);
-  console.log(`  ${ok ? "ok  " : "FAIL"} ${c.email.padEnd(20)} -> ${path.padEnd(14)} "${h1.trim()}"`);
+  console.log(`  ${ok ? "ok  " : "FAIL"} ${c.email.padEnd(32)} -> ${path.padEnd(14)} "${h1.trim()}"`);
   if (!ok) failed++;
 
   await page.screenshot({ path: `.smoke/live-${c.email.split("@")[0]}.png`, fullPage: true });
