@@ -111,7 +111,8 @@ export function PersonWeek({
 }: {
   fullName: string;
   departmentName: string | null;
-  cycleLabel: string;
+  /** Null until a week has settled — see the page's no-week branch. */
+  cycleLabel: string | null;
   reported: boolean;
   commitments: CommitmentRow[];
   planned: CommitmentRow[];
@@ -131,16 +132,28 @@ export function PersonWeek({
         </Link>
         <h1 className="page-title mt-1">{fullName}</h1>
         <p className="standfirst mt-1">
-          {departmentName ?? "No unit"} · {cycleLabel}
+          {departmentName ?? "No unit"}
+          {cycleLabel ? ` · ${cycleLabel}` : ""}
         </p>
       </div>
 
       {/*
-        Rule 5, on the page where breaking it would do the most damage. Somebody
-        who filed nothing has not had an empty week — nothing is known about
-        their week at all, and the two must never render the same way.
+        NOTHING SETTLED YET IS NOT THE SAME AS NOTHING FILED.
+
+        Without this the branch below would say this person "did not file a
+        check-in" on an organisation where nobody has been asked to yet — an
+        accusation the record cannot support. rejected-patterns.md #15: an
+        empty state must not assert.
       */}
-      {!reported ? (
+      {!cycleLabel ? (
+        <GlassCard level={2} className="p-6">
+          <EmptyState
+            icon={CalendarClock}
+            title="No week has closed yet"
+            body={`Nothing has been reported on for ${fullName.split(/\s+/)[0]} because no reporting week has settled. Once the first one closes, what they promised and what happened to it appears here.`}
+          />
+        </GlassCard>
+      ) : !reported ? (
         <GlassCard level={2} className="p-6">
           <EmptyState
             icon={CalendarClock}

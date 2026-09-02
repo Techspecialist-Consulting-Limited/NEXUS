@@ -36,7 +36,29 @@ export default async function PersonPage({
     getPerson(profileId),
     latestVisibleCycle(actor),
   ]);
-  if (!person || !week) notFound();
+
+  /*
+   * A PERSON THE VIEWER CANNOT SEE IS A 404. A WEEK THAT HAS NOT SETTLED IS NOT.
+   *
+   * These were one condition, so a name the Chairman clicked out of his own
+   * roster returned "page not found" whenever no week had closed — which is
+   * every organisation until its first cycle settles. The person exists; the
+   * figures do not exist yet, and those are different answers.
+   */
+  if (!person) notFound();
+
+  if (!week) {
+    return (
+      <PersonWeek
+        fullName={person.full_name}
+        departmentName={person.department_name ?? null}
+        cycleLabel={null}
+        reported={false}
+        commitments={[]}
+        planned={[]}
+      />
+    );
+  }
 
   /*
    * "Taken on next" is the cycle after the one being reported on, which is the

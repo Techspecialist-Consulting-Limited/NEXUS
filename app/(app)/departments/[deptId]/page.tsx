@@ -8,6 +8,7 @@ import {
   getPerson,
   latestVisibleCycle,
   teamWeek,
+  unitRoster,
   weeklyPersonReports,
 } from "@/lib/queries";
 import { DepartmentView } from "@/components/dashboard/department-view";
@@ -32,11 +33,48 @@ export default async function DepartmentPage({
   const me = await getPerson(actor);
   if (!me) redirect("/");
 
-  const week = await latestVisibleCycle(actor);
-  if (!week) notFound();
-
+  /*
+   * THE ONLY 404 ON THIS PAGE IS AN ID THAT IS NOT A UNIT.
+   *
+   * `latestVisibleCycle` used to be checked first, and answering null with
+   * notFound() meant a unit that plainly exists returned "page not found"
+   * whenever no week had settled yet — which is every organisation until its
+   * first reporting cycle closes. The Chairman's own dashboard renders these
+   * units as links, so the most natural click on his landing page 404'd on
+   * day one.
+   *
+   * A young organisation is a state, not a missing page.
+   */
   const department = await getDepartment(actor, deptId);
   if (!department) notFound();
+
+  const week = await latestVisibleCycle(actor);
+
+  if (!week) {
+    /*
+     * No week has closed, so there are no figures — but the unit and the
+     * people in it are facts already, and they are what somebody opening this
+     * page before the first cycle actually wants to check.
+     *
+     * `unitRoster` is the same query the Chairman's dashboard counts from, so
+     * the roster here and the headcount he clicked from cannot disagree.
+     */
+    const roster = await unitRoster(actor);
+    const unit = roster.units.find((u) => u.department_id === deptId);
+
+    return (
+      <DepartmentView
+        department={department}
+        health={null}
+        team={[]}
+        said={[]}
+        critical={[]}
+        edges={[]}
+        cycleLabel={null}
+        roster={unit?.members ?? []}
+      />
+    );
+  }
 
   /*
    * Two reads of the same week, deliberately. `teamWeek` is the reconciliation

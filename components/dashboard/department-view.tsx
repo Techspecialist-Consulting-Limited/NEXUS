@@ -45,6 +45,7 @@ export function DepartmentView({
   critical,
   edges,
   cycleLabel,
+  roster,
 }: {
   department: Department;
   health: DepartmentHealth | null;
@@ -60,7 +61,16 @@ export function DepartmentView({
   said: PersonWeek[];
   critical: CriticalItem[];
   edges: BlockingEdge[];
-  cycleLabel: string;
+  /** Null until a week has settled — see the page's no-week branch. */
+  cycleLabel: string | null;
+  /**
+   * Who is in the unit, for the state before any week has closed.
+   *
+   * `team` carries reconciliation counts and cannot exist without a cycle, so
+   * on a young organisation this page would otherwise show a unit with nobody
+   * in it. These are the same members the Chairman's dashboard counted.
+   */
+  roster?: { id: string; full_name: string; title: string | null }[];
 }) {
   const reports = new Map(said.map((p) => [p.profileId, p]));
 
@@ -87,11 +97,69 @@ export function DepartmentView({
           </div>
           <p className="mt-0.5 text-xs text-tertiary">
             {department.lead_name ? `Led by ${department.lead_name} · ` : ""}
-            {weekRange(cycleLabel)}
+            {cycleLabel ? weekRange(cycleLabel) : "No week has closed yet"}
           </p>
         </div>
       </div>
 
+      {/*
+        THE STATE BEFORE THE FIRST WEEK CLOSES.
+
+        Everything below this point is counted from a settled reconciliation
+        and there is not one yet, so the bands would each render their own
+        "nothing here" and the page would read as broken rather than early.
+        One honest sentence and the roster is the whole truth available.
+      */}
+      {!cycleLabel && (
+        <div className="mt-4 space-y-4">
+          <GlassCard level={2} className="p-5">
+            <h2 className="card-title">Nothing has been reported yet</h2>
+            <p className="mt-1.5 max-w-[60ch] text-sm leading-relaxed text-secondary">
+              Delivery, blockers and what each person said all come from a week
+              that has closed. This unit&rsquo;s first one has not. Once people
+              here check in and the week settles, this page fills in on its own.
+            </p>
+          </GlassCard>
+
+          <GlassCard level={2} className="p-5">
+            <h2 className="card-title">
+              In this unit{" "}
+              <span className="metric text-secondary">{roster?.length ?? 0}</span>
+            </h2>
+            {roster && roster.length > 0 ? (
+              <ul className="mt-3 flex flex-col gap-2">
+                {roster.map((p) => (
+                  <li
+                    key={p.id}
+                    className="flex items-baseline justify-between gap-3 rounded-xl
+                               border border-white/[0.06] bg-white/[0.02] px-3.5 py-2.5"
+                  >
+                    <span className="text-sm text-white/90">{p.full_name}</span>
+                    {p.title && (
+                      <span className="shrink-0 text-xs text-tertiary">{p.title}</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-1.5 text-sm leading-relaxed text-secondary">
+                Nobody is in it yet. Add people under People in Administration,
+                and what they report will count for this unit.
+              </p>
+            )}
+          </GlassCard>
+        </div>
+      )}
+
+      {/*
+        Every band below is counted from a settled reconciliation. With no week
+        there is nothing for any of them to count, so they are not rendered at
+        all rather than each drawing its own empty state — six "nothing here"
+        cards in a column is how a page that is merely early comes to look
+        broken.
+      */}
+      {cycleLabel && (
+      <>
       <m.div
         variants={staggerContainer}
         initial="hidden"
@@ -367,6 +435,8 @@ export function DepartmentView({
         </Reveal>
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 }
