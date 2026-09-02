@@ -7,7 +7,6 @@ import {
   getPerson,
   liveCommitments,
 } from "@/lib/queries";
-import { alertsFor } from "@/lib/alerts";
 import { CommitmentList } from "@/components/employee/commitment-list";
 import { TasksWorkspace } from "@/components/tasks/tasks-workspace";
 import { hasPersonalWorkspace } from "@/lib/capabilities";
@@ -45,11 +44,12 @@ export default async function CommitmentsPage({
    * because the page had asked about four weeks that were not the one holding
    * their work.
    */
-  const [withWork, current, feed, open] = await Promise.all([
+  /* The bell moved to the shell header, which reads alertsFor once for every
+     page — see app/(app)/layout.tsx. Asking again here was a second identical
+     query per navigation. */
+  const [withWork, current, open] = await Promise.all([
     cyclesWithWork(actor, me.id, 6),
     currentCycle(actor),
-    // The same list /notifications builds, for the bell in the header.
-    alertsFor(actor, me),
     /*
      * WHAT IS STILL THEIRS TO MOVE — and the exact function My Week asks.
      *
@@ -104,12 +104,10 @@ export default async function CommitmentsPage({
   if (hasPersonalWorkspace(me.role)) {
     return (
       <TasksWorkspace
-        person={me}
         open={open}
         weeks={filled}
         currentCycleId={current?.id ?? null}
         openTaskId={openTaskId}
-        alerts={feed.alerts}
       />
     );
   }

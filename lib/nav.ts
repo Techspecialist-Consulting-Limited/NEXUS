@@ -69,7 +69,7 @@ export const GROUP_LABEL: Record<Exclude<NavGroup, "personal">, string> = {
 function personalTabs(): Tab[] {
   return [
     { href: "/my-week", label: "My week", icon: "myweek" },
-    { href: "/commitments", label: "Tasks", icon: "tasks" },
+    { href: "/commitments", label: "Pending Tasks", icon: "tasks" },
     { href: "/check-in", label: "Check in", icon: "checkin" },
     { href: "/advice", label: "Coaching", icon: "insights" },
     { href: "/notifications", label: "Alerts", icon: "alerts" },

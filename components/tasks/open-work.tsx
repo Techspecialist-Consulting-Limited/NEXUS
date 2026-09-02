@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import type { LiveCommitment } from "@/lib/queries";
 import { weekLabel } from "@/lib/cycle";
 import { TaskRow } from "@/components/tasks/task-row";
+import { MarkDone } from "@/components/tasks/mark-done";
 import { cn } from "@/lib/cn";
 
 /*
@@ -96,7 +97,13 @@ export function OpenWork({
   return (
     <section aria-label="Open work" className="flex flex-col gap-3">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
-        <h2 className="card-title text-[var(--nx-text-primary)]">Open work</h2>
+        {/*
+          NO HEADING HERE. The page is called Pending Tasks and this is that
+          list — "Open work" above it was the same sentence a second time.
+          The row survives because the filters need somewhere to sit, and the
+          section keeps its accessible name from aria-label below.
+        */}
+        <span aria-hidden="true" />
 
         {tabs.length > 1 && (
           <div role="tablist" aria-label="Filter open work" className="flex flex-wrap gap-1.5">
@@ -140,6 +147,7 @@ export function OpenWork({
                 trailing={
                   c.is_current_week ? null : `for ${weekLabel(c.target_label)}`
                 }
+                action={<MarkDone commitmentId={c.id} title={c.title} />}
               />
             </li>
           ))}

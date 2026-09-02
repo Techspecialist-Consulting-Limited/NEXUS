@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { ChevronRight, Repeat2, ShieldCheck } from "lucide-react";
 import type { CommitmentRow } from "@/lib/queries";
 import { cn } from "@/lib/cn";
@@ -31,6 +32,7 @@ export function TaskRow({
   onClick,
   showChevron = true,
   trailing = null,
+  action = null,
 }: {
   commitment: CommitmentRow;
   onClick: () => void;
@@ -44,27 +46,51 @@ export function TaskRow({
    * stops a carried promise reading as one made today.
    */
   trailing?: string | null;
+  /**
+   * A control rendered at the row's trailing edge — "mark as done".
+   *
+   * Passed in rather than built here because only the caller knows whether
+   * this list is somebody's own work to move or a record they are reading.
+   */
+  action?: ReactNode;
 }) {
   const meta = metaLine(c);
 
+  /*
+   * THE WHOLE ROW OPENS THE TASK, AND A CONTROL CAN STILL SIT ON IT.
+   *
+   * This was a single <button> wrapping everything, which made the entire row
+   * one target — good — and made a second button inside it invalid HTML, which
+   * is the one thing standing between this list and a "done" control.
+   *
+   * So the shell is a div, the row-wide target is an absolutely positioned
+   * button beneath the content, and anything interactive sits above it on
+   * `relative`. Same click area, same keyboard behaviour, and actions are now
+   * possible. The content itself is pointer-events-none so text selection does
+   * not swallow the row click.
+   */
   return (
-    <button
-      type="button"
-      onClick={onClick}
+    <div
       data-blocked-row={c.status === "blocked" ? "true" : undefined}
-      aria-label={`${c.title} · ${statusShortLabel(c.status)}`}
       className={cn(
-        "group grid w-full grid-cols-[auto_1fr_auto] items-start gap-x-3 gap-y-1 rounded-xl border border-white/[0.05] bg-white/[0.02] px-3.5 py-2.5 text-left",
-        "transition-colors duration-150 hover:border-white/[0.14] hover:bg-white/[0.05] focus-visible:outline focus-visible:outline-2 focus-visible:outline-white/40",
+        "group relative grid w-full grid-cols-[auto_1fr_auto] items-start gap-x-3 gap-y-1 rounded-xl border border-white/[0.05] bg-white/[0.02] px-3.5 py-2.5 text-left",
+        "transition-colors duration-150 hover:border-white/[0.14] hover:bg-white/[0.05] focus-within:border-white/[0.18]",
       )}
     >
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={`${c.title} · ${statusShortLabel(c.status)}`}
+        className="nx-focus-ring absolute inset-0 z-0 rounded-xl"
+      />
+
       <span
         aria-hidden="true"
-        className="mt-[7px] size-2 shrink-0 rounded-full"
+        className="pointer-events-none relative z-[1] mt-[7px] size-2 shrink-0 rounded-full"
         style={{ background: dotColor(c.status) }}
       />
 
-      <span className="min-w-0">
+      <span className="pointer-events-none relative z-[1] min-w-0">
         {/* Never clamped — see working-on-card.tsx for why two lines is not
             enough at 320px. */}
         <span className="block text-[15px] font-semibold leading-snug text-[var(--nx-text-primary)]">
@@ -97,7 +123,7 @@ export function TaskRow({
         )}
       </span>
 
-      <span className="flex shrink-0 items-center gap-2.5">
+      <span className="relative z-[1] flex shrink-0 items-center gap-2.5">
         {/*
           CARRY IS THE LOUDEST THING ON A CARRIED ROW.
 
@@ -131,15 +157,16 @@ export function TaskRow({
           </span>
         )}
         <StatusBadge status={c.status} size="sm" />
+        {action}
         {showChevron && (
           <ChevronRight
             size={15}
-            className="text-[var(--nx-text-muted)] transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-[var(--nx-text-secondary)]"
+            className="pointer-events-none text-[var(--nx-text-muted)] transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-[var(--nx-text-secondary)]"
             aria-hidden="true"
           />
         )}
       </span>
-    </button>
+    </div>
   );
 }
 
