@@ -2,7 +2,13 @@ import { redirect } from "next/navigation";
 import { hasPersonalWorkspace } from "@/lib/capabilities";
 import { homeFor } from "@/lib/nav";
 import { currentActorId } from "@/lib/session";
-import { getPerson, recentCycles, reportingStreak } from "@/lib/queries";
+import {
+  currentCycle,
+  getPerson,
+  openCheckInCycle,
+  recentCycles,
+  reportingStreak,
+} from "@/lib/queries";
 import { openCommitments } from "@/lib/checkin";
 import { CheckInFlow } from "@/components/checkin/check-in-flow";
 
@@ -31,8 +37,29 @@ export default async function CheckInPage() {
     redirect(homeFor(me.role));
   }
 
-  const cycles = await recentCycles(actor);
-  const week = cycles.at(-1);
+  /*
+   * THE WEEK WE ARE IN. Not the last one that closed.
+   *
+   * This was `recentCycles(actor).at(-1)`, and that function excludes the
+   * current week ON PURPOSE — it serves the executive view, where the
+   * interesting week is the most recent SETTLED one. Its own comment warns
+   * against this exact use: on Friday 28 August it answered "17–23 August",
+   * a week that had ended five days earlier.
+   *
+   * So this page filed a check-in against last week, and on a NEW
+   * organisation — where no week has ended yet — it returned nothing at all
+   * and rendered "No reporting week is open" on day one.
+   *
+   * /my-week was fixed for this and this page was not. Same ordering, and
+   * the two must agree: the calendar week, then the rhythm's open check-in,
+   * then whatever exists.
+   */
+  const [cycles, current, openWeek] = await Promise.all([
+    recentCycles(actor),
+    currentCycle(actor),
+    openCheckInCycle(actor, me.id),
+  ]);
+  const week = current ?? openWeek ?? cycles.at(-1);
   if (!week) {
     return <p className="py-16 text-center text-sm text-secondary">No reporting week is open.</p>;
   }

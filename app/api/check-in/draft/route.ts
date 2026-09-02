@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { currentViewer } from "@/lib/auth";
-import { getPerson, recentCycles } from "@/lib/queries";
+import {
+  currentCycle,
+  getPerson,
+  openCheckInCycle,
+  recentCycles,
+} from "@/lib/queries";
 import { openCommitments } from "@/lib/checkin";
 import { aiProvider } from "@/lib/ai/provider";
 
@@ -48,9 +53,21 @@ export async function POST(request: Request) {
    * The week being reported on is the CURRENT one, not the last settled one.
    * A check-in is filed against the week in progress; using the settled week
    * would file this week's words against a week already closed.
+   *
+   * THE COMMENT ABOVE WAS RIGHT AND THE CODE UNDER IT DID THE OPPOSITE.
+   * `recentCycles` excludes the current week by design, so this resolved to
+   * the last CLOSED one — exactly what the paragraph rules out — and returned
+   * nothing at all on an organisation whose first week has not ended.
+   *
+   * Same ordering as /check-in and /my-week, so a draft cannot be sorted
+   * against a different week from the one the page is filing.
    */
-  const cycles = await recentCycles(actor);
-  const week = cycles.at(-1);
+  const [cycles, current, openWeek] = await Promise.all([
+    recentCycles(actor),
+    currentCycle(actor),
+    openCheckInCycle(actor, me.id),
+  ]);
+  const week = current ?? openWeek ?? cycles.at(-1);
   if (!week) {
     return NextResponse.json({ error: "no open week" }, { status: 409 });
   }

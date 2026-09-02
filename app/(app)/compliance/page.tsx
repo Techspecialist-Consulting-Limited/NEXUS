@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { requireViewer } from "@/lib/session";
 import { canSeeOrg } from "@/lib/auth";
-import { latestVisibleCycle, recentCycles } from "@/lib/queries";
+import { currentCycle, latestVisibleCycle, recentCycles } from "@/lib/queries";
 import { reportingCompliance } from "@/lib/team";
 import { ComplianceView } from "@/components/team/compliance-view";
 import { ReportingBoard } from "@/components/hr/reporting-board";
@@ -18,8 +18,19 @@ export default async function CompliancePage() {
   const { membership } = await requireViewer();
   if (!canSeeOrg(membership.role)) redirect("/");
 
-  const cycles = await recentCycles(membership.profileId, 2);
-  const week = cycles.at(-1) ?? (await latestVisibleCycle(membership.profileId));
+  /*
+   * The week being chased is the one in progress. `recentCycles` excludes it
+   * by design, so this page asked "who has not reported" about a week that
+   * had already closed — and answered nothing at all before any week had.
+   */
+  const [cycles, thisWeek] = await Promise.all([
+    recentCycles(membership.profileId, 2),
+    currentCycle(membership.profileId),
+  ]);
+  const week =
+    thisWeek ??
+    cycles.at(-1) ??
+    (await latestVisibleCycle(membership.profileId));
   if (!week) {
     return (
       <p className="py-16 text-center text-sm text-secondary">
