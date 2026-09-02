@@ -7,6 +7,7 @@ import type { OrgRole } from "@/lib/roles";
 import { currentActorId } from "@/lib/session";
 import {
   coursePlot,
+  currentCycle,
   departmentHealth,
   getPerson,
   latestVisibleCycle,
@@ -158,15 +159,16 @@ export default async function DashboardPage() {
      * Who is expected to file, when no week exists to count it over.
      *
      * Derived from the roster rather than a second query: units' members plus
-     * the unassigned IS every active person, and reportingCompliance excludes
-     * the Chairman for the same reason this does — he consumes reporting and
-     * does not produce it.
+     * the unassigned is everybody who reports. `unitRoster` leaves the
+     * Chairman out of both halves now — he consumes reporting and does not
+     * produce it — so this no longer filters him out a second time. Two places
+     * deciding the same thing is how they end up disagreeing.
      */
     const expected =
       compliance.length > 0
         ? compliance.length
-        : [...roster.units.flatMap((u) => u.members), ...roster.unassigned]
-            .filter((m) => m.role !== "executive").length;
+        : roster.units.flatMap((u) => u.members).length +
+          roster.unassigned.length;
 
     return (
       <ExecutiveHome
@@ -209,8 +211,17 @@ export default async function DashboardPage() {
      * current one is still inside the employees' correction window. HR needs
      * both, and the view labels which is which.
      */
-    const cycles = await recentCycles(actor, 2);
-    const openWeek = cycles.at(-1) ?? week;
+    /*
+     * `recentCycles` EXCLUDES the current week, so this resolved to the last
+     * CLOSED one — and the paragraph above says chasing must act on the OPEN
+     * week. HR was being shown who had not reported for a week that had
+     * already ended, and asked to chase it.
+     */
+    const [cycles, thisWeek] = await Promise.all([
+      recentCycles(actor, 2),
+      currentCycle(actor),
+    ]);
+    const openWeek = thisWeek ?? cycles.at(-1) ?? week;
 
     const [compliance, departments] = await Promise.all([
       reportingCompliance(actor, openWeek.id),

@@ -261,6 +261,17 @@ export async function unitRoster(actor: string): Promise<UnitRoster> {
         left join profiles p
                on p.department_id = d.id
               and p.status = 'active'
+              /*
+               * THE CHAIRMAN IS NOT A MEMBER OF ANYTHING.
+               *
+               * This roster answers "who reports, and into which unit". The
+               * executive files no weekly update at all — see
+               * hasPersonalWorkspace in lib/capabilities.ts, which is the
+               * same rule /my-week uses to redirect him away. Counting him
+               * as a unit member would put somebody in a unit's headcount
+               * who can never appear in its delivery figures.
+               */
+              and p.role <> 'executive'
         where d.org_id = (select org_id from profiles where id = ${actor})
           and d.archived_at is null
         group by d.id, d.name, d.color, lead.full_name
@@ -275,6 +286,21 @@ export async function unitRoster(actor: string): Promise<UnitRoster> {
         where p.org_id = (select org_id from profiles where id = ${actor})
           and p.status = 'active'
           and p.department_id is null
+          /*
+           * AND NOT THE CHAIRMAN.
+           *
+           * He has no unit by design, so without this the Chairman's own
+           * dashboard flagged him in an amber card reading "1 person is in
+           * no unit — what they report reaches no unit's delivery figures
+           * … put them in a unit". Every clause of that is false about
+           * him: he reports nothing, so nothing of his is missing from a
+           * figure, and there is no unit he should be put in.
+           *
+           * The list means "people who report and have nowhere for it to
+           * count". That is exactly hasPersonalWorkspace in
+           * lib/capabilities.ts, expressed in the one place SQL can say it.
+           */
+          and p.role <> 'executive'
         order by p.full_name
       `,
     ),

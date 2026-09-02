@@ -1,4 +1,5 @@
 import { asActor } from "./db";
+import { hasPersonalWorkspace } from "./capabilities";
 import type { OrgRole, MembershipStatus } from "./roles";
 
 /*
@@ -122,12 +123,27 @@ export async function createInvitation(
   departmentId: string | null,
   title: string | null,
 ): Promise<{ id: string; token: string } | null> {
+  /*
+   * THE CHAIRMAN IS NOT INVITED INTO A UNIT.
+   *
+   * An invitation carries a role and a unit, and the unit was written
+   * through whatever the role — so inviting somebody as the executive with
+   * a department selected filed him into it. He then appeared in that unit's
+   * headcount while being structurally incapable of contributing to its
+   * delivery figures, because he never files a week.
+   *
+   * Dropped here rather than rejected: the invitation is still valid and the
+   * unit was never a meaningful part of it. The same predicate decides
+   * whether /my-week exists for somebody — see lib/capabilities.ts.
+   */
+  const unit = hasPersonalWorkspace(role) ? departmentId : null;
+
   const rows = await asActor(
     actor,
     (sql) => sql<{ id: string; token: string }>`
       insert into invitations (org_id, email, role, department_id, title, invited_by)
       select p.org_id, ${email.toLowerCase()}, ${role}::org_role,
-             ${departmentId}::uuid, ${title}, p.id
+             ${unit}::uuid, ${title}, p.id
       from profiles p
       where p.id = ${actor}
       on conflict (org_id, email) where accepted_at is null and revoked_at is null
@@ -172,7 +188,23 @@ export async function updateMember(
       update profiles
          set role = coalesce(${patch.role ?? null}::org_role, role),
              status = coalesce(${patch.status ?? null}::membership_status, status),
+             /*
+              * AN EXECUTIVE HOLDS NO UNIT, WHICHEVER FIELD WAS TOUCHED.
+              *
+              * Two ways in, and the second is the one that bites. Setting a
+              * unit on somebody who is already the Chairman is the obvious
+              * case. The quiet one is PROMOTION: change a staff member's
+              * role to executive and the old department_id simply stayed,
+              * so they kept a seat in a unit's headcount while losing the
+              * ability to file anything that could reach its figures.
+              *
+              * Keyed on the role the row will HAVE after this statement,
+              * not the one it had, so the clearing and the promotion happen
+              * in the same write rather than needing a second one.
+              */
              department_id = case
+               when coalesce(${patch.role ?? null}::org_role, role) = 'executive'
+                 then null
                when ${patch.departmentId !== undefined} then ${patch.departmentId ?? null}::uuid
                else department_id
              end,

@@ -22,6 +22,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
 import { staggerContainer, staggerItem } from "@/lib/motion-tokens";
 import { ROLE_BLURB, ROLE_LABEL, type OrgRole } from "@/lib/roles";
+import { hasPersonalWorkspace } from "@/lib/capabilities";
 import type { Invitation, Member } from "@/lib/team";
 import { unitTone, unitWash } from "@/lib/unit-tone";
 
@@ -226,6 +227,27 @@ export function TeamManager({
             </select>
           </label>
 
+          {/*
+            NO UNIT PICKER FOR THE CHAIRMAN.
+
+            He files no weekly update, so a unit could only ever put him in a
+            headcount he cannot contribute a delivery figure to. The picker
+            offered every unit regardless of role and the invitation wrote
+            whatever was chosen; lib/team.ts now drops it as well, because a
+            hidden control is a courtesy and the write is the rule.
+
+            The slot still says why, rather than vanishing — a field that
+            disappears when you change a dropdown above it reads as a glitch.
+          */}
+          {!hasPersonalWorkspace(role) ? (
+            <div className="block">
+              <span className="text-2xs text-tertiary">Unit</span>
+              <p className="mt-1 flex h-11 items-center rounded-lg border border-dashed
+                            border-[var(--nx-border)] px-2.5 text-sm text-secondary">
+                Not in a unit — the Chairman does not report
+              </p>
+            </div>
+          ) : (
           <label className="block">
             <span className="text-2xs text-tertiary">Unit</span>
             <select
@@ -249,6 +271,7 @@ export function TeamManager({
               ))}
             </select>
           </label>
+          )}
         </div>
 
         <p className="mt-2 text-2xs leading-relaxed text-tertiary">
@@ -450,7 +473,18 @@ export function TeamManager({
                       */}
                       <select
                         value={p.department_id ?? ""}
-                        disabled={pending || departments.length === 0}
+                        /*
+                          The Chairman has no unit to pick. lib/team.ts
+                          clears it on write in any case — including when
+                          somebody is promoted INTO the role while holding
+                          one — so this only stops the control offering a
+                          choice the database will discard.
+                        */
+                        disabled={
+                          pending ||
+                          departments.length === 0 ||
+                          !hasPersonalWorkspace(p.role)
+                        }
                         onChange={(e) =>
                           patchMember(p.profile_id, {
                             departmentId: e.target.value || null,
