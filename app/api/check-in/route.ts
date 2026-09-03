@@ -1,9 +1,9 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { z } from "zod";
 import { asActor } from "@/lib/db";
 import { currentActorId } from "@/lib/session";
 import { getPerson } from "@/lib/queries";
-import { submitCheckIn } from "@/lib/checkin";
+import { interpretCheckIn, recordCheckIn } from "@/lib/checkin";
 
 const body = z.object({
   cycleId: z.string().uuid(),
@@ -30,6 +30,12 @@ const body = z.object({
     .default([]),
 });
 
+/*
+ * The model runs in `after`, past the response, and that time still counts
+ * against the route. Vercel's default would cut it off mid-extraction.
+ */
+export const maxDuration = 120;
+
 export async function POST(request: Request) {
   const parsed = body.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
@@ -37,74 +43,78 @@ export async function POST(request: Request) {
   }
 
   const actor = await currentActorId();
-  const me = await getPerson(actor);
-  if (!me) return NextResponse.json({ error: "no actor" }, { status: 401 });
-
   const { cycleId, progress, plan, resolutions, dictated } = parsed.data;
 
-  // The cycle this reports on, and the one new promises land in.
-  const cycles = await asActor(
-    actor,
-    (sql) => sql<{ id: string; label: string; next_id: string | null }>`
-      select c.id, c.label,
-             (select n.id from cycles n
-               where n.org_id = c.org_id and n.kind = 'week' and n.starts_on > c.starts_on
-               order by n.starts_on limit 1) as next_id
-      from cycles c where c.id = ${cycleId}
-    `,
-  );
-  const cycle = cycles[0];
-  if (!cycle) return NextResponse.json({ error: "unknown cycle" }, { status: 404 });
+  /*
+   * EVERYTHING THE PERSON WAITS FOR, IN ONE ROUND-TRIP.
+   *
+   * currentActorId() already returns membership.profileId, and getPerson()
+   * selects the row with that id — so `me.id` and `actor` are the same string
+   * and the save never needed to wait for the lookup. The cycle's label and
+   * its successor are only read by the interpretation, which now runs after
+   * the response. So none of these three block each other, and they no longer
+   * pretend to.
+   *
+   * Sequentially this was four trips to a remote Postgres before the words
+   * were safe. It is two: prove who you are, then write.
+   */
+  const [recorded, me, cycles] = await Promise.all([
+    recordCheckIn(actor, actor, cycleId, { progress, plan, resolutions, dictated }),
+    getPerson(actor),
+    asActor(
+      actor,
+      (sql) => sql<{ id: string; label: string; next_id: string | null }>`
+        select c.id, c.label,
+               (select n.id from cycles n
+                 where n.org_id = c.org_id and n.kind = 'week' and n.starts_on > c.starts_on
+                 order by n.starts_on limit 1) as next_id
+        from cycles c where c.id = ${cycleId}
+      `,
+    ),
+  ]);
 
-  const outcome = await submitCheckIn(
-    actor,
-    me.id,
-    cycle.id,
-    cycle.next_id ?? cycle.id,
-    me.full_name,
-    cycle.label,
-    { progress, plan, resolutions, dictated },
-  );
+  const cycle = cycles[0];
+
+  const worthReading = recorded.rawText.trim().length > 0 && Boolean(me) && Boolean(cycle);
+  if (worthReading && me && cycle) {
+    after(async () => {
+      try {
+        await interpretCheckIn(
+          actor,
+          me.id,
+          cycle.id,
+          cycle.next_id ?? cycle.id,
+          me.full_name,
+          cycle.label,
+          recorded,
+          { progress, plan, resolutions, dictated },
+        );
+      } catch (error) {
+        /*
+         * Already handled inside interpretCheckIn for model failures; this
+         * catches anything past it so a background rejection cannot take the
+         * process down.
+         */
+        const detail = error instanceof Error ? error.message : String(error);
+        console.error(
+          `[nexus] check-in ${recorded.checkInId} recorded but interpretation threw: ${detail}`,
+        );
+      }
+    });
+  }
 
   /*
    * Saving and understanding are reported separately.
    *
-   * A 200 used to mean both, so a response the model mangled looked identical
-   * to a clean one and the person was told "Filed" over an empty screen. The
-   * report is saved in every branch that reaches here — what varies is whether
-   * anything was understood, and the client says so rather than implying more
-   * than happened.
+   * A 200 here means SAVED — which is the promise this product actually makes
+   * about somebody's own words. `interpreting` says the second half is still
+   * running, so the client can tell the truth about why the week's commitments
+   * are not on screen yet instead of implying they were not understood.
    */
   return NextResponse.json({
     ok: true,
     saved: true,
-    processed: !outcome.processingFailed,
-    /** Saved and readable, but nothing was extracted from it yet. */
-    processingFailed: outcome.processingFailed ?? null,
-    /*
-     * True only when the submission recorded NOTHING AT ALL.
-     *
-     * Tap resolutions count. Somebody who marks three commitments delivered
-     * and writes no prose has told the system a great deal, and answering
-     * that with "nothing was recognised" would be both wrong and insulting.
-     */
-    understoodNothing:
-      !outcome.processingFailed &&
-      outcome.extraction.commitments.length === 0 &&
-      outcome.extraction.updates.length === 0 &&
-      resolutions.length === 0,
-    checkInId: outcome.checkInId,
-    extracted: outcome.extraction.commitments.map((c) => ({
-      title: c.title,
-      quote: c.source_quote,
-      priority: c.priority,
-    })),
-    updates: outcome.extraction.updates.map((u) => ({
-      title: u.commitment_title,
-      status: u.status,
-      declared: u.declared,
-    })),
-    blockers: outcome.extraction.blockers,
-    unmentioned: outcome.unmentioned,
+    interpreting: worthReading,
+    checkInId: recorded.checkInId,
   });
 }

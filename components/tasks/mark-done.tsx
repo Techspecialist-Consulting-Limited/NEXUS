@@ -93,10 +93,10 @@ export function MarkDone({
       disabled={working}
       aria-label={`Mark “${title}” as done`}
       title="Mark as done"
-      className="nx-focus-ring inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg
-                 border border-[var(--color-delivered)]/35 px-2.5 text-[13px]
-                 text-[var(--color-delivered)] transition-colors
-                 hover:bg-[var(--color-delivered)]/12 disabled:opacity-45"
+      className="nx-focus-ring inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg
+                 border border-[var(--color-delivered)]/35 bg-[rgba(79,191,168,0.08)] px-2.5 text-[12px]
+                 font-medium text-[var(--color-delivered)] transition-colors
+                 hover:bg-[rgba(79,191,168,0.14)] disabled:opacity-45"
     >
       {working ? (
         <Loader2 size={14} className="animate-spin" aria-hidden="true" />

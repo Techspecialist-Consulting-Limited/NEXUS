@@ -34,18 +34,17 @@ export function PageHeader({
   return (
     <header
       className="sticky top-0 z-30 -mx-4 mb-1 hidden items-center justify-end gap-2
-                 border-b border-[var(--nx-border)] px-4 py-2
-                 md:-mx-6 md:flex md:px-6 lg:-mx-8 lg:px-8"
-      style={{ background: "var(--nx-bg)" }}
+                 px-4 py-2 md:-mx-6 md:flex md:px-6 lg:-mx-8 lg:px-8"
+      style={{ background: "transparent" }}
     >
       <AlertBell alerts={alerts} />
 
       <span
         title={name}
         aria-label={`Signed in as ${name}`}
-        className="grid size-11 shrink-0 place-items-center rounded-full
-                   bg-[var(--nx-primary)]/20 text-sm font-semibold
-                   text-[var(--nx-primary-light)] ring-1 ring-[var(--nx-border-strong)]"
+        className="grid size-10 shrink-0 place-items-center rounded-full
+                   bg-[var(--nx-primary)]/15 text-xs font-semibold
+                   text-[var(--nx-primary-light)] ring-1 ring-[var(--nx-border)]"
       >
         {initial}
       </span>

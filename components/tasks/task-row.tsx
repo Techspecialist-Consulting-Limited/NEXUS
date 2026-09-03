@@ -73,10 +73,31 @@ export function TaskRow({
     <div
       data-blocked-row={c.status === "blocked" ? "true" : undefined}
       className={cn(
-        "group relative grid w-full grid-cols-[auto_1fr_auto] items-start gap-x-3 gap-y-1 rounded-xl border border-white/[0.05] bg-white/[0.02] px-3.5 py-2.5 text-left",
-        "transition-colors duration-150 hover:border-white/[0.14] hover:bg-white/[0.05] focus-within:border-white/[0.18]",
+        /*
+         * TWO COLUMNS ON A PHONE, THREE FROM `sm`.
+         *
+         * The trailing group — carry figure, status badge, "Done", chevron —
+         * is `shrink-0`, so in a three-column grid at 320px it took whatever
+         * width it needed and the `1fr` holding the title was left with what
+         * remained. Measured on the sweep: 52px. A task title reflowed into a
+         * 52px column is a word per line, and the longest word overflows even
+         * that.
+         *
+         * So below `sm` the controls drop to their own row under the title and
+         * the title gets the full width of the card. Nothing is truncated and
+         * nothing is hidden — the row is simply two lines tall on a phone,
+         * which is what the content needs (see the note in working-on-card.tsx
+         * on why a clamp is not an answer here).
+         */
+        "group relative grid w-full grid-cols-[auto_1fr] items-start gap-x-3 gap-y-1 overflow-hidden rounded-xl border border-[var(--nx-border)] bg-[var(--glass-fill-2)] px-3.5 py-3 text-left shadow-[var(--shadow-subtle)] sm:grid-cols-[auto_1fr_auto]",
+        "transition-colors duration-150 hover:border-[var(--nx-border-strong)] hover:bg-[var(--glass-fill-3)] focus-within:border-[var(--nx-border-strong)]",
       )}
     >
+      <span
+        aria-hidden="true"
+        className="absolute inset-y-0 left-0 w-[3px]"
+        style={{ background: rowAccent(c.status) }}
+      />
       <button
         type="button"
         onClick={onClick}
@@ -86,20 +107,20 @@ export function TaskRow({
 
       <span
         aria-hidden="true"
-        className="pointer-events-none relative z-[1] mt-[7px] size-2 shrink-0 rounded-full"
+        className="pointer-events-none relative z-[1] mt-[9px] ml-1 size-2.5 shrink-0 rounded-full"
         style={{ background: dotColor(c.status) }}
       />
 
       <span className="pointer-events-none relative z-[1] min-w-0">
         {/* Never clamped — see working-on-card.tsx for why two lines is not
             enough at 320px. */}
-        <span className="block text-[15px] font-semibold leading-snug text-[var(--nx-text-primary)]">
+        <span className="block text-[15px] font-semibold leading-snug text-[var(--nx-text-primary)] sm:text-[16px]">
           {c.title}
         </span>
         {meta && (
           <span
             className={cn(
-              "mt-0.5 flex items-center gap-2 truncate text-[13px] leading-snug",
+              "mt-1 flex items-center gap-2 truncate text-[12px] leading-snug sm:text-[13px]",
               c.status === "blocked"
                 ? "text-[var(--color-blocked)]"
                 : "text-[var(--nx-text-secondary)]",
@@ -112,18 +133,19 @@ export function TaskRow({
           </span>
         )}
         {c.status === "blocked" && c.source_quote && (
-          <span className="mt-0.5 block truncate text-[12px] italic leading-snug text-[var(--text-tertiary)]">
+          <span className="mt-0.5 block truncate text-[12px] italic leading-snug text-[var(--nx-text-muted)]">
             &ldquo;{c.source_quote}&rdquo;
           </span>
         )}
         {trailing && (
-          <span className="mt-0.5 block text-[12px] leading-snug text-[var(--nx-text-muted)]">
+          <span className="mt-1 block text-[12px] leading-snug text-[var(--nx-text-muted)]">
             {trailing}
           </span>
         )}
       </span>
 
-      <span className="relative z-[1] flex shrink-0 items-center gap-2.5">
+      {/* Row 2 under the title on a phone; the third column from `sm`. */}
+      <span className="relative z-[1] col-start-2 flex shrink-0 flex-wrap items-center gap-2.5 sm:col-auto sm:justify-end">
         {/*
           CARRY IS THE LOUDEST THING ON A CARRIED ROW.
 
@@ -168,6 +190,12 @@ export function TaskRow({
       </span>
     </div>
   );
+}
+
+function rowAccent(status: string): string {
+  if (status === "blocked") return "var(--color-blocked)";
+  if (status === "in_progress" || status === "partial") return "var(--color-delivered)";
+  return "transparent";
 }
 
 function dotColor(status: string): string {

@@ -229,7 +229,26 @@ export async function runRemind(force = false): Promise<JobResult> {
  * All three steps are idempotent, which they have to be — the tick fires
  * hourly and retries.
  */
-export async function runReconcile(orgId?: string): Promise<JobResult> {
+export async function runReconcile(
+  orgId?: string,
+  /*
+   * SETTLE THE WEEK NOW, WHATEVER THE CALENDAR SAYS.
+   *
+   * Only "Send it now" passes this. An administrator pressing that button has
+   * asked for the Chairman to be briefed on the spot, and the two rules that
+   * normally stand in the way — brief only a week that has ENDED, and only
+   * after its subject's correction window has elapsed — are precisely what
+   * makes that impossible on the day an organisation is set up. Every
+   * reconciliation sits in `draft`, nothing settles, and the button answers
+   * "No settled cycle to brief on yet" forever.
+   *
+   * This is a deliberate override of Rule 2, not a loophole in it. The
+   * scheduled rhythm still honours the window in full; a person pressing this
+   * has chosen to brief early, and the audit entry says so by name. Anything
+   * else would be a control that cannot do what it says.
+   */
+  immediate = false,
+): Promise<JobResult> {
   /*
    * 1. Recompute. The last three weeks rather than only the current one, so a
    *    late submission or a corrected commitment is picked up rather than
@@ -336,21 +355,30 @@ export async function runReconcile(orgId?: string): Promise<JobResult> {
     (sql) => sql<{ id: string }>`
       update reconciliations r
          set status = 'awaiting_employee',
-             review_due_at = now() + make_interval(
-               mins => coalesce(
-                 (o.settings ->> 'review_window_minutes')::integer,
-                 coalesce((o.settings ->> 'review_window_hours')::integer, 24) * 60
-               )
-             )
+             review_due_at = ${
+               /* Immediately reviewable means immediately settleable. */
+               immediate
+                 ? sql`now()`
+                 : sql`now() + make_interval(
+                     mins => coalesce(
+                       (o.settings ->> 'review_window_minutes')::integer,
+                       coalesce((o.settings ->> 'review_window_hours')::integer, 24) * 60
+                     )
+                   )`
+             }
         from cycles cy, organizations o
        where cy.id = r.cycle_id
          and o.id = r.org_id
          and r.status = 'draft'
          and ${orgId ? sql`r.org_id = ${orgId}` : sql`true`}
-         and (
-           cy.ends_on < current_date
-           or coalesce((o.settings ->> 'brief_current_cycle')::boolean, false)
-         )
+         and ${
+           immediate
+             ? sql`true`
+             : sql`(
+                 cy.ends_on < current_date
+                 or coalesce((o.settings ->> 'brief_current_cycle')::boolean, false)
+               )`
+         }
       returning r.id
     `,
   );
@@ -370,8 +398,15 @@ export async function runReconcile(orgId?: string): Promise<JobResult> {
              confirmed_at = now()
        where status = 'awaiting_employee'
          and ${orgId ? sql`org_id = ${orgId}` : sql`true`}
-         and review_due_at is not null
-         and review_due_at <= now()
+         and ${
+           /*
+            * A row already awaiting review may have hours left on its window.
+            * "Send it now" means now, so the clock is not consulted.
+            */
+           immediate
+             ? sql`true`
+             : sql`(review_due_at is not null and review_due_at <= now())`
+         }
       returning id
     `,
   );

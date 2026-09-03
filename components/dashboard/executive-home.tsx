@@ -158,7 +158,7 @@ export function ExecutiveHome({
   const nothingYet = reporting.submitted === 0;
 
   return (
-    <div className="mx-auto flex max-w-[1400px] flex-col gap-4 pb-2">
+    <div className="mx-auto flex max-w-[1280px] flex-col gap-3 pb-2">
       {/*
         Shown once per brief, then not again until the next one is sent. It
         decides that for itself on the client, so nothing renders here that the
@@ -166,8 +166,8 @@ export function ExecutiveHome({
       */}
       {weeklyBrief && <WeeklyBriefModal brief={weeklyBrief} />}
       {/* ---- 1 + 2: ask, and who moved ---------------------------------- */}
-      <div className="grid gap-4 lg:grid-cols-[1.9fr_1fr]">
-        <GlassCard level={2} className="relative overflow-hidden p-5 md:p-7">
+      <div className="grid gap-3 lg:grid-cols-[1.9fr_1fr]">
+        <GlassCard level={2} className="relative overflow-hidden p-4 md:p-5">
           {/*
             The wash. Purely decorative, so it is aria-hidden and painted with
             gradients rather than an image — nothing here should cost a network
@@ -230,7 +230,7 @@ export function ExecutiveHome({
                 : "The figures below fill in once the first reporting week closes. Everything on this page is counted from what people file."}
             </p>
 
-            <div className="mt-6 md:mt-8">
+            <div className="mt-5 md:mt-6">
               <VoiceConsole
                 greeting="Ask NEXUS"
                 /*
@@ -257,7 +257,7 @@ export function ExecutiveHome({
           </div>
         </GlassCard>
 
-        <GlassCard level={2} className="flex min-h-0 flex-col p-5">
+        <GlassCard level={2} className="flex min-h-0 flex-col p-4">
           <div className="flex items-baseline justify-between gap-3">
             <h2 className="card-title">Recent updates</h2>
             <Link
@@ -361,7 +361,7 @@ export function ExecutiveHome({
       </div>
 
       {/* ---- 3: what needs you ------------------------------------------ */}
-      <GlassCard level={2} className="p-5">
+      <GlassCard level={2} className="p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
             <Sparkles
@@ -476,7 +476,7 @@ export function ExecutiveHome({
       </GlassCard>
 
       {/* ---- 4: the shape of the organisation --------------------------- */}
-      <GlassCard level={2} className="p-5">
+      <GlassCard level={2} className="p-4">
         <UnitRoster roster={roster} dense />
       </GlassCard>
 

@@ -1,8 +1,13 @@
+"use client";
+
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, ChevronRight, RefreshCw } from "lucide-react";
-import type { LiveCommitment } from "@/lib/queries";
+import { ArrowRight, RefreshCw } from "lucide-react";
+import type { ActivityEntry, LiveCommitment } from "@/lib/queries";
 import { statusBadge } from "@/lib/design-tokens";
 import { weekLabel } from "@/lib/cycle";
+import { commitmentSummary } from "@/lib/summarise";
+import { ActivityDetailDialog } from "@/components/myweek/activity-detail-dialog";
 
 /*
  * "What you're working on" — everything still open, whichever week it was
@@ -13,22 +18,40 @@ import { weekLabel } from "@/lib/cycle";
  * card fed from the displayed week's promises was empty for precisely the
  * person who had just filed. See `liveCommitments` in lib/queries.ts.
  *
- * NOTHING IS HIDDEN. An earlier pass capped the list at four and printed
- * "1 more open" underneath, which was wrong twice over: the line was clipped by
- * the card's own height, and once the list scrolled the count described rows
- * that were merely out of view rather than omitted. A number about a list is
- * one more thing that can disagree with the list.
+ * SUMMARY, THEN THE WHOLE THING — AND IT OPENS HERE.
  *
- * So the list scrolls instead — bounded by the card on desktop and by a height
- * on mobile, where the page is not viewport-locked. The whole set is there, in
- * order, and the header says how many there are.
+ * Every row used to navigate to /commitments?task=<id>, which was the right
+ * answer when this card was the only way to reach a commitment's detail. It is
+ * the wrong one now that the two pages have different jobs: My Week is for
+ * reviewing and Pending Tasks is for managing, and sending somebody to the
+ * management screen to READ one line is three navigations to answer a
+ * question they asked from here.
  *
- * EVERY ROW IS A LINK. It reads as a list of things you are doing and it was
- * inert: five commitments, a status apiece, and no way to ask about any one of
- * them. Each row now goes to /commitments?task=<id>, which is the Tasks page
- * with that commitment's detail open — the same panel a row on that page
- * opens, reached by an address rather than by finding it again in a list.
+ * So a press opens the detail in place, over this page, using the same dialog
+ * the activity stream above it uses. The link to Pending Tasks stays in the
+ * header, where it says what it is for: changing something.
+ *
+ * NOTHING IS HIDDEN AND NOTHING SCROLLS INSIDE. An earlier pass capped the
+ * list at four with "1 more open" underneath, inside a card bounded by the
+ * viewport — so the line was clipped and the count described rows that were
+ * merely out of view. The page scrolls; this does not have to.
  */
+
+/**
+ * A live commitment as a stream entry, so one dialog serves both lists.
+ *
+ * `LiveCommitment` is already `CommitmentRow & { target_label, ... }`, which
+ * is exactly the commitment arm of `ActivityEntry`. `at` is when the row last
+ * moved — the same value `recentActivity` computes in SQL, derived here from
+ * the timestamps the row carries rather than invented.
+ */
+function asEntry(c: LiveCommitment): ActivityEntry {
+  return {
+    kind: "commitment",
+    at: c.delivered_at ?? c.declared_at ?? c.created_at,
+    ...c,
+  };
+}
 
 export function WorkingOnCard({
   commitments,
@@ -38,6 +61,13 @@ export function WorkingOnCard({
   /** Whether they have filed for the week on screen. Decides the empty state. */
   hasReported: boolean;
 }) {
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  const selected = useMemo(() => {
+    const found = commitments.find((c) => c.id === openId);
+    return found ? asEntry(found) : null;
+  }, [commitments, openId]);
+
   return (
     <section
       aria-label="What you're working on"
@@ -56,11 +86,16 @@ export function WorkingOnCard({
             )}
           </p>
         </div>
+        {/*
+          The link says what the other page is FOR, not just where it goes.
+          "View all tasks" beside a list of tasks reads as "see this again";
+          this page reviews and that one changes things.
+        */}
         <Link
           href="/commitments"
           className="nx-focus-ring -mr-2 inline-flex min-h-11 shrink-0 items-center gap-1 px-2 text-sm text-[var(--nx-primary-light)] transition-opacity hover:opacity-80"
         >
-          View all tasks
+          Update status
           <ArrowRight size={14} aria-hidden="true" />
         </Link>
       </div>
@@ -68,18 +103,13 @@ export function WorkingOnCard({
       {commitments.length === 0 ? (
         <div className="flex flex-1 flex-col justify-center py-4">
           {/*
-            Which of the two empty weeks this is.
-
-            "Complete your check-in and your weekly focus will appear here" was
-            shown to everybody — including somebody who had filed twenty minutes
-            earlier, on a page whose own header said so. Telling a person who
-            has just reported to go and report is the same failure as a success
-            message over an empty screen: the interface describing a situation
-            the reader is not in.
+            Which of the two empty weeks this is. Telling somebody who filed
+            twenty minutes ago to go and file is the interface describing a
+            situation the reader is not in.
           */}
           {hasReported ? (
             <>
-              <p className="text-[15px] font-medium text-white/90">
+              <p className="text-[15px] font-medium text-[var(--nx-text-primary)]">
                 Nothing open right now.
               </p>
               <p className="mt-1 text-sm leading-relaxed text-[var(--nx-text-secondary)]">
@@ -89,7 +119,7 @@ export function WorkingOnCard({
             </>
           ) : (
             <>
-              <p className="text-[15px] font-medium text-white/90">
+              <p className="text-[15px] font-medium text-[var(--nx-text-primary)]">
                 Nothing here yet.
               </p>
               <p className="mt-1 text-sm leading-relaxed text-[var(--nx-text-secondary)]">
@@ -99,101 +129,79 @@ export function WorkingOnCard({
           )}
         </div>
       ) : (
-        <>
-          {/*
-            NO SCROLLER, NO CEILING. The list is as long as the work is.
-
-            It used to be a `max-h-[26rem]` scroll area inside a card pinned to
-            the viewport, which cut the last row through the middle of its
-            second line — a row sliced in half reads as a rendering fault, not
-            as "there is more below". The page scrolls now, so this does not
-            have to, and the count under it is reached by scrolling like
-            everything else.
-          */}
-          <ul className="mt-4 space-y-2 lg:space-y-2.5">
-            {commitments.map((c) => {
-              const s = statusBadge(c.status);
-              return (
-                <li key={c.id}>
-                  <Link
-                    href={`/commitments?task=${encodeURIComponent(c.id)}`}
-                    /*
-                      NOT PREFETCHED. On a phone the cards stack, so every row
-                      is in the viewport at once and Next fetched an RSC
-                      payload for all twelve — the sweep caught them as a dozen
-                      aborted requests when it navigated away. It is a list to
-                      read, not a menu to pick from: most rows are never
-                      pressed, and the ones that are can afford one round trip.
-                    */
-                    prefetch={false}
-                    aria-label={`${c.title} — ${s.label}`}
-                    className="nx-focus-ring group flex items-start gap-3 rounded-xl border border-white/[0.07]
-                               bg-white/[0.02] px-3.5 py-2.5 transition-colors
-                               hover:border-white/[0.14] hover:bg-white/[0.05]"
-                  >
-                    <span
-                      aria-hidden="true"
-                      className="mt-[7px] size-2.5 shrink-0 rounded-full"
-                      style={{ background: s.tone }}
-                    />
-                    <div className="min-w-0 flex-1">
-                      {/*
-                        NOT CLAMPED. A clamp is a truncation with a nicer
-                        name: at 320px two lines cut these titles in exactly
-                        the place `truncate` used to. The page scrolls, the
-                        card has no ceiling, and a row is allowed to be two
-                        lines tall or four.
-                      */}
-                      <p className="text-[15px] leading-snug text-white/90">
-                        {c.title}
-                      </p>
-                      <p className="mt-0.5 text-xs leading-snug text-[var(--nx-text-muted)]">
-                        {s.label}
-                        {/*
-                          Which week this was promised for, but only when it is
-                          not the current one. A commitment carried from three
-                          weeks ago is a different fact from one made for today,
-                          and a list that flattens the two makes a week look
-                          fuller than it is. Saying it on every row would be
-                          noise; saying it on the ones that need it is the point.
-                        */}
-                        {!c.is_current_week && ` · for ${weekLabel(c.target_label)}`}
-                      </p>
-                    </div>
+        <ul className="mt-4 flex flex-col gap-2">
+          {commitments.map((c) => {
+            const s = statusBadge(c.status);
+            const summary = commitmentSummary(c);
+            return (
+              <li key={c.id}>
+                <button
+                  type="button"
+                  onClick={() => setOpenId(c.id)}
+                  className="nx-focus-ring group flex w-full items-start gap-3 rounded-xl
+                             border border-white/[0.07] bg-white/[0.02] px-3.5 py-3 text-left
+                             transition-colors hover:border-white/[0.14] hover:bg-white/[0.05]"
+                >
+                  <span
+                    aria-hidden="true"
+                    className="mt-[7px] size-2.5 shrink-0 rounded-full"
+                    style={{ background: s.tone }}
+                  />
+                  <span className="min-w-0 flex-1">
                     {/*
-                      Renewed rather than finished. Counted from the weeks this
-                      same promise has been open — see `liveCommitments`, which
-                      cannot use carried_from_commitment_id because nothing in
-                      the application has ever written to it.
+                      NOT CLAMPED. A clamp is a truncation with a nicer name:
+                      at 320px two lines cut these titles in exactly the place
+                      `truncate` used to.
                     */}
-                    {c.carry_weeks > 1 && (
-                      <span
-                        title={`Open for ${c.carry_weeks} weeks`}
-                        className="shrink-0 whitespace-nowrap rounded-md bg-[var(--nx-warning)]/12 px-2 py-1
-                                   text-2xs font-medium text-[var(--nx-warning)]"
-                      >
-                        <RefreshCw size={11} className="mr-1 inline align-[-1px]" aria-hidden="true" />
-                        {c.carry_weeks}w
+                    <span className="block text-[15px] font-medium leading-snug text-[var(--nx-text-primary)]">
+                      {c.title}
+                    </span>
+                    {summary && (
+                      <span className="mt-1 block text-[13px] leading-relaxed text-[var(--nx-text-secondary)]">
+                        {summary}
                       </span>
                     )}
-                    {/*
-                      The affordance, not decoration: without it the rows look
-                      exactly as inert as they used to be.
-                    */}
-                    <ChevronRight
-                      size={15}
-                      aria-hidden="true"
-                      className="shrink-0 text-[var(--nx-text-muted)] transition-transform duration-150
-                                 group-hover:translate-x-0.5 group-hover:text-[var(--nx-text-secondary)]"
-                    />
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+                    <span className="mt-1 block text-2xs text-[var(--nx-text-secondary)]">
+                      {s.label}
+                      {/*
+                        Which week this was promised for, but only when it is
+                        not the current one. A commitment carried from three
+                        weeks ago is a different fact from one made for today.
+                      */}
+                      {!c.is_current_week && ` · for ${weekLabel(c.target_label)}`}
+                    </span>
+                  </span>
 
-        </>
+                  {/*
+                    Renewed rather than finished. Counted from the weeks this
+                    same promise has been open — see `liveCommitments`.
+                  */}
+                  {c.carry_weeks > 1 && (
+                    <span
+                      title={`Open for ${c.carry_weeks} weeks`}
+                      className="shrink-0 whitespace-nowrap rounded-md bg-[var(--nx-warning)]/12 px-2 py-1
+                                 text-2xs font-medium text-[var(--nx-warning)]"
+                    >
+                      <RefreshCw
+                        size={11}
+                        className="mr-1 inline align-[-1px]"
+                        aria-hidden="true"
+                      />
+                      {c.carry_weeks}w
+                    </span>
+                  )}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
       )}
+
+      <ActivityDetailDialog
+        entry={selected}
+        open={Boolean(selected)}
+        onClose={() => setOpenId(null)}
+      />
     </section>
   );
 }

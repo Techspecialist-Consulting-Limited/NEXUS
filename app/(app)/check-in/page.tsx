@@ -7,7 +7,6 @@ import {
   getPerson,
   openCheckInCycle,
   recentCycles,
-  reportingStreak,
 } from "@/lib/queries";
 import { openCommitments } from "@/lib/checkin";
 import { CheckInFlow } from "@/components/checkin/check-in-flow";
@@ -64,18 +63,17 @@ export default async function CheckInPage() {
     return <p className="py-16 text-center text-sm text-secondary">No reporting week is open.</p>;
   }
 
-  const [open, streak] = await Promise.all([
-    openCommitments(actor, me.id, week.id),
-    reportingStreak(actor, me.id),
-  ]);
+  /*
+   * The week's open commitments, and nothing else.
+   *
+   * `reportingStreak` used to be read here for a delivery rate and a streak
+   * shown in the flow's sidebar. Both are gone: this page's job is to capture
+   * a report, and a delivery figure on the screen where somebody is deciding
+   * how to describe their week is a thumb on that scale. The honest versions
+   * live where they can be checked against the rows that produced them — the
+   * week ledger on /my-week and the coach.
+   */
+  const open = await openCommitments(actor, me.id, week.id);
 
-  return (
-    <CheckInFlow
-      cycleId={week.id}
-      cycleLabel={week.label}
-      open={open}
-      deliveryRate={streak.delivery_rate}
-      streakWeeks={streak.streak_weeks}
-    />
-  );
+  return <CheckInFlow cycleId={week.id} cycleLabel={week.label} open={open} />;
 }

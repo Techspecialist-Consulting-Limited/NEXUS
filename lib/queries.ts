@@ -746,6 +746,28 @@ export type CommitmentRow = {
   source_quote: string | null;
   estimated_effort_hours: number | null;
   actual_effort_hours: number | null;
+  /*
+   * THE FIELDS AN EXPANDED CARD SHOWS, and every one of them is a column.
+   *
+   * My Week and Tasks both open a detail view now — a summary you press to
+   * see the whole thing — and a detail view is only worth opening if it holds
+   * something the summary did not. These are what `commitments` actually
+   * stores about a piece of work beyond its title and status.
+   *
+   * Nothing here is derived, estimated or inferred. There is no percentage,
+   * no progress figure and no "last activity" beyond the timestamps the
+   * application itself writes, because the schema holds none of those and a
+   * browser is not allowed to invent them — rejected-patterns.md #11.
+   */
+  /** The longer form of the commitment, when extraction produced one. */
+  description: string | null;
+  /** Why it ended the way it did — and where a saved status comment lands. */
+  outcome_reason: string | null;
+  due_on: string | null;
+  created_at: string;
+  /** When it was declared changed, which is not the same as when it moved. */
+  declared_at: string | null;
+  delivered_at: string | null;
 };
 
 export type ReportingStreak = {
@@ -830,7 +852,9 @@ export async function commitmentsFor(
         d.name as depends_on_department,
         coalesce(dp.depth, 1) as carry_depth,
         c.source_quote,
-        c.estimated_effort_hours::float8, c.actual_effort_hours::float8
+        c.estimated_effort_hours::float8, c.actual_effort_hours::float8,
+        c.description, c.outcome_reason, c.due_on,
+        c.created_at, c.declared_at, c.delivered_at
       from commitments c
       left join departments d on d.id = c.depends_on_department_id
       left join depths dp on dp.head = c.id
@@ -918,6 +942,8 @@ export async function liveCommitments(
         t.deviation_declared, t.blocker_kind, t.depends_on_department,
         t.carry_depth, t.source_quote,
         t.estimated_effort_hours, t.actual_effort_hours,
+        t.description, t.outcome_reason, t.due_on,
+        t.created_at, t.declared_at, t.delivered_at,
         t.target_cycle_id, t.target_label, t.is_current_week, t.carry_weeks,
         t.starts_on
       from (
@@ -928,6 +954,8 @@ export async function liveCommitments(
           d.name as depends_on_department,
           c.source_quote,
           c.estimated_effort_hours::float8, c.actual_effort_hours::float8,
+          c.description, c.outcome_reason, c.due_on,
+          c.created_at, c.declared_at, c.delivered_at,
           c.target_cycle_id,
           cy.label as target_label,
           cy.starts_on,
@@ -961,6 +989,177 @@ export async function liveCommitments(
       limit ${limit}
     `,
   );
+}
+
+/**
+ * One entry in the person's own activity stream.
+ *
+ * Two kinds, because a week has two kinds of record in it: what they told
+ * NEXUS, and what happened to the work. They share a shape so the surface can
+ * merge them into one chronological list rather than asking the reader to
+ * reconcile two.
+ */
+export type ActivityEntry =
+  | ({ kind: "commitment"; at: string; target_label: string } & CommitmentRow)
+  | {
+      kind: "report";
+      at: string;
+      id: string;
+      /** Exactly what the person wrote. Never a paraphrase — see migration 0002. */
+      raw_text: string;
+      /** The week this reported on, "W35 · 24 Aug–30 Aug". */
+      cycle_label: string;
+      /** Whether extraction has run over it yet. */
+      status: string;
+    };
+
+/**
+ * WHAT THIS PERSON HAS BEEN DOING, most recent first.
+ *
+ * My Week asks a different question from Tasks, and this is the difference.
+ * Tasks asks "what is still mine to move" and is answered by `liveCommitments`
+ * — the open set, whichever week it belongs to. This asks "what have I been
+ * doing", which is a question about MOVEMENT and includes work that is
+ * finished, dropped or deferred. A finished commitment is the most relevant
+ * thing that happened to somebody's week and the open set is precisely where
+ * it does not appear.
+ *
+ * ORDERED BY WHEN THE ROW LAST MOVED, not by the week it was promised for.
+ * A commitment delivered on Thursday for a week that began in July belongs at
+ * the top of Thursday, not buried under July. `moved_at` is the newest
+ * timestamp the application itself wrote for that row — delivered, then
+ * declared, then created — so every value in the ordering is a real event,
+ * never an estimate.
+ *
+ * NOT collapsed by title, unlike `liveCommitments`. There, twelve rows for
+ * three jobs was a lie about how much was open. Here each row IS an event: the
+ * same promise renewed in three weeks and delivered in the fourth is four
+ * things that happened, and flattening them would hide the history this stream
+ * exists to show.
+ */
+export async function recentActivity(
+  actor: string,
+  profileId: string,
+  limit = 12,
+): Promise<ActivityEntry[]> {
+  const rows = await asActor(
+    actor,
+    (sql) => sql<CommitmentRow & { target_label: string; moved_at: string }>`
+      select
+        t.id, t.title, t.category, t.priority, t.status, t.was_planned,
+        t.deviation_declared, t.blocker_kind, t.depends_on_department,
+        t.carry_depth, t.source_quote,
+        t.estimated_effort_hours, t.actual_effort_hours,
+        t.description, t.outcome_reason, t.due_on,
+        t.created_at, t.declared_at, t.delivered_at,
+        t.target_label, t.moved_at
+      from (
+      select distinct on (lower(btrim(c.title)))
+        c.id, c.title, c.category, c.priority::text as priority,
+        c.status::text as status, c.was_planned, c.deviation_declared,
+        c.blocker_kind::text as blocker_kind,
+        d.name as depends_on_department,
+        /*
+         * How many times this same promise has been made, counted over the
+         * whole person's record rather than the page of it being returned —
+         * a window function is applied before LIMIT, so the figure does not
+         * change with the size of the list.
+         *
+         * By (person, lower(trim(title))), the same identity liveCommitments
+         * uses and the one migration 0020 enforces for a single week. NOT via
+         * carried_from_commitment_id: nothing in the application has ever
+         * written that column, so every chain on a real database is length
+         * one.
+         */
+        count(*) over (partition by lower(btrim(c.title)))::int as carry_depth,
+        c.source_quote,
+        c.estimated_effort_hours::float8, c.actual_effort_hours::float8,
+        c.description, c.outcome_reason, c.due_on,
+        c.created_at, c.declared_at, c.delivered_at,
+        cy.label as target_label,
+        greatest(
+          c.created_at,
+          coalesce(c.declared_at, c.created_at),
+          coalesce(c.delivered_at, c.created_at)
+        ) as moved_at
+      from commitments c
+      join cycles cy on cy.id = c.target_cycle_id
+      left join departments d on d.id = c.depends_on_department_id
+      where c.profile_id = ${profileId}
+        and c.deleted_at is null
+      /*
+       * ONE ENTRY PER PIECE OF WORK, NEWEST STATE FIRST.
+       *
+       * A promise renewed each week is a NEW commitment row each week, so the
+       * uncollapsed stream showed the same blocked item four times with four
+       * identical summaries — rejected-patterns.md #13, the shape a reader
+       * learns to skip. The repetition is not lost: carry_depth above counts
+       * it, and the detail view states it as "carried 4x".
+       *
+       * Same identity as liveCommitments — (person, lower(trim(title))) — so
+       * the two lists cannot disagree about what counts as one job.
+       */
+      order by lower(btrim(c.title)), moved_at desc
+      ) t
+      order by t.moved_at desc
+      limit ${limit}
+    `,
+  );
+
+  return rows.map(({ moved_at, ...c }) => ({
+    kind: "commitment" as const,
+    at: moved_at,
+    ...c,
+  }));
+}
+
+/**
+ * The reports this person has actually filed, newest first.
+ *
+ * `raw_text` is the human's own words and nothing else — the extractor's
+ * output, the assistant's prompts and the transcript all live elsewhere. It is
+ * shown back to them here because a person reviewing their week should be able
+ * to read what they said, in the words they said it in.
+ *
+ * Read through asActor and scoped to their own profile: policy `check_ins_own`
+ * restricts these rows to their author, which is exactly right and is why this
+ * cannot be a shared query.
+ */
+export async function recentReports(
+  actor: string,
+  profileId: string,
+  limit = 6,
+): Promise<Extract<ActivityEntry, { kind: "report" }>[]> {
+  const rows = await asActor(
+    actor,
+    (sql) => sql<{
+      id: string;
+      raw_text: string;
+      cycle_label: string;
+      status: string;
+      responded_at: string;
+    }>`
+      select ci.id, ci.raw_text, cy.label as cycle_label,
+             ci.status::text as status, ci.responded_at
+      from check_ins ci
+      join cycles cy on cy.id = ci.cycle_id
+      where ci.profile_id = ${profileId}
+        and ci.responded_at is not null
+        and ci.raw_text is not null
+        and btrim(ci.raw_text) <> ''
+      order by ci.responded_at desc
+      limit ${limit}
+    `,
+  );
+
+  return rows.map((r) => ({
+    kind: "report" as const,
+    at: r.responded_at,
+    id: r.id,
+    raw_text: r.raw_text,
+    cycle_label: r.cycle_label,
+    status: r.status,
+  }));
 }
 
 export type PersonTrend = {

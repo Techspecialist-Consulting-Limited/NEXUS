@@ -8,8 +8,11 @@ import {
   getPerson,
   liveCommitments,
   openCheckInCycle,
+  recentActivity,
   recentCycles,
+  recentReports,
   weekLedger,
+  type ActivityEntry,
 } from "@/lib/queries";
 import { weeklyBrief } from "@/lib/coach";
 import { MyWeekWorkspace } from "@/components/myweek/my-week-workspace";
@@ -83,7 +86,7 @@ export default async function MyWeekPage() {
     );
   }
 
-  const [brief, live, checkIn, ledger] = await Promise.all([
+  const [brief, live, checkIn, ledger, moved, reports] = await Promise.all([
     weeklyBrief(actor, me.id, week.id, me.full_name, week.label),
     /*
      * What they are working on RIGHT NOW, which is a different question from
@@ -124,7 +127,38 @@ export default async function MyWeekPage() {
      * hidden one is a record nobody reads.
      */
     weekLedger(actor, me.id, 6),
+    /*
+     * WHAT THIS PAGE IS NOW ABOUT: what has actually been happening.
+     *
+     * Two reads rather than one union, because they come from different tables
+     * with different policies — `commitments` and `check_ins` — and merging
+     * them in SQL would mean a view that RLS has to be reasoned about twice.
+     * They are small, ordered lists; interleaving them by timestamp below is
+     * cheaper than the query that would avoid it.
+     */
+    recentActivity(actor, me.id, 12),
+    recentReports(actor, me.id, 6),
   ]);
+
+  /*
+   * ONE STREAM, NEWEST FIRST.
+   *
+   * Reports and commitments are interleaved rather than stacked, because a
+   * person asking "what have I been doing" is asking about time, not about
+   * record type. Two lists would make them read Thursday twice.
+   *
+   * Sorted through `new Date` on both sides: a timestamptz is typed as string
+   * here and arrives from the driver as a Date, so string comparison would
+   * typecheck, pass its tests and mis-order the first real row.
+   */
+  const activity: ActivityEntry[] = [...moved, ...reports]
+    .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
+    /*
+     * Ten is what fits before the card becomes a page of its own. The week
+     * ledger beside it carries the longer record, and Pending Tasks carries
+     * the open set — this is a recent-activity card, not an archive.
+     */
+    .slice(0, 10);
 
   /*
    * THE WEEK YOU ARE STANDING IN IS ALWAYS ON THE LEDGER.
@@ -160,6 +194,7 @@ export default async function MyWeekPage() {
       cycleId={week.id}
       cycleLabel={week.label}
       live={live}
+      activity={activity}
       coaching={brief.coaching}
       reportedAt={checkIn[0]?.responded_at ?? null}
       ledger={ledgerWeeks}

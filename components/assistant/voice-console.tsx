@@ -231,7 +231,7 @@ export function VoiceConsole({
   const live = dictation.spoken;
 
   return (
-    <div className="flex flex-col gap-6 md:flex-row md:items-center md:gap-8">
+    <div className="flex flex-col gap-4 md:flex-row md:items-center md:gap-5">
       <Orb listening={listening} thinking={thinking} />
 
       <div className="min-w-0 flex-1">
@@ -384,7 +384,7 @@ export function VoiceConsole({
           </div>
         )}
 
-        <div className="mt-4 flex flex-wrap items-center gap-2.5">
+        <div className="mt-3 flex flex-wrap items-center gap-2.5">
           {dictation.supported ? (
             <button
               type="button"
@@ -492,7 +492,7 @@ function Orb({ listening, thinking }: { listening: boolean; thinking: boolean })
   return (
     <div
       aria-hidden="true"
-      className="relative grid size-40 shrink-0 place-items-center md:size-48"
+      className="relative grid size-28 shrink-0 place-items-center md:size-32"
     >
       <m.span
         className="absolute inset-0 rounded-full"

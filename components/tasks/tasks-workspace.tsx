@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { CircleAlert, ListTodo, Repeat2, Timer } from "lucide-react";
 import type { Cycle, CommitmentRow, LiveCommitment } from "@/lib/queries";
 import { weekLabel } from "@/lib/cycle";
-import { OpenWork } from "@/components/tasks/open-work";
+import { OpenWork, type TaskFilter } from "@/components/tasks/open-work";
 import { PreviousWeeks } from "@/components/tasks/previous-weeks";
-import { TaskDetailsDialog } from "@/components/tasks/task-details-dialog";
+import { TaskUpdateDialog } from "@/components/tasks/task-update-dialog";
+import { cn } from "@/lib/cn";
 
 /*
  * Tasks — what is still yours to move, then the record of what was.
@@ -76,6 +78,7 @@ export function TasksWorkspace({
    * of commitments to open a panel over data already on screen.
    */
   const [taskId, setTaskId] = useState<string | null>(openTaskId);
+  const [filter, setFilter] = useState<TaskFilter>("all");
 
   // Back and forward move through opened commitments like any other navigation.
   useEffect(() => {
@@ -147,6 +150,7 @@ export function TasksWorkspace({
     return {
       total: open.length,
       blocked: open.filter((c) => c.status === "blocked").length,
+      carried: open.filter((c) => c.carry_weeks >= 3).length,
       inProgress: open.filter(
         (c) => c.status === "in_progress" || c.status === "partial",
       ).length,
@@ -157,29 +161,41 @@ export function TasksWorkspace({
   return (
     <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-4 lg:gap-5">
       {/* ---- Header ---------------------------------------------------- */}
-      <header className="flex items-center justify-between gap-6 pt-1">
+      <header className="flex flex-wrap items-end justify-between gap-4 pt-1">
         <div className="min-w-0">
-          {/* Agrees with the rail. The page and the link to it must not
-              have different names. */}
-          <h1 className="page-title">Pending Tasks</h1>
+          <h1 className="text-[clamp(1.8rem,2.8vw,2.5rem)] font-medium tracking-[-0.04em] text-[var(--nx-text-primary)]">
+            Pending Tasks
+          </h1>
+          <p className="standfirst mt-1 text-[13px] text-[var(--nx-text-secondary)]">
+            Keep the work you have promised visible, and move what needs a decision.
+          </p>
         </div>
-        {/* Bell and avatar are in the shell header now — one header, not three. */}
+        <TaskFilters filter={filter} onFilter={setFilter} counts={counts} />
       </header>
 
       {/* ---- What is still open --------------------------------------- */}
-      {counts.total > 0 && <SummaryStrip counts={counts} />}
+      <SummaryGrid counts={counts} />
+
+      <div className="h-px bg-gradient-to-r from-[var(--nx-border-strong)] via-[var(--nx-border)] to-transparent" />
 
       <OpenWork
         commitments={open}
         currentWeekLabel={current ? weekLabel(current.cycle.label) : null}
         hasRecord={previous.length > 0}
         onOpen={openTask}
+        filter={filter}
       />
 
       {/* ---- The record ------------------------------------------------ */}
       <PreviousWeeks weeks={previous} onOpenCommitment={openTask} />
 
-      <TaskDetailsDialog
+      {/*
+        The detail is where a task is MOVED, not only read. See
+        task-update-dialog.tsx: status and a comment, saved from here, so
+        managing a task never means filing a whole week to say one thing
+        changed.
+      */}
+      <TaskUpdateDialog
         commitment={detail}
         open={Boolean(detail)}
         onClose={closeTask}
@@ -188,20 +204,52 @@ export function TasksWorkspace({
   );
 }
 
-/**
- * One sentence of counts over the list below it.
- *
- * It was a four-column grid of large figures. That is a KPI strip, and a KPI
- * strip directly above the list it counts asks the reader to hold four numbers
- * in order to read rows that state the same facts individually. The set is
- * small enough to say in a line.
- *
- * The carry figure is here rather than on the grid it replaces because it is
- * the only one that cannot be had by glancing down the rows: "blocked" is a
- * colour on every row carrying it, but the longest carry is a maximum over the
- * whole set, and eight weeks is the number somebody has to act on.
- */
-function SummaryStrip({
+function TaskFilters({
+  filter,
+  onFilter,
+  counts,
+}: {
+  filter: TaskFilter;
+  onFilter: (filter: TaskFilter) => void;
+  counts: { total: number; blocked: number; carried: number };
+}) {
+  const tabs = [
+    { id: "all" as const, label: "All", count: counts.total },
+    { id: "blocked" as const, label: "Blocked", count: counts.blocked },
+    { id: "carried" as const, label: "Carried 3+ wks", count: counts.carried },
+  ];
+
+  return (
+    <div
+      role="tablist"
+      aria-label="Filter pending tasks"
+      className="flex max-w-full flex-wrap gap-1 rounded-lg border border-white/[0.08] bg-white/[0.03] p-1"
+    >
+      {tabs.map((tab) => (
+        <button
+          key={tab.id}
+          type="button"
+          role="tab"
+          aria-selected={filter === tab.id}
+          onClick={() => onFilter(tab.id)}
+          className={cn(
+            "nx-focus-ring inline-flex min-h-8 items-center gap-1.5 rounded-md px-2.5 text-[11px] font-medium transition-colors",
+            filter === tab.id
+              ? "bg-[var(--nx-text-primary)] text-[var(--nx-bg)] shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]"
+              : "text-[var(--nx-text-secondary)] hover:bg-white/[0.04] hover:text-[var(--nx-text-primary)]",
+          )}
+        >
+          {tab.label}
+          <span className="metric rounded-sm border border-white/[0.08] bg-black/20 px-1 py-0.5 text-[10px] opacity-80">
+            {tab.count}
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function SummaryGrid({
   counts,
 }: {
   counts: {
@@ -211,35 +259,63 @@ function SummaryStrip({
     longestCarry: number;
   };
 }) {
-  /*
-   * The FIGURE is set in the figure face, not the phrase around it. Setting
-   * "3 in progress" whole in monospace puts the words in a face chosen for
-   * digits, which reads as a code fragment rather than a sentence.
-   */
-  const parts: { n: number; label: string }[] = [
-    { n: counts.total, label: "open" },
+  const cards = [
+    {
+      label: "Open",
+      count: counts.total,
+      detail: "still to move",
+      icon: ListTodo,
+      tone: "var(--nx-text-secondary)",
+    },
+    {
+      label: "In progress",
+      count: counts.inProgress,
+      detail: "being worked on",
+      icon: Timer,
+      tone: "var(--color-in-progress)",
+    },
+    {
+      label: "Blocked",
+      count: counts.blocked,
+      detail: "need attention",
+      icon: CircleAlert,
+      tone: "var(--color-blocked)",
+    },
+    {
+      label: "Longest carry",
+      count: counts.longestCarry,
+      detail: counts.longestCarry === 1 ? "week" : "weeks",
+      icon: Repeat2,
+      tone: "var(--color-partial)",
+    },
   ];
-  if (counts.inProgress > 0) parts.push({ n: counts.inProgress, label: "in progress" });
-  if (counts.blocked > 0) parts.push({ n: counts.blocked, label: "blocked" });
 
   return (
-    <p className="text-[15px] leading-relaxed text-[var(--nx-text-secondary)]">
-      {parts.map((p, i) => (
-        <span key={p.label}>
-          {i > 0 && " · "}
-          <span className="metric text-[var(--nx-text-primary)]">{p.n}</span>{" "}
-          {p.label}
-        </span>
-      ))}
-      {counts.longestCarry > 1 && (
-        <>
-          {". The oldest has been carried "}
-          <span className="metric text-[var(--color-partial)]">
-            {counts.longestCarry} weeks
-          </span>
-          .
-        </>
-      )}
-    </p>
+    <section aria-label="Pending task summary" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {cards.map((card) => {
+        const Icon = card.icon;
+        return (
+          <div
+            key={card.label}
+            className="rounded-xl border border-[var(--nx-border)] bg-[var(--glass-fill-1)] p-3.5 transition-colors hover:border-[var(--nx-border-strong)] hover:bg-[var(--glass-fill-2)]"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--nx-text-secondary)]">
+                {card.label}
+              </span>
+              <Icon size={14} style={{ color: card.tone }} aria-hidden="true" />
+            </div>
+            <div className="mt-3 flex items-baseline gap-2">
+              <span className="metric text-[1.65rem] font-semibold leading-none text-[var(--nx-text-primary)]">
+                {card.count}
+              </span>
+              <span className="text-[10px] uppercase tracking-[0.08em] text-[var(--nx-text-muted)]">
+                {card.detail}
+              </span>
+            </div>
+          </div>
+        );
+      })}
+    </section>
   );
 }

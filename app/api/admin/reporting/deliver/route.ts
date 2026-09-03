@@ -124,13 +124,25 @@ export async function POST(request: Request) {
     process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin
   ).replace(/\/+$/, "");
 
-  const reconciled = await runReconcile(orgId);
+  /*
+   * `immediate` is the whole difference between this and the scheduler.
+   *
+   * Without it the chain cannot produce anything on the day an organisation is
+   * created: the week has not ended, so no correction window opens, so nothing
+   * auto-confirms, so there is no settled cycle and the button answers "No
+   * settled cycle to brief on yet" — which is what it did. It settles the week
+   * on the spot instead, and the audit entry below records that the review
+   * window was overridden by a named person rather than quietly skipped.
+   */
+  const reconciled = await runReconcile(orgId, true);
   const built = await runDigest(true, orgId);
   const delivered = await runSendDigest(appUrl, orgId);
 
   await record(
     profileId, fullName, "org.profile_updated",
-    `${fullName} sent the Chairman's brief by hand. ${built.detail}`, target,
+    `${fullName} sent the Chairman's brief by hand, settling the week early ` +
+      `rather than waiting for the correction window. ${built.detail}`,
+    target,
   );
 
   /*
@@ -144,11 +156,28 @@ export async function POST(request: Request) {
   const wrote = (built.counts?.written ?? 0) + (built.counts?.waiting ?? 0);
   const sent = delivered.counts?.sent ?? 0;
 
+  /*
+   * NAME THE STEP THAT STOPPED, because three different dead ends used to
+   * arrive as the same sentence.
+   *
+   * "No brief was written" was reported whether nothing had settled, the
+   * organisation had no Chairman to brief, or the mail provider refused it —
+   * three problems with three different fixes, and the message pointed at none
+   * of them. With the week now settled on demand, the remaining reasons are
+   * worth telling apart.
+   */
+  const detail =
+    wrote === 0
+      ? `${built.detail} (${reconciled.detail})`
+      : sent === 0
+        ? `The brief was written but not delivered. ${delivered.detail}`
+        : delivered.detail;
+
   return NextResponse.json({
     ok: built.ok,
     wrote,
     sent,
     steps: [reconciled, built, delivered],
-    detail: wrote === 0 ? built.detail : delivered.detail,
+    detail,
   });
 }

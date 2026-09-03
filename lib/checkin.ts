@@ -134,17 +134,45 @@ async function saveCheckIn(
  * Record a check-in and run extraction. Returns what the AI understood so the
  * employee can confirm it BEFORE anything is persisted as fact.
  */
-export async function submitCheckIn(
+/*
+ * A CHECK-IN IS TWO EVENTS, AND ONLY ONE OF THEM IS URGENT.
+ *
+ * Recording what somebody wrote is a single insert. Understanding it means a
+ * round-trip to a model, and that measured 9.7 seconds against real Azure —
+ * during which the browser held the connection open, the button said
+ * "Filing…", and anybody whose network gave up first was told their report
+ * had failed while the row sat safely in Postgres.
+ *
+ * So the two are separate functions now. `recordCheckIn` is what the person
+ * waits for: their words, and the resolutions they tapped, both of which are
+ * facts they stated and neither of which needs a model. `interpretCheckIn` is
+ * what the model is for, and it runs after the response is sent.
+ *
+ * `submitCheckIn` still does both in order, because a caller that genuinely
+ * wants to wait — the tests, a script — should not have to orchestrate it.
+ */
+
+/** What `recordCheckIn` saved, and what `interpretCheckIn` needs to read it. */
+export interface RecordedCheckIn {
+  checkInId: string;
+  rawText: string;
+  /*
+   * The open set as it was BEFORE the tap resolutions landed. Drift detection
+   * asks "what did nobody account for", and a commitment resolved by a tap has
+   * been accounted for — but it has to be in the list to be crossed off it.
+   */
+  open: OpenCommitment[];
+}
+
+/**
+ * Save the words and the taps. Fast, and the only part a person waits for.
+ */
+export async function recordCheckIn(
   actor: string,
   profileId: string,
   cycleId: string,
-  nextCycleId: string,
-  personName: string,
-  cycleLabel: string,
   draft: CheckInDraft,
-): Promise<CheckInOutcome> {
-  const open = await openCommitments(actor, profileId, cycleId);
-
+): Promise<RecordedCheckIn> {
   // Only what the human typed. Never the assistant's prompts.
   const rawText = [draft.progress.trim(), draft.plan.trim()]
     .filter(Boolean)
@@ -167,7 +195,64 @@ export async function submitCheckIn(
    * A model is a third party over a network. It must never sit between a
    * person and the durability of their own words.
    */
-  const checkInId = await saveCheckIn(actor, profileId, cycleId, rawText, draft.dictated ?? false);
+  /*
+   * TOGETHER, because neither needs the other.
+   *
+   * These were two awaits in a row, and against a remote Postgres a round-trip
+   * is most of a second — which the person spends watching a spinner for no
+   * reason. The open set is only read; the insert only writes; running them at
+   * once costs the slower of the two rather than the sum.
+   */
+  const [open, checkInId] = await Promise.all([
+    openCommitments(actor, profileId, cycleId),
+    saveCheckIn(actor, profileId, cycleId, rawText, draft.dictated ?? false),
+  ]);
+  /*
+   * The taps go in now, not with the extraction.
+   *
+   * They are explicit declarations — somebody pressed "delivered" — so they
+   * need no interpreting, and holding them behind a model would mean the
+   * screen still showed work as open after the person had just closed it.
+   */
+  if (draft.resolutions.length > 0) {
+    await asActor(actor, async (sql) => {
+    // Tap resolutions are explicit declarations — that is what makes them
+    // count as good signal rather than silent drift.
+    for (const r of draft.resolutions) {
+      await sql`
+        update commitments
+           set status = ${r.status}::commitment_status,
+               deviation_declared = true,
+               declared_at = now(),
+               outcome_reason = coalesce(${r.reason ?? null}, outcome_reason),
+               delivered_at = case when ${r.status} = 'delivered' then now() else delivered_at end
+         where id = ${r.commitmentId} and profile_id = ${profileId}
+      `;
+    }
+
+    });
+  }
+
+  return { checkInId, rawText, open };
+}
+
+/**
+ * Read what was written, and record what was understood.
+ *
+ * Safe to run after the response: every branch leaves `raw_text` intact, and a
+ * failure marks the row retryable rather than losing anything.
+ */
+export async function interpretCheckIn(
+  actor: string,
+  profileId: string,
+  cycleId: string,
+  nextCycleId: string,
+  personName: string,
+  cycleLabel: string,
+  recorded: RecordedCheckIn,
+  draft: CheckInDraft,
+): Promise<CheckInOutcome> {
+  const { checkInId, rawText, open } = recorded;
 
   let extraction: ExtractionResult;
   try {
@@ -219,20 +304,6 @@ export async function submitCheckIn(
    */
   await asActor(actor, async (sql) => {
 
-    // Tap resolutions are explicit declarations — that is what makes them
-    // count as good signal rather than silent drift.
-    for (const r of draft.resolutions) {
-      await sql`
-        update commitments
-           set status = ${r.status}::commitment_status,
-               deviation_declared = true,
-               declared_at = now(),
-               outcome_reason = coalesce(${r.reason ?? null}, outcome_reason),
-               delivered_at = case when ${r.status} = 'delivered' then now() else delivered_at end
-         where id = ${r.commitmentId} and profile_id = ${profileId}
-      `;
-    }
-
     // New promises land against next week, carrying the sentence they came from.
     for (const c of extraction.commitments) {
       const target = c.targets === "this_cycle" ? cycleId : nextCycleId;
@@ -278,4 +349,27 @@ export async function submitCheckIn(
   });
 
   return { checkInId, extraction, unmentioned };
+}
+
+/** Record and interpret, in order. For callers that want the whole outcome. */
+export async function submitCheckIn(
+  actor: string,
+  profileId: string,
+  cycleId: string,
+  nextCycleId: string,
+  personName: string,
+  cycleLabel: string,
+  draft: CheckInDraft,
+): Promise<CheckInOutcome> {
+  const recorded = await recordCheckIn(actor, profileId, cycleId, draft);
+  return interpretCheckIn(
+    actor,
+    profileId,
+    cycleId,
+    nextCycleId,
+    personName,
+    cycleLabel,
+    recorded,
+    draft,
+  );
 }

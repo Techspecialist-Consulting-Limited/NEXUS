@@ -148,10 +148,18 @@ export function tabsFor(role: OrgRole): Tab[] {
  * WHAT IT OPENS DEPENDS ON WHAT YOU DO HERE.
  *
  * For anybody who files a week, talking to NEXUS means telling it what
- * happened, so it opens the quick voice check-in on their own home screen and
- * starts listening. It REPLACES the "Check in" tab rather than sitting beside
- * it: two entry points to the same act, one of them four times the size, is a
- * question the interface should not be asking.
+ * happened, so it opens the check-in with the microphone already listening. It
+ * REPLACES the "Check in" tab rather than sitting beside it: two entry points
+ * to the same act, one of them four times the size, is a question the
+ * interface should not be asking.
+ *
+ * IT USED TO POINT AT /my-week, AND THAT WENT STALE.
+ *
+ * My Week carried a "Your week" card wrapping the whole inline check-in, so
+ * the launcher opened a home screen and started dictating into it. That card
+ * is gone — reporting is /check-in's job now, end to end — and a raised
+ * centre button that opened a page with nothing to speak into would have been
+ * a microphone attached to nothing.
  *
  * For the Chairman, talking to NEXUS means asking it something, so it opens
  * the assistant and starts listening.
@@ -172,7 +180,7 @@ export function launcherFor(role: OrgRole): Launcher | null {
     return { href: "/dashboard?ask=1", label: "Ask NEXUS" };
   }
   if (hasPersonalWorkspace(role)) {
-    return { href: "/my-week?ask=1", label: "Voice check-in", replaces: "/check-in" };
+    return { href: "/check-in?ask=1", label: "Voice check-in", replaces: "/check-in" };
   }
   return null;
 }

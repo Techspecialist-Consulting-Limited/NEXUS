@@ -71,9 +71,9 @@ export function CommandCenter({
   const top = insights.slice(0, 3);
 
   return (
-    <div className="pt-1">
+    <div className="mx-auto max-w-[1280px] pt-1">
       {/* ---- masthead --------------------------------------------------- */}
-      <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h1 className="text-xl font-medium tracking-tight lg:text-2xl">
           {isChairman ? "Command" : "Organisation"}
         </h1>
@@ -86,7 +86,7 @@ export function CommandCenter({
         {/* ---- row 1: health · brief · pulse --------------------------- */}
         <m.div
           variants={heroItem}
-          className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)]"
+          className="grid gap-2.5 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)]"
         >
           {/*
             Ordered for the phone, not for the grid.
@@ -97,7 +97,7 @@ export function CommandCenter({
             supporting figures they are. `lg:order-none` restores the designed
             left-to-right arrangement on desktop.
           */}
-          <GlassCard level={2} className="order-3 p-4 lg:order-none">
+          <GlassCard level={2} className="order-3 p-3.5 lg:order-none">
             <p className="eyebrow">Execution</p>
             <div className="mt-2 flex items-end gap-5">
               <Metric label="Delivered" value={orgDelivery} tone={healthTone(orgDelivery)} />
@@ -110,7 +110,7 @@ export function CommandCenter({
           </GlassCard>
 
           {/* The one sentence the whole page exists to deliver. */}
-          <GlassCard level={2} className="order-1 border-l-2 border-l-[var(--priority-high)] p-4 lg:order-none">
+          <GlassCard level={2} className="order-1 border-l-2 border-l-[var(--priority-high)] p-3.5 lg:order-none">
             <p className="mb-1.5 flex items-center gap-1.5 text-2xs uppercase tracking-wide text-[var(--priority-high)]">
               <Sparkles size={12} aria-hidden="true" /> This week
             </p>
@@ -128,7 +128,7 @@ export function CommandCenter({
             </p>
           </GlassCard>
 
-          <GlassCard level={2} className="order-2 p-4 lg:order-none">
+          <GlassCard level={2} className="order-2 p-3.5 lg:order-none">
             <p className="eyebrow">Reporting</p>
             <p className="metric mt-2 text-3xl leading-none text-white/90">
               {reported}
@@ -149,8 +149,8 @@ export function CommandCenter({
         </m.div>
 
         {/* ---- row 2: department strip --------------------------------- */}
-        <m.div variants={staggerItem} className="mt-3">
-          <GlassCard level={1} className="p-3">
+        <m.div variants={staggerItem} className="mt-2.5">
+          <GlassCard level={1} className="p-2.5">
             <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
               {departments.map((d) => (
                 <li key={d.department_id}>
@@ -208,8 +208,8 @@ export function CommandCenter({
         </m.div>
 
         {/* ---- row 3: risks | actions ---------------------------------- */}
-        <m.div variants={staggerItem} className="mt-3 grid gap-3 lg:grid-cols-2">
-          <GlassCard level={1} className="p-4">
+        <m.div variants={staggerItem} className="mt-2.5 grid gap-2.5 lg:grid-cols-2">
+          <GlassCard level={1} className="p-3.5">
             <h2 className="mb-2.5 text-2xs uppercase tracking-wide text-white/40">
               Top risks
             </h2>
@@ -228,7 +228,7 @@ export function CommandCenter({
             )}
           </GlassCard>
 
-          <GlassCard level={1} className="p-4">
+          <GlassCard level={1} className="p-3.5">
             <h2 className="mb-2.5 text-2xs uppercase tracking-wide text-white/40">
               Leadership actions
             </h2>
@@ -263,14 +263,14 @@ export function CommandCenter({
           directly: the trend is context, the roster is a drill-down. The
           desktop layout is untouched.
         */}
-        <m.div variants={staggerItem} className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-          <GlassCard level={1} className="p-4 pr-2">
+        <m.div variants={staggerItem} className="mt-2.5 grid gap-2.5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+          <GlassCard level={1} className="p-3.5 pr-2">
             <TailSection title="Promised against delivered">
               <CoursePlot points={course} compact />
             </TailSection>
           </GlassCard>
 
-          <GlassCard level={1} className="p-4">
+          <GlassCard level={1} className="p-3.5">
             <TailSection
               title="Worth a conversation"
               note="Ordered by whether we were told, not by output."
