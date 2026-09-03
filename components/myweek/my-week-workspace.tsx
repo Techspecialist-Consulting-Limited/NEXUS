@@ -77,6 +77,23 @@ function partOfDay(): string {
   return h < 12
     ? "Good morning"
     : h < 18
+      ? "Good afternoon"
+      : "Good evening";
+}
+
+export function MyWeekWorkspace({
+  person,
+  cycleId,
+  cycleLabel,
+  live,
+  activity,
+  coaching,
+  reportedAt,
+  ledger,
+}: {
+  person: Person;
+  cycleId: string;
+  cycleLabel: string;
   live: LiveCommitment[];
   /** Reports filed and commitments that moved, merged and newest first. */
   activity: ActivityEntry[];
