@@ -3,8 +3,8 @@ import { CircleCheck, CircleDashed, CircleSlash } from "lucide-react";
 import { requireViewer } from "@/lib/session";
 import { hasAdministration } from "@/lib/capabilities";
 import { authMode } from "@/lib/auth";
-import { enabledProviders, hasSupabase } from "@/lib/supabase-env";
-import { asActor } from "@/lib/db";
+import { microsoftConfigured } from "@/lib/auth-providers";
+import { asActor, dbMode } from "@/lib/db";
 import { AdminShell, AdminIndex, ADMIN_PAGES } from "@/components/admin/admin-shell";
 
 export const dynamic = "force-dynamic";
@@ -14,20 +14,25 @@ export const dynamic = "force-dynamic";
  *
  * EVERY LINE ON THIS PAGE IS OBSERVED, NOT CONFIGURED.
  *
- * The sign-in methods come from Supabase's own /auth/v1/settings, the email
- * sender from whether a key is present, the model tier from whether a
- * deployment is set. Nothing here has a toggle, because none of it is switched
- * on from inside NEXUS — identity is a dashboard setting at the provider, and a
- * switch that appeared to change it would be lying about where the truth
- * lives.
+ * Whether Microsoft sign-in is offered comes from this server's own
+ * environment (see lib/auth-providers.ts), the email sender from whether a
+ * key is present, the model tier from whether a deployment is set. Nothing
+ * here has a toggle, because none of it is switched on from inside NEXUS —
+ * each row is read from the running configuration, not a setting this page
+ * could itself change, and a switch that appeared to change it would be
+ * lying about where the truth lives.
  *
  * That is also why there is no "reconnect" button. There is no connection
- * NEXUS holds to reconnect; it reads a provider's configuration each time.
+ * NEXUS holds to reconnect; it reads its own configuration each time.
  *
- * WHAT IS DELIBERATELY ABSENT: sessions, device lists, IP history, a password
- * policy, forced sign-out. NEXUS holds none of those — the identity provider
- * does — and a security page listing controls that do nothing is the fastest
- * way to stop being believed on the ones that work.
+ * IDENTITY MOVED OFF SUPABASE. Passwords and sessions are now this
+ * deployment's own — Auth.js against the same Postgres (see auth.ts) — so the
+ * old claim that "the identity provider" holds those and NEXUS does not is no
+ * longer true, and this page must not imply otherwise. WHAT IS STILL
+ * DELIBERATELY ABSENT: device lists, IP history, a password policy, forced
+ * sign-out. Nothing here builds a security console beyond what this page
+ * already shows — a listing of controls that do nothing is the fastest way
+ * to stop being believed on the ones that work.
  */
 
 type ProviderRow = {
@@ -41,8 +46,8 @@ export default async function AdminIntegrationsPage() {
   const { membership } = await requireViewer();
   if (!hasAdministration(membership.role)) redirect("/");
 
-  const [providers, signInCounts] = await Promise.all([
-    enabledProviders(),
+  const [microsoft, signInCounts] = await Promise.all([
+    microsoftConfigured(),
     /*
      * How people in THIS organisation actually signed in, counted from their
      * own rows. "Microsoft is enabled" and "fourteen people use it" are
@@ -63,47 +68,38 @@ export default async function AdminIntegrationsPage() {
   ]);
 
   const used = new Map(
-    signInCounts.map((r) => [(r.provider ?? "email").toLowerCase(), r.n]),
+    signInCounts.map((r) => [(r.provider ?? "credentials").toLowerCase(), r.n]),
   );
   const usedBy = (keys: string[]) =>
     keys.reduce((sum, k) => sum + (used.get(k) ?? 0), 0);
 
   /*
-   * Three states, not two.
-   *
-   * `enabledProviders()` reports social-off when it could not reach Supabase
-   * at all, so rendering that as "Not enabled on this project" states a fact
-   * about a dashboard this page never managed to read — and this page's whole
-   * contract is that every line on it is observed. Unknown is its own answer.
+   * Local and deterministic now — see lib/auth-providers.ts. Whether
+   * Microsoft is offered is read from this server's own environment, not
+   * asked of an external dashboard, so there is no "could not find out"
+   * state left to represent.
    */
-  const identityRow = (name: string, on: boolean, keys: string[]): ProviderRow =>
-    providers.known
-      ? {
-          name,
-          on,
-          detail: on
-            ? `Enabled. ${usedBy(keys)} people signed in with it.`
-            : "Not enabled on this project.",
-        }
-      : {
-          name,
-          on: null,
-          detail: "Unknown — this project's sign-in settings could not be read.",
-        };
+  const identityRow = (name: string, on: boolean, keys: string[]): ProviderRow => ({
+    name,
+    on,
+    detail: on
+      ? `Enabled. ${usedBy(keys)} people signed in with it.`
+      : "Not configured on this deployment.",
+  });
 
   const identity: ProviderRow[] = [
-    identityRow("Microsoft", providers.azure, ["azure", "entra", "microsoft"]),
-    identityRow("Google", providers.google, ["google"]),
-    identityRow("Email link", providers.email, ["email"]),
+    identityRow("Microsoft", microsoft, ["azure", "entra", "microsoft-entra-id"]),
+    identityRow("Email + password", true, ["credentials", "email"]),
   ];
 
   const services: ProviderRow[] = [
     {
-      name: "Supabase",
-      on: hasSupabase,
-      detail: hasSupabase
-        ? "Database, row-level security and identity."
-        : "Not configured. NEXUS is running on its local demo database.",
+      name: "Database",
+      on: dbMode === "remote",
+      detail:
+        dbMode === "remote"
+          ? "Connected to this deployment's own Postgres. Identity, row-level security and every table live here."
+          : "Running on the local demo database (PGlite) with seeded people.",
     },
     {
       name: "Azure OpenAI",
@@ -143,11 +139,7 @@ export default async function AdminIntegrationsPage() {
 
       <Group
         title="How people sign in"
-        blurb={
-          providers.known
-            ? "Set in your Supabase project, not here. NEXUS offers on the sign-in screen exactly what is enabled, so nobody meets a button that cannot work."
-            : "Set in your Supabase project, not here — and NEXUS could not read that configuration on this request. The states below are unknown rather than off, and the sign-in screen is falling back to email only. A 401 from Supabase means the publishable key on this deployment is wrong; the server log names the status."
-        }
+        blurb="Set in this deployment's own environment, not here. NEXUS offers on the sign-in screen exactly what is configured, so nobody meets a button that cannot work."
         rows={identity}
       />
 
@@ -160,9 +152,12 @@ export default async function AdminIntegrationsPage() {
       <section className="rounded-lg border border-white/[0.09] bg-white/[0.02] px-4 py-3.5">
         <h2 className="text-sm font-medium text-white/90">What NEXUS does not hold</h2>
         <p className="body-sm mt-1.5">
-          Passwords, sessions and device history belong to the identity
-          provider. NEXUS never sees a password and cannot end somebody&rsquo;s
-          session — signing out everywhere is done where the account lives.
+          A password is stored as a salted hash, never the password itself —
+          nothing typed at sign-in is ever readable back out of the database.
+          Sessions are a signed cookie rather than a row NEXUS can look up, so
+          there is no list of somebody&rsquo;s active devices, and no way to end
+          one specific session before it expires on its own — only to end all
+          of them at once, by rotating the deployment&rsquo;s signing secret.
         </p>
         <p className="note mt-2">
           What NEXUS does enforce is who can read what, and that is row-level

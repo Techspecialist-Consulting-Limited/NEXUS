@@ -1,36 +1,35 @@
 /**
- * Put the demo organisation into a real Supabase project, with working logins.
+ * Put the demo organisation into a real Postgres, with working logins.
  *
- * WHY THIS EXISTS
+ * WHY THIS REPLACED `seed-remote.ts`
  *
- * A freshly connected project has one account and no data, so every screen is
- * an empty state and nothing about the product is visible. The local demo has
- * eight weeks of history and thirteen people; this puts the same thing where
- * real authentication can reach it, and — the part that matters — creates a
- * password login for each person, so you can sit in the Chairman's seat, then
- * HR's, then a blocked engineer's, and see three genuinely different products.
+ * That script wrote real logins straight into `auth.users` in one SQL
+ * statement joined against `profiles` — which only worked because identity
+ * and data lived in the SAME database (a Supabase-hosted Postgres). Identity
+ * moved off Supabase (see migration 0024): logins are now this app's own
+ * `users` table, in the SAME database as everything else, on whichever
+ * Postgres `DATABASE_URL` points at (Aiven, Neon, wherever). One connection,
+ * two things it does with it: apply the demo seed, then create a real
+ * Auth.js login per person and point their profile at it.
  *
  * WHAT IT WRITES
  *
- * One organisation, slug `nexus-demo`, and one auth user per seeded profile at
+ * One organisation, slug `nexus-demo`, and one login per seeded profile at
  * @nexus.invalid — an RFC 2606 reserved TLD, so those mailboxes cannot exist
  * and no digest addressed to one can leave the building. Everything is
- * namespaced and removable in a single command:
+ * namespaced and removable in one command:
  *
- *   node --env-file-if-exists=.env.local scripts/seed-remote.ts --remove
- *
- * Passwords are bcrypt via pgcrypto, and email_confirmed_at is set so the
- * accounts work immediately. That is safe here because these mailboxes do not
- * exist — nobody is being confirmed on their behalf.
+ *   node --env-file-if-exists=.env.local --import tsx scripts/seed-staging.mts --remove
  *
  * Usage:
- *   node --env-file-if-exists=.env.local scripts/seed-remote.ts [--password X]
- *   node --env-file-if-exists=.env.local scripts/seed-remote.ts --remove
+ *   node --env-file-if-exists=.env.local --import tsx scripts/seed-staging.mts [--password X]
+ *   node --env-file-if-exists=.env.local --import tsx scripts/seed-staging.mts --remove
  */
 import postgres from "postgres";
 import { readFile } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { hashPassword } from "../lib/password";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SEED = join(HERE, "..", "supabase", "seed", "seed.sql");
@@ -51,11 +50,12 @@ const sql = postgres(url, { prepare: false, max: 1, connect_timeout: 30 });
 try {
   if (remove) {
     /*
-     * Order matters: profiles reference auth.users only by a plain uuid column
-     * with no foreign key, so deleting the org first would orphan the logins.
+     * Order matters: profiles reference `users` only by a plain uuid column
+     * (see migration 0024's guarded FK), so deleting the org first would
+     * orphan the logins rather than cascade to them.
      */
     const users = await sql`
-      delete from auth.users where email like '%@nexus.invalid' returning id
+      delete from users where email like '%@nexus.invalid' returning id
     `;
     const orgs = await sql`
       delete from organizations where slug = 'nexus-demo' returning id
@@ -78,53 +78,31 @@ try {
   console.log("applying the demo seed...");
   await sql.unsafe(await readFile(SEED, "utf8"));
 
-  /*
-   * Give every seeded person a login.
-   *
-   * GoTrue reads auth.users.encrypted_password as bcrypt, which pgcrypto can
-   * produce directly — so this needs no service-role key and no admin API.
-   * instance_id and aud are not optional: GoTrue rejects rows without them
-   * with an error that says nothing about which column is missing.
-   */
   console.log("creating logins...");
-  await sql`
-    insert into auth.users (
-      id, instance_id, aud, role, email, encrypted_password,
-      email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
-      created_at, updated_at,
-      -- These are nullable in the schema, and GoTrue scans them into plain Go
-      -- strings. A NULL makes every sign-in fail with "Database error querying
-      -- schema", which names neither the column nor the table. Empty string is
-      -- what GoTrue itself writes.
-      confirmation_token, recovery_token, email_change_token_new,
-      email_change, email_change_token_current, phone_change,
-      phone_change_token, reauthentication_token
-    )
-    select
-      gen_random_uuid(),
-      '00000000-0000-0000-0000-000000000000',
-      'authenticated',
-      'authenticated',
-      p.email,
-      crypt(${PASSWORD}, gen_salt('bf')),
-      now(),
-      jsonb_build_object('provider', 'email', 'providers', jsonb_build_array('email')),
-      jsonb_build_object('full_name', p.full_name),
-      now(),
-      now(),
-      '', '', '', '', '', '', '', ''
+  const profiles = await sql<{ id: string; email: string; full_name: string }[]>`
+    select p.id, p.email, p.full_name
     from profiles p
     join organizations o on o.id = p.org_id
     where o.slug = 'nexus-demo'
-      and not exists (select 1 from auth.users u where u.email = p.email)
+      and not exists (select 1 from users u where u.email = p.email)
   `;
 
-  await sql`
-    update profiles p
-    set user_id = u.id
-    from auth.users u
-    where u.email = p.email and p.user_id is null
-  `;
+  /*
+   * Hashed once and reused for every seeded person — this is demo data with
+   * one publicly-documented password, not real accounts, so there is nothing
+   * gained by a different hash per row and a real cost (thirteen sequential
+   * scrypt calls) to doing it anyway.
+   */
+  const passwordHash = await hashPassword(PASSWORD);
+
+  for (const p of profiles) {
+    const [user] = await sql<{ id: string }[]>`
+      insert into users (name, email, password_hash)
+      values (${p.full_name}, ${p.email}, ${passwordHash})
+      returning id
+    `;
+    await sql`update profiles set user_id = ${user.id} where id = ${p.id}`;
+  }
 
   const [counts] = await sql`
     select
@@ -132,7 +110,7 @@ try {
         where o.slug = 'nexus-demo')::int as people,
       (select count(*) from commitments c join organizations o on o.id = c.org_id
         where o.slug = 'nexus-demo')::int as commitments,
-      (select count(*) from auth.users where email like '%@nexus.invalid')::int as logins
+      (select count(*) from users where email like '%@nexus.invalid')::int as logins
   `;
 
   const roster = await sql<{ email: string; full_name: string; role: string }[]>`
