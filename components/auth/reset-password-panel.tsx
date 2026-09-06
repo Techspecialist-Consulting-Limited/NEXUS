@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { Check, Loader2 } from "lucide-react";
+import { Check, Eye, EyeOff, Loader2 } from "lucide-react";
 import { GlassCard } from "@/components/ui/glass-card";
 import { NexusMark } from "@/components/ui/nexus-mark";
 import { GlassButton } from "@/components/ui/glass-button";
@@ -10,6 +10,7 @@ import { GlassButton } from "@/components/ui/glass-button";
 export function ResetPasswordPanel({ email, token }: { email: string; token: string }) {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -79,23 +80,36 @@ export function ResetPasswordPanel({ email, token }: { email: string; token: str
         </p>
       ) : (
         <form onSubmit={submit} className="space-y-2.5">
-          <label className="block">
+          <label className="relative block">
             <span className="sr-only">New password</span>
             <input
-              type="password"
+              type={showPassword ? "text" : "password"}
               required
               minLength={8}
               autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="New password"
-              className="h-12 w-full rounded-lg border border-white/[0.10] bg-white/[0.04] px-3.5 text-sm text-white/90 placeholder:text-white/25 focus:border-white/25 focus:outline-none"
+              className="h-12 w-full rounded-lg border border-white/[0.10] bg-white/[0.04] px-3.5 pr-11 text-sm text-white/90 placeholder:text-white/25 focus:border-white/25 focus:outline-none"
             />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? "Hide passwords" : "Show passwords"}
+              aria-pressed={showPassword}
+              className="nx-focus-ring absolute inset-y-0 right-0 grid w-11 place-items-center text-white/40 hover:text-white/75"
+            >
+              {showPassword ? (
+                <EyeOff size={16} aria-hidden="true" />
+              ) : (
+                <Eye size={16} aria-hidden="true" />
+              )}
+            </button>
           </label>
           <label className="block">
             <span className="sr-only">Confirm new password</span>
             <input
-              type="password"
+              type={showPassword ? "text" : "password"}
               required
               minLength={8}
               autoComplete="new-password"

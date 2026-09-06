@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
-import { Loader2, Mail } from "lucide-react";
+import { Eye, EyeOff, Loader2, Mail } from "lucide-react";
 import { GlassCard } from "@/components/ui/glass-card";
 import { NexusMark } from "@/components/ui/nexus-mark";
 import { GlassButton } from "@/components/ui/glass-button";
@@ -76,6 +76,7 @@ export function SignInPanel({
   const [showEmail, setShowEmail] = useState(Boolean(invitation));
   const [email, setEmail] = useState(invitation?.email ?? "");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [fullName, setFullName] = useState("");
   const [pending, startTransition] = useTransition();
 
@@ -279,18 +280,31 @@ export function SignInPanel({
                   />
                 </label>
 
-                <label className="block">
+                <label className="relative block">
                   <span className="sr-only">Password</span>
                   <input
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     required
                     minLength={mode === "signup" ? 8 : undefined}
                     autoComplete={mode === "signup" ? "new-password" : "current-password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder={mode === "signup" ? "Choose a password" : "Password"}
-                    className="h-12 w-full rounded-lg border border-white/[0.10] bg-white/[0.04] px-3.5 text-sm text-white/90 placeholder:text-white/25 focus:border-white/25 focus:outline-none"
+                    className="h-12 w-full rounded-lg border border-white/[0.10] bg-white/[0.04] px-3.5 pr-11 text-sm text-white/90 placeholder:text-white/25 focus:border-white/25 focus:outline-none"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-pressed={showPassword}
+                    className="nx-focus-ring absolute inset-y-0 right-0 grid w-11 place-items-center text-white/40 hover:text-white/75"
+                  >
+                    {showPassword ? (
+                      <EyeOff size={16} aria-hidden="true" />
+                    ) : (
+                      <Eye size={16} aria-hidden="true" />
+                    )}
+                  </button>
                 </label>
 
                 {mode === "signup" ? (
