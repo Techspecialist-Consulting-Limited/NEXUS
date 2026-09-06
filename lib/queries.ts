@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { asActor, asService } from "./db";
 import type { OrgRole } from "./roles";
 
@@ -56,7 +57,18 @@ export async function listPeople(): Promise<Person[]> {
   );
 }
 
-export async function getPerson(profileId: string): Promise<Person | null> {
+/*
+ * Memoized per request with React's `cache()`.
+ *
+ * The shared layout calls this once for the nav shell, and nearly every page
+ * called it again for its own render — ten separate page files, each paying
+ * for the identical query the layout had already run a moment earlier.
+ * `cache()` scopes the memoization to one request; it never leaks across
+ * users or requests.
+ */
+export const getPerson = cache(async function getPerson(
+  profileId: string,
+): Promise<Person | null> {
   const rows = await asService(
     (sql) => sql<Person>`
       select p.id, p.full_name, p.email, p.title, p.role,
@@ -67,7 +79,7 @@ export async function getPerson(profileId: string): Promise<Person | null> {
     `,
   );
   return rows[0] ?? null;
-}
+});
 
 /** The most recent settled week — the one an executive is actually reading. */
 export async function recentCycles(actor: string, limit = 8): Promise<Cycle[]> {
@@ -111,6 +123,32 @@ export async function currentCycle(actor: string): Promise<Cycle | null> {
         and cy.org_id = (select org_id from profiles where id = ${actor})
         and cy.starts_on <= current_date
         and cy.ends_on   >= current_date
+      limit 1
+    `,
+  );
+  return rows[0] ?? null;
+}
+
+/**
+ * The week immediately after the one given — future or not.
+ *
+ * `recentCycles` cannot answer this: it deliberately excludes the current
+ * week and everything after it, because it exists for the executive view
+ * where the only interesting weeks have already closed. Check-in needs the
+ * opposite — "next week" is by definition not yet running — so this reads
+ * the calendar directly rather than borrowing a query built to hide it.
+ */
+export async function cycleAfter(actor: string, cycleId: string): Promise<Cycle | null> {
+  const rows = await asActor(
+    actor,
+    (sql) => sql<Cycle>`
+      select n.id, n.label, n.starts_on, n.ends_on, n.seq
+      from cycles n
+      join cycles cur on cur.id = ${cycleId}
+      where n.org_id = cur.org_id
+        and n.kind = cur.kind
+        and n.starts_on > cur.starts_on
+      order by n.starts_on
       limit 1
     `,
   );
@@ -864,6 +902,162 @@ export async function commitmentsFor(
       order by c.was_planned desc, priority_weight(c.priority) desc, c.title
     `,
   );
+}
+
+/**
+ * Still open or held up, AS OF a given (usually already-settled) week — not
+ * only what was literally promised FOR it.
+ *
+ * `commitmentsFor` filters strictly on `target_cycle_id`, and a promise's
+ * target never moves once it goes unresolved — nothing in the app carries it
+ * forward (see the long note on `openCommitments` in lib/checkin.ts, and
+ * `liveCommitments` above, which exists for exactly this reason). So the
+ * Chairman's drill-down into somebody's week asked "what was promised FOR
+ * this exact week" for its Still open / Held up panels, and a person whose
+ * backlog had genuinely carried from an earlier week showed as having none.
+ *
+ * Collapsed by (person, lower(trim(title))) like `liveCommitments`, and
+ * bounded to promises that already existed by the week being viewed — a
+ * promise's own target week starting on or before it — so this stays a
+ * picture of THAT week rather than turning into whatever is open right now,
+ * which would make every past week's page show the same live backlog.
+ *
+ * Deliberately NOT used for Delivered or Taken on next: an outcome belongs to
+ * the week it actually landed in, and a forward promise belongs to the week
+ * it targets — neither has the "still not resolved" problem this exists to
+ * fix, and broadening either would blur what those panels mean.
+ */
+export async function openAsOfWeek(
+  actor: string,
+  profileId: string,
+  cycleId: string,
+): Promise<CommitmentRow[]> {
+  return asActor(
+    actor,
+    (sql) => sql<CommitmentRow>`
+      select
+        t.id, t.title, t.category, t.priority, t.status, t.was_planned,
+        t.deviation_declared, t.blocker_kind, t.depends_on_department,
+        t.carry_depth, t.source_quote,
+        t.estimated_effort_hours, t.actual_effort_hours,
+        t.description, t.outcome_reason, t.due_on,
+        t.created_at, t.declared_at, t.delivered_at
+      from (
+        select distinct on (lower(btrim(c.title)))
+          c.id, c.title, c.category, c.priority::text as priority,
+          c.status::text as status, c.was_planned, c.deviation_declared,
+          c.blocker_kind::text as blocker_kind,
+          d.name as depends_on_department,
+          c.source_quote,
+          c.estimated_effort_hours::float8, c.actual_effort_hours::float8,
+          c.description, c.outcome_reason, c.due_on,
+          c.created_at, c.declared_at, c.delivered_at,
+          priority_weight(c.priority) as prio,
+          cy.starts_on,
+          count(*) over (partition by lower(btrim(c.title)))::int as carry_depth
+        from commitments c
+        join cycles cy on cy.id = c.target_cycle_id
+        left join departments d on d.id = c.depends_on_department_id
+        where c.profile_id = ${profileId}
+          and c.deleted_at is null
+          and c.status in ('promised', 'in_progress', 'deferred', 'blocked')
+          and cy.starts_on <= (select starts_on from cycles where id = ${cycleId})
+        order by lower(btrim(c.title)), cy.starts_on desc
+      ) t
+      order by t.prio desc, t.title
+    `,
+  );
+}
+
+/** A commitment row carrying whose it is, for a board spanning several people. */
+export type DepartmentCommitmentRow = CommitmentRow & {
+  profile_id: string;
+  full_name: string;
+};
+
+/**
+ * Every commitment in one unit for one cycle, across everybody in it.
+ *
+ * `commitmentsFor` answers this for a single person; the Command-mode unit
+ * board needs the same shape for a whole department at once, grouped by who
+ * it belongs to. Same recursive carry-depth CTE as `commitmentsFor` — a
+ * commitment carried three weeks running should say so here exactly as it
+ * would on that person's own page, not reset to 1 because this query counts
+ * differently.
+ */
+export async function commitmentsForDepartment(
+  actor: string,
+  departmentId: string,
+  cycleId: string,
+): Promise<DepartmentCommitmentRow[]> {
+  return asActor(
+    actor,
+    (sql) => sql<DepartmentCommitmentRow>`
+      with recursive back as (
+        select c.id as head, c.carried_from_commitment_id as prev, 1 as depth
+        from commitments c
+        join profiles p on p.id = c.profile_id
+        where p.department_id = ${departmentId} and c.target_cycle_id = ${cycleId}
+        union all
+        select b.head, c.carried_from_commitment_id, b.depth + 1
+        from back b
+        join commitments c on c.id = b.prev
+      ),
+      depths as (
+        select head, max(depth)::int as depth from back group by head
+      )
+      select
+        c.id, c.title, c.category, c.priority::text as priority,
+        c.status::text as status, c.was_planned, c.deviation_declared,
+        c.blocker_kind::text as blocker_kind,
+        dep.name as depends_on_department,
+        coalesce(dp.depth, 1) as carry_depth,
+        c.source_quote,
+        c.estimated_effort_hours::float8, c.actual_effort_hours::float8,
+        c.description, c.outcome_reason, c.due_on,
+        c.created_at, c.declared_at, c.delivered_at,
+        c.profile_id, p.full_name
+      from commitments c
+      join profiles p on p.id = c.profile_id
+      left join departments dep on dep.id = c.depends_on_department_id
+      left join depths dp on dp.head = c.id
+      where p.department_id = ${departmentId}
+        and c.target_cycle_id = ${cycleId}
+        and c.deleted_at is null
+      order by p.full_name, priority_weight(c.priority) desc, c.title
+    `,
+  );
+}
+
+/**
+ * Backlog / pending / completed counts for the whole organisation in one
+ * cycle — the glance strip on the Chairman's landing page.
+ *
+ * Grouped in SQL rather than counted in the browser from a full row set,
+ * because a strip that only ever shows three numbers should not have to fetch
+ * every commitment in the organisation to produce them.
+ */
+export async function orgCommitmentCounts(
+  actor: string,
+  cycleId: string,
+): Promise<{ backlog: number; pending: number; completed: number }> {
+  const rows = await asActor(
+    actor,
+    (sql) => sql<{ backlog: number; pending: number; completed: number }>`
+      select
+        count(*) filter (where c.status = 'promised')::int as backlog,
+        count(*) filter (
+          where c.status in ('in_progress', 'deferred', 'blocked')
+        )::int as pending,
+        count(*) filter (where c.status in ('delivered', 'partial'))::int as completed
+      from commitments c
+      join profiles p on p.id = c.profile_id
+      where c.target_cycle_id = ${cycleId}
+        and c.deleted_at is null
+        and p.status = 'active'
+    `,
+  );
+  return rows[0] ?? { backlog: 0, pending: 0, completed: 0 };
 }
 
 /** A live commitment, carrying the week it was promised for. */

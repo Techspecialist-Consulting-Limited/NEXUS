@@ -8,6 +8,7 @@ import { m } from "motion/react";
 import {
   Bell,
   Building2,
+  ClipboardList,
   Clock,
   History,
   Plug,
@@ -46,6 +47,7 @@ import { GROUP_LABEL, type IconKey, type Launcher, type NavGroup, type Tab } fro
 
 const ICONS: Record<IconKey, LucideIcon> = {
   command: LayoutDashboard,
+  reports: ClipboardList,
   units: Building2,
   insights: Lightbulb,
   alerts: Bell,

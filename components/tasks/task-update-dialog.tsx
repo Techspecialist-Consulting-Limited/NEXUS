@@ -70,10 +70,18 @@ export function TaskUpdateDialog({
   commitment: c,
   open,
   onClose,
+  initialStatus,
 }: {
   commitment: CommitmentRow | null;
   open: boolean;
   onClose: () => void;
+  /**
+   * Pre-select a status other than the commitment's current one — used when
+   * the board opens this dialog because a card was dropped onto Blocked. The
+   * dialog still requires an explicit Save; nothing is written just by
+   * arriving here with a different status pre-picked.
+   */
+  initialStatus?: string;
 }) {
   if (!c) return null;
 
@@ -93,7 +101,12 @@ export function TaskUpdateDialog({
         different form. React discards the old state and initialises fresh,
         with no effect and no intermediate wrong frame.
       */}
-      <UpdateBody key={`${c.id}:${c.status}`} commitment={c} onClose={onClose} />
+      <UpdateBody
+        key={`${c.id}:${c.status}:${initialStatus ?? ""}`}
+        commitment={c}
+        onClose={onClose}
+        initialStatus={initialStatus}
+      />
     </Dialog>
   );
 }
@@ -101,15 +114,17 @@ export function TaskUpdateDialog({
 function UpdateBody({
   commitment: c,
   onClose,
+  initialStatus,
 }: {
   commitment: CommitmentRow;
   onClose: () => void;
+  initialStatus?: string;
 }) {
   const router = useRouter();
   const { toast } = useToast();
   const [refreshing, startRefresh] = useTransition();
 
-  const [status, setStatus] = useState<string>(c.status);
+  const [status, setStatus] = useState<string>(initialStatus ?? c.status);
   const [comment, setComment] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -311,9 +326,22 @@ function UpdateBody({
               aria-hidden="true"
             />
             <span className="leading-relaxed text-secondary">
-              {c.depends_on_department
-                ? `This is waiting on ${c.depends_on_department}. Work held up elsewhere is not counted against your delivery.`
-                : "This is being held up. Work you cannot move is not counted against your delivery."}
+              {/*
+                `depends_on_department` is set once, at extraction, and
+                nothing re-derives it when this is re-declared blocked later
+                through this very dialog — that write only ever touches
+                `outcome_reason` (see `save` above). So a commitment first
+                attributed to HR and since explained here as "blocked by the
+                financial team" kept telling the person who wrote that
+                sentence that it was waiting on HR. Their own latest words,
+                already shown below as "Last update", take precedence over a
+                label that can no longer be trusted to be current.
+              */}
+              {c.outcome_reason
+                ? "Work held up elsewhere is not counted against your delivery."
+                : c.depends_on_department
+                  ? `This is waiting on ${c.depends_on_department}. Work held up elsewhere is not counted against your delivery.`
+                  : "This is being held up. Work you cannot move is not counted against your delivery."}
             </span>
           </p>
         )}

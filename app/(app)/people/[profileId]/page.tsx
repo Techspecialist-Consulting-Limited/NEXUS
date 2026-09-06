@@ -2,9 +2,10 @@ import { notFound } from "next/navigation";
 import { currentActorId } from "@/lib/session";
 import {
   commitmentsFor,
+  cycleAfter,
   getPerson,
   latestVisibleCycle,
-  recentCycles,
+  openAsOfWeek,
   weeklyPersonReports,
 } from "@/lib/queries";
 import { PersonWeek } from "@/components/executive/person-week";
@@ -63,12 +64,18 @@ export default async function PersonPage({
   /*
    * "Taken on next" is the cycle after the one being reported on, which is the
    * same pairing the briefing uses: what landed, then where the work goes.
+   *
+   * `recentCycles` cannot find it — it deliberately excludes the current week
+   * and everything after it (see its own doc comment), so whenever `week`
+   * here is the still-running current week, "the week after it" is a future
+   * week `recentCycles` will never return, and this always came back empty.
+   * `cycleAfter` reads the calendar directly instead, future or not.
    */
-  const cycles = await recentCycles(actor, 12);
-  const nextCycle = cycles.find((c) => c.seq === week.seq + 1);
+  const nextCycle = await cycleAfter(actor, week.id);
 
-  const [commitments, planned, everyone] = await Promise.all([
+  const [settledThisWeek, stillOpen, planned, everyone] = await Promise.all([
     commitmentsFor(actor, profileId, week.id),
+    openAsOfWeek(actor, profileId, week.id),
     nextCycle
       ? commitmentsFor(actor, profileId, nextCycle.id)
       : Promise.resolve([]),
@@ -76,6 +83,19 @@ export default async function PersonPage({
   ]);
 
   const reported = everyone.find((p) => p.profileId === profileId)?.reported ?? false;
+
+  /*
+   * DELIVERED comes from what actually targeted this week; STILL OPEN and
+   * HELD UP come from `openAsOfWeek`, which also counts backlog carried from
+   * an earlier week that never got resolved — see that function's doc
+   * comment. The two sources cannot overlap: a single commitment has one
+   * status, and delivered/partial is disjoint from the open statuses
+   * `openAsOfWeek` asks for.
+   */
+  const commitments = [
+    ...settledThisWeek.filter((c) => c.status === "delivered" || c.status === "partial"),
+    ...stillOpen,
+  ];
 
   return (
     <PersonWeek

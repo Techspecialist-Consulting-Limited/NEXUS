@@ -28,6 +28,7 @@ import { can, hasAdministration, hasPersonalWorkspace } from "./capabilities";
 
 export type IconKey =
   | "command"
+  | "reports"
   | "units"
   | "insights"
   | "alerts"
@@ -84,6 +85,7 @@ export function tabsFor(role: OrgRole): Tab[] {
   if (role === "executive") {
     return [
       { href: "/dashboard", label: "Command", icon: "command" },
+      { href: "/updates", label: "Reports", icon: "reports" },
       { href: "/departments", label: "Units", icon: "units" },
       { href: "/advice", label: "Insights", icon: "insights" },
       { href: "/notifications", label: "Alerts", icon: "alerts" },

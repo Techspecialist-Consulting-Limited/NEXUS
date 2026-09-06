@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { asService } from "./db";
 import { SUPABASE_KEY, SUPABASE_URL, hasSupabase } from "./supabase-env";
@@ -213,9 +214,22 @@ async function devIdentity(): Promise<Identity | null> {
   };
 }
 
-export async function currentIdentity(): Promise<Identity | null> {
+/*
+ * Memoized per request with React's `cache()`.
+ *
+ * Without it, every page under app/(app)/layout.tsx resolved identity a
+ * second time — the layout calls this once via requireViewer(), and every
+ * individual page called currentActorId() again, which runs the exact same
+ * supabaseIdentity()/devIdentity() branch a second time. In Supabase mode
+ * that is a live round trip to the Supabase Auth API on every single
+ * navigation, not a local check — paid twice for no reason. `cache()` scopes
+ * the memoization to one request; it never leaks across users or requests.
+ */
+export const currentIdentity = cache(async function currentIdentity(): Promise<
+  Identity | null
+> {
   return authMode() === "supabase" ? supabaseIdentity() : devIdentity();
-}
+});
 
 // ---------------------------------------------------------------------------
 // Membership
@@ -229,8 +243,10 @@ export async function currentIdentity(): Promise<Identity | null> {
  * themselves are written in terms of current_profile_id(). Resolving identity
  * to membership is the one lookup that has to happen outside the fence, and it
  * reads a fixed set of columns for exactly one user_id.
+ *
+ * Memoized per request — same reasoning as `currentIdentity()` above.
  */
-export async function currentMembership(
+export const currentMembership = cache(async function currentMembership(
   identity: Identity | null,
 ): Promise<Membership | null> {
   if (!identity) return null;
@@ -255,7 +271,7 @@ export async function currentMembership(
   );
 
   return rows[0] ?? null;
-}
+});
 
 export type Viewer = {
   identity: Identity;

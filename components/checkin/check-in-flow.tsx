@@ -6,6 +6,7 @@ import {
   useEffect,
   useRef,
   useState,
+  type ReactNode,
 } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { m } from "motion/react";
@@ -97,10 +98,13 @@ export function CheckInFlow({
   cycleId,
   cycleLabel,
   open,
+  viewToggle,
 }: {
   cycleId: string;
   cycleLabel: string;
   open: OpenCommitment[];
+  /** The List/Board switch, rendered inside this view's own header — see check-in-workspace.tsx. */
+  viewToggle?: ReactNode;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -380,22 +384,6 @@ export function CheckInFlow({
   const nothingToFile =
     (!hasChanged || filed.changed) && (!hasNext || filed.next) && answered === 0;
 
-  /*
-   * HOW WIDE THE PAGE IS DEPENDS ON WHETHER IT HAS TWO COLUMNS.
-   *
-   * With commitments to resolve, the width carries two columns and 1100px is
-   * right. With none — a new joiner, or anybody who closed everything out —
-   * the report sections span the whole row, and at 1100px that is a textarea
-   * around 130 characters wide. Prose typed at that measure is hard to read
-   * back before filing it, and visual-system.md caps body copy at 65-75ch for
-   * the same reason.
-   *
-   * This is NOT the "centred phone column in a void" the UI audit rejected on
-   * this page. That was one short card with 700px of nothing under it; this is
-   * three substantial sections at a width somebody can write in.
-   */
-  const wide = open.length > 0;
-
   return (
     <div
       /*
@@ -409,11 +397,16 @@ export function CheckInFlow({
        * somebody is writing prose and needs to read it back.
        *
        * Content sets the shape. The document scrolls; the cards do not.
+       *
+       * ONE WIDTH, NOT TWO. The two report sections sit side by side on
+       * desktop whether or not there are commitments to resolve — with none,
+       * they simply take both outer columns instead of one. A narrower cap
+       * for that case used to starve exactly the two textareas somebody is
+       * actually meant to write in down to roughly half of 832px each, which
+       * read as far too tight. 1280px keeps each report field close to the
+       * width the single-commitments-column layout already gives it.
        */
-      className={cn(
-        "mx-auto flex w-full flex-col gap-3 pb-4 lg:gap-4",
-        wide ? "max-w-[1280px]" : "max-w-[52rem]",
-      )}
+      className="mx-auto flex w-full max-w-[1280px] flex-col gap-3 pb-4 lg:gap-4"
     >
       {/* ---- Header ---------------------------------------------------- */}
       <header className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4 pt-1">
@@ -434,12 +427,15 @@ export function CheckInFlow({
           </p>
         </div>
 
-        <Stages
-          openCount={open.length}
-          answered={answered}
-          hasChanged={hasChanged || filed.changed}
-          hasNext={hasNext || filed.next}
-        />
+        <div className="flex flex-col items-end gap-2.5">
+          {viewToggle}
+          <Stages
+            openCount={open.length}
+            answered={answered}
+            hasChanged={hasChanged || filed.changed}
+            hasNext={hasNext || filed.next}
+          />
+        </div>
       </header>
 
       <div className="flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(240px,0.8fr)_minmax(0,1.2fr)] lg:items-start lg:gap-4">

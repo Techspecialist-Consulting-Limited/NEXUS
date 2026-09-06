@@ -321,7 +321,7 @@ export function DepartmentView({
                       <div className="mt-2.5 space-y-1 pl-12">
                         {said.delivered.length > 0 && (
                           <p className="body-sm line-clamp-2">
-                            <span className="text-[var(--color-delivered)]">Landed</span>{" "}
+                            <span className="text-[var(--color-delivered)]">Delivered</span>{" "}
                             {said.delivered.join(" · ")}
                           </p>
                         )}

@@ -61,9 +61,19 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
    * runs on every page in the product.
    */
   const actor = membership.profileId; // what currentActorId() resolves to.
-  const coaching = hasPersonalWorkspace(membership.role)
-    ? await latestCoaching(actor, membership.profileId)
-    : [];
+
+  /*
+   * Independent of each other — neither reads the other's result — so they
+   * run together rather than adding a second sequential round trip to every
+   * page in the product for no reason. `alertsFor` genuinely depends on `me`
+   * below, so it stays after.
+   */
+  const [coaching, me] = await Promise.all([
+    hasPersonalWorkspace(membership.role)
+      ? latestCoaching(actor, membership.profileId)
+      : Promise.resolve([]),
+    getPerson(actor),
+  ]);
   const tip = coaching[1] ?? coaching[0] ?? null;
 
   /*
@@ -73,7 +83,6 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
    * on the bell and the page it opens cannot disagree. Database reads only,
    * no model call, which is what makes it affordable on every navigation.
    */
-  const me = await getPerson(actor);
   const feed = me ? await alertsFor(actor, me) : { alerts: [] };
 
   return (
