@@ -31,7 +31,28 @@ export type OpenCommitment = {
   carry_depth: number;
 };
 
-/** What the person owes an answer on: last week's promises, still open. */
+/**
+ * What the person owes an answer on: everything still open, whichever week
+ * it was promised for — not only this one.
+ *
+ * THIS USED TO FILTER `target_cycle_id = cycleId`, which is the wrong
+ * question here for the same reason `liveCommitments` documents at length:
+ * nothing in the app ever moves a stale promise's `target_cycle_id` forward,
+ * so a commitment made three weeks ago and never resolved keeps that old
+ * week's id forever. Check-in's "to resolve" tray asked "what was promised
+ * FOR this exact week" and so it could only ever show what was promised the
+ * week before — a person with five weeks of carried, unresolved work saw an
+ * empty tray, the same failure `liveCommitments`' own doc comment describes
+ * for Abbas Taofeeq's Tasks page.
+ *
+ * Collapsed by (person, lower(trim(title))) for the same reason: a promise
+ * restated in a later check-in is a NEW row, not an update to the old one, so
+ * without collapsing the same job could appear once per week it was renewed.
+ *
+ * Bounded to `cycleId`'s own start or earlier so a promise already made FOR
+ * next week — not due yet — does not show up here as something to resolve
+ * before its week has even begun.
+ */
 export async function openCommitments(
   actor: string,
   profileId: string,
@@ -40,13 +61,56 @@ export async function openCommitments(
   return asActor(
     actor,
     (sql) => sql<OpenCommitment>`
-      select c.id, c.title, c.status::text as status, c.source_quote, 1 as carry_depth
+      select t.id, t.title, t.status, t.source_quote, t.carry_depth
+      from (
+        select distinct on (lower(btrim(c.title)))
+          c.id, c.title, c.status::text as status, c.source_quote,
+          priority_weight(c.priority) as prio,
+          cy.starts_on,
+          count(*) over (partition by lower(btrim(c.title)))::int as carry_depth
+        from commitments c
+        join cycles cy on cy.id = c.target_cycle_id
+        where c.profile_id = ${profileId}
+          and c.deleted_at is null
+          and c.status in ('promised', 'in_progress', 'blocked', 'partial')
+          and cy.starts_on <= (select starts_on from cycles where id = ${cycleId})
+        order by lower(btrim(c.title)), cy.starts_on desc
+      ) t
+      order by t.prio desc, t.title
+    `,
+  );
+}
+
+export type PlannedCommitment = {
+  id: string;
+  title: string;
+  source_quote: string | null;
+};
+
+/**
+ * What this person has already told NEXUS they're taking on for the given
+ * (upcoming) week — real commitments, not a draft held in the browser.
+ *
+ * The check-in board's "Next week" tray used to be plain `useState([])`, so
+ * a plan filed earlier the same day vanished the moment the page reloaded —
+ * not because it was lost, but because nothing ever asked the database for
+ * it. This is that missing read.
+ */
+export async function plannedFor(
+  actor: string,
+  profileId: string,
+  nextCycleId: string,
+): Promise<PlannedCommitment[]> {
+  return asActor(
+    actor,
+    (sql) => sql<PlannedCommitment>`
+      select c.id, c.title, c.source_quote
       from commitments c
       where c.profile_id = ${profileId}
-        and c.target_cycle_id = ${cycleId}
+        and c.target_cycle_id = ${nextCycleId}
         and c.deleted_at is null
-        and c.status in ('promised', 'in_progress', 'blocked', 'partial')
-      order by priority_weight(c.priority) desc, c.title
+        and c.status not in ('dropped', 'superseded')
+      order by c.created_at
     `,
   );
 }

@@ -12,6 +12,7 @@ import {
   getPerson,
   latestVisibleCycle,
   latestWeeklyBrief,
+  orgCommitmentCounts,
   pendingReview,
   recentCycles,
   recentStaffUpdates,
@@ -136,7 +137,7 @@ export default async function DashboardPage() {
      * no cycle at all, and `latestWeeklyBrief` is the STORED digest — null
      * when none has been sent, which is the whole of that empty state.
      */
-    const [brief, updates, weekly, roster, compliance] = await Promise.all([
+    const [brief, updates, weekly, roster, compliance, boardCounts] = await Promise.all([
       week ? executiveBrief(actor, week.id) : Promise.resolve(null),
       week ? recentStaffUpdates(actor, week.id) : Promise.resolve([]),
       latestWeeklyBrief(actor),
@@ -153,6 +154,12 @@ export default async function DashboardPage() {
        * used to render the first sentence for both.
        */
       week ? reportingCompliance(actor, week.id) : Promise.resolve([]),
+      /*
+       * Org-wide backlog/pending/completed counts for the board summary
+       * strip. Null with no settled week — there is nothing to count yet, and
+       * the strip says so rather than showing three zeroes that look counted.
+       */
+      week ? orgCommitmentCounts(actor, week.id) : Promise.resolve(null),
     ]);
 
     /*
@@ -174,12 +181,6 @@ export default async function DashboardPage() {
       <ExecutiveHome
         firstName={me.full_name.split(/\s+/)[0]}
         greeting={partOfDay()}
-        today={new Date().toLocaleDateString("en-GB", {
-          weekday: "short",
-          day: "numeric",
-          month: "short",
-          year: "numeric",
-        })}
         cycleLabel={week?.label ?? null}
         insights={brief?.insights ?? []}
         updates={updates}
@@ -189,6 +190,7 @@ export default async function DashboardPage() {
           submitted: compliance.filter((r) => r.submitted).length,
         }}
         weeklyBrief={weekly}
+        boardCounts={boardCounts}
       />
     );
   }

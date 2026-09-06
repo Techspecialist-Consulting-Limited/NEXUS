@@ -61,7 +61,7 @@ export const STATUS: Record<CommitmentStatus, StatusMeta> = {
   },
   delivered: {
     label: "Delivered",
-    gloss: "Landed in full",
+    gloss: "Delivered in full",
     icon: CheckCircle2,
     color: "var(--color-delivered)",
     fill: "status-delivered",

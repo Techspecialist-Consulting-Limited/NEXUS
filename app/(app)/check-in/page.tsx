@@ -4,12 +4,13 @@ import { homeFor } from "@/lib/nav";
 import { currentActorId } from "@/lib/session";
 import {
   currentCycle,
+  cycleAfter,
   getPerson,
   openCheckInCycle,
   recentCycles,
 } from "@/lib/queries";
-import { openCommitments } from "@/lib/checkin";
-import { CheckInFlow } from "@/components/checkin/check-in-flow";
+import { openCommitments, plannedFor } from "@/lib/checkin";
+import { CheckInWorkspace } from "@/components/checkin/check-in-workspace";
 
 export const dynamic = "force-dynamic";
 
@@ -73,7 +74,23 @@ export default async function CheckInPage() {
    * live where they can be checked against the rows that produced them — the
    * week ledger on /my-week and the coach.
    */
-  const open = await openCommitments(actor, me.id, week.id);
+  /*
+   * Already-declared plans for the week after this one, so the board's "Next
+   * week" tray shows what was actually filed rather than starting blank every
+   * time the page loads. See lib/checkin.ts plannedFor.
+   */
+  const [open, nextCycle] = await Promise.all([
+    openCommitments(actor, me.id, week.id),
+    cycleAfter(actor, week.id),
+  ]);
+  const plannedNext = nextCycle ? await plannedFor(actor, me.id, nextCycle.id) : [];
 
-  return <CheckInFlow cycleId={week.id} cycleLabel={week.label} open={open} />;
+  return (
+    <CheckInWorkspace
+      cycleId={week.id}
+      cycleLabel={week.label}
+      open={open}
+      plannedNext={plannedNext}
+    />
+  );
 }

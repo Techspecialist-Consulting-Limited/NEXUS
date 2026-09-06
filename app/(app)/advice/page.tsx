@@ -1,4 +1,6 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
+import { Loader2 } from "lucide-react";
 import { currentActorId } from "@/lib/session";
 import { getPerson, latestVisibleCycle } from "@/lib/queries";
 import { executiveBrief } from "@/lib/insights";
@@ -6,9 +8,52 @@ import { weeklyBrief } from "@/lib/coach";
 import { AdviceFeed } from "@/components/advice/advice-feed";
 import { InsightBoard } from "@/components/executive/insight-board";
 import { CoachBoard } from "@/components/staff/coach-board";
+import { GlassCard } from "@/components/ui/glass-card";
 import { reportingCompliance } from "@/lib/team";
 
 export const dynamic = "force-dynamic";
+
+/*
+ * The personal-coaching path calls a real model (lib/coach.ts -> Azure), which
+ * can run for several seconds — or fail outright, as it did the day this
+ * endpoint's DNS was unreachable. That used to block the ENTIRE page: the nav
+ * shell and everything else on it waited behind one AI call with nothing to
+ * show for it. Splitting it into its own async component and wrapping THAT in
+ * Suspense lets the page shell paint immediately and the coaching stream in
+ * once the model actually answers, rather than holding the whole response.
+ */
+async function PersonalCoaching({
+  actor,
+  profileId,
+  cycleId,
+  fullName,
+  cycleLabel,
+}: {
+  actor: string;
+  profileId: string;
+  cycleId: string;
+  fullName: string;
+  cycleLabel: string;
+}) {
+  const personal = await weeklyBrief(actor, profileId, cycleId, fullName, cycleLabel);
+  return (
+    <CoachBoard
+      cycleLabel={cycleLabel}
+      narrative={personal.narrative}
+      coaching={personal.coaching}
+      questions={personal.questions}
+    />
+  );
+}
+
+function CoachingFallback() {
+  return (
+    <GlassCard level={2} className="mx-auto flex max-w-2xl items-center gap-2.5 p-6">
+      <Loader2 size={15} className="animate-spin text-tertiary" aria-hidden="true" />
+      <p className="text-sm text-secondary">Preparing this week&rsquo;s coaching…</p>
+    </GlassCard>
+  );
+}
 
 /*
  * GUIDE §12 Advice Feed / "AI Insight Center".
@@ -85,14 +130,16 @@ export default async function AdvicePage() {
    * help rather than as a file being kept on them.
    */
   if (me.role === "staff" || me.role === "lead" || me.role === "hr") {
-    const personal = await weeklyBrief(actor, me.id, week.id, me.full_name, week.label);
     return (
-      <CoachBoard
-        cycleLabel={week.label}
-        narrative={personal.narrative}
-        coaching={personal.coaching}
-        questions={personal.questions}
-      />
+      <Suspense fallback={<CoachingFallback />}>
+        <PersonalCoaching
+          actor={actor}
+          profileId={me.id}
+          cycleId={week.id}
+          fullName={me.full_name}
+          cycleLabel={week.label}
+        />
+      </Suspense>
     );
   }
 
