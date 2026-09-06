@@ -1,20 +1,23 @@
 import { cache } from "react";
 import { cookies } from "next/headers";
 import { asService } from "./db";
-import { SUPABASE_KEY, SUPABASE_URL, hasSupabase } from "./supabase-env";
+import { auth as authjsSession } from "../auth";
 
 /*
  * Who is signed in, and what they are in this organisation.
  *
  * Two providers behind one interface:
  *
- *   supabase  Real authentication. Microsoft Entra ID, Google, and
- *             email + password all arrive here as one `Identity`, because
- *             which button someone pressed is a detail of how they proved who
- *             they are — not a difference in who they then are.
+ *   authjs    Real authentication. Microsoft Entra ID and email + password
+ *             both arrive here as one `Identity`, because which button
+ *             someone pressed is a detail of how they proved who they are —
+ *             not a difference in who they then are. Auth.js (NextAuth v5)
+ *             runs this against the same Postgres everything else talks to;
+ *             see auth.ts and migration 0024.
  *
- *   dev       No credentials configured. Falls back to the persona cookie so
- *             the app still runs on a clean machine. Never reachable in
+ *   dev       Asked for explicitly with NEXUS_FORCE_DEMO_AUTH=1. Falls back
+ *             to the persona cookie so the app still runs on a clean machine
+ *             with no environment configured at all. Never reachable in
  *             production: see assertProviderIsSafe().
  *
  * The split that matters is between IDENTITY and MEMBERSHIP.
@@ -55,22 +58,22 @@ export type Membership = {
 
 const DEV_COOKIE = "nexus_persona";
 
-export function authMode(): "supabase" | "dev" {
+export function authMode(): "authjs" | "dev" {
   /*
    * One deterministic override, read at runtime on the server.
    *
-   * Blanking NEXT_PUBLIC_SUPABASE_* to force demo mode does not work: those
-   * are inlined into the client bundle at build time, and Next re-applies
-   * .env.local over the process environment anyway. The visual sweep needs the
-   * seeded demo org and the persona switcher regardless of what else is
-   * configured, so it asks for it by name rather than trying to win a fight
-   * over environment precedence.
+   * Auth.js needs nothing external to work — Credentials sign-in only needs
+   * this app's own Postgres and AUTH_SECRET, both of which are configured in
+   * every real environment — so unlike the old Supabase check, there is no
+   * "nothing configured" fallback to reach for here. The persona switcher is
+   * opt-in only, exactly the deliberate override the visual sweep asks for by
+   * name.
    *
    * Not NEXT_PUBLIC_, so it never reaches a browser and cannot be used to
    * downgrade a real deployment from the client side.
    */
   if (process.env.NEXUS_FORCE_DEMO_AUTH === "1") return "dev";
-  return hasSupabase ? "supabase" : "dev";
+  return "authjs";
 }
 
 /**
@@ -83,7 +86,7 @@ export function authMode(): "supabase" | "dev" {
  */
 export function assertProviderIsSafe() {
   if (process.env.NODE_ENV !== "production") return;
-  if (authMode() === "supabase") return;
+  if (authMode() === "authjs") return;
 
   /*
    * One deliberate escape hatch, for running the real build locally — the
@@ -94,9 +97,9 @@ export function assertProviderIsSafe() {
   if (process.env.NEXUS_ALLOW_DEMO_AUTH === "1") return;
 
   throw new Error(
-    "NEXUS is configured with no authentication provider. Set " +
-      "NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, or set " +
-      "NEXUS_ALLOW_DEMO_AUTH=1 if this is deliberately a demo build.",
+    "NEXUS is running in demo/persona mode in a production build. Unset " +
+      "NEXUS_FORCE_DEMO_AUTH, or set NEXUS_ALLOW_DEMO_AUTH=1 if this is " +
+      "deliberately a demo build.",
   );
 }
 
@@ -104,45 +107,25 @@ export function assertProviderIsSafe() {
 // Identity
 // ---------------------------------------------------------------------------
 
-async function supabaseIdentity(): Promise<Identity | null> {
-  const { createServerClient } = await import("@supabase/ssr");
-  const jar = await cookies();
-
-  const supabase = createServerClient(
-    SUPABASE_URL,
-    SUPABASE_KEY,
-    {
-      cookies: {
-        getAll: () => jar.getAll(),
-        setAll: (list) => {
-          try {
-            for (const { name, value, options } of list) jar.set(name, value, options);
-          } catch {
-            // Called from a Server Component, where cookies are read-only.
-            // Middleware refreshes the session instead.
-          }
-        },
-      },
-    },
-  );
-
+async function authjsIdentity(): Promise<Identity | null> {
   /*
-   * getUser(), never getSession(). getSession() returns whatever the cookie
-   * claims without checking it, so a forged cookie would be believed. getUser()
-   * validates against the auth server.
+   * `auth()` reads and verifies the session cookie itself — a JWT, signed
+   * with AUTH_SECRET (see auth.ts's session strategy) — so there is no
+   * separate "forged cookie" concern the old getUser()-over-getSession() note
+   * was guarding against: an unsigned or tampered cookie fails verification
+   * here and this simply returns no session.
    */
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) return null;
+  const session = await authjsSession();
+  const user = session?.user as
+    | { id?: string; email?: string | null; name?: string | null; provider?: string }
+    | undefined;
+  if (!user?.id) return null;
 
-  const u = data.user;
   return {
-    userId: u.id,
-    email: u.email ?? "",
-    name:
-      (u.user_metadata?.full_name as string | undefined) ??
-      (u.user_metadata?.name as string | undefined) ??
-      null,
-    provider: u.app_metadata?.provider ?? "email",
+    userId: user.id,
+    email: user.email ?? "",
+    name: user.name ?? null,
+    provider: user.provider ?? "credentials",
   };
 }
 
@@ -220,15 +203,14 @@ async function devIdentity(): Promise<Identity | null> {
  * Without it, every page under app/(app)/layout.tsx resolved identity a
  * second time — the layout calls this once via requireViewer(), and every
  * individual page called currentActorId() again, which runs the exact same
- * supabaseIdentity()/devIdentity() branch a second time. In Supabase mode
- * that is a live round trip to the Supabase Auth API on every single
- * navigation, not a local check — paid twice for no reason. `cache()` scopes
- * the memoization to one request; it never leaks across users or requests.
+ * authjsIdentity()/devIdentity() branch a second time. In authjs mode that
+ * verifies the session cookie again for no reason. `cache()` scopes the
+ * memoization to one request; it never leaks across users or requests.
  */
 export const currentIdentity = cache(async function currentIdentity(): Promise<
   Identity | null
 > {
-  return authMode() === "supabase" ? supabaseIdentity() : devIdentity();
+  return authMode() === "authjs" ? authjsIdentity() : devIdentity();
 });
 
 // ---------------------------------------------------------------------------

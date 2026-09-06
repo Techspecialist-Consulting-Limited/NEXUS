@@ -87,7 +87,8 @@ export type DeletionReceipt = {
 /**
  * Remove an organisation and everything that belongs to it.
  *
- * `dropAuth` also removes the Supabase sign-in accounts of its people — but
+ * `dropAuth` also removes the sign-in accounts (`users`, see migration 0024)
+ * of its people — but
  * ONLY those that no surviving profile still claims. Without it the accounts
  * remain and can sign in to a product where they have no profile, which lands
  * them on onboarding to create a new organisation. That is a perfectly
@@ -148,7 +149,7 @@ export async function deleteOrganization(
     try {
       const gone = await asService(
         (sql) => sql<{ id: string }>`
-          delete from auth.users u
+          delete from users u
           where u.id = any(${ids}::uuid[])
             and not exists (select 1 from profiles p where p.user_id = u.id)
           returning u.id
@@ -159,9 +160,7 @@ export async function deleteOrganization(
       /*
        * Never fail the caller here. The organisation is already gone — that
        * statement committed — and reporting an error now would say the
-       * deletion failed when it did not. Locally there is no auth schema at
-       * all (PGlite is Postgres, not Supabase), which is the ordinary case for
-       * landing in this branch.
+       * deletion failed when it did not.
        */
       console.warn("[nexus] could not remove sign-in accounts", error);
     }

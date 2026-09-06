@@ -2,13 +2,11 @@
  * Apply the demo seed to a plain Postgres — local dev, Neon, anywhere that
  * isn't a Supabase project.
  *
- * WHY THIS IS NOT `seed-remote.ts`. That script also creates real Supabase
- * Auth logins directly in `auth.users`, which only exists because Supabase's
- * Postgres carries GoTrue's schema. A bare Postgres has no such table
- * (deliberately — see scripts/setup-auth-shim.mjs), so there is nothing to
- * create a login row in, and nothing needs one: local exploration goes
- * through the persona switcher (NEXUS_FORCE_DEMO_AUTH=1), which resolves a
- * viewer straight from `profiles` and never touches `auth.users` at all.
+ * WHY THIS IS NOT `seed-staging.mjs`. That script also creates real Auth.js
+ * logins (email + password, in `users` — see migration 0024), which a bare
+ * local Postgres has no need for: local exploration goes through the persona
+ * switcher (NEXUS_FORCE_DEMO_AUTH=1), which resolves a viewer straight from
+ * `profiles` and never touches a login table at all.
  *
  * The seed itself (supabase/seed/seed.sql) is generated, re-runnable, and
  * clears its own organisation first — see scripts/generate-seed.mjs.
