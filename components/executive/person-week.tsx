@@ -31,10 +31,13 @@ import type { CommitmentRow } from "@/lib/queries";
  * Reading "what shipped" against "what's coming next" used to mean scrolling
  * past Still open and Held up to get there. Side by side, each with its own
  * scroll, both are visible at once without one list's length pushing the
- * others down the page. Only at desktop width — four columns narrower than
- * that wrap every title into single words, the same failure the unit board
- * hit at tablet width. Below `lg` this reverts to the original stacked
- * reading order, which is still the right shape for a phone.
+ * others down the page. Four columns need real width — this used to switch
+ * on at `lg` (1024px), which is exactly wide enough to wrap every title into
+ * single words rather than show them, the same failure the unit board hit at
+ * tablet width. `xl` (1280px) is where four columns actually have room; `md`
+ * to `xl` gets two instead of jumping straight from one to four. Below `md`
+ * this reverts to the original stacked reading order, which is still the
+ * right shape for a phone.
  */
 
 const DELIVERED = new Set(["delivered", "partial"]);
@@ -69,7 +72,7 @@ function Panel({
   showDuration?: boolean;
 }) {
   return (
-    <section className="flex min-h-0 flex-col rounded-lg border border-white/[0.08] bg-white/[0.02] lg:h-[540px]">
+    <section className="flex min-h-0 min-w-0 flex-col rounded-lg border border-white/[0.08] bg-white/[0.02] xl:h-[540px]">
       <div className="shrink-0 border-b border-white/[0.07] px-3.5 py-3">
         <h2 className="card-title text-primary">{title}</h2>
         {note && <p className="note mt-1">{note}</p>}
@@ -80,13 +83,16 @@ function Panel({
           <p className="note">{emptyNote}</p>
         ) : (
           <ul className="space-y-2">
-            {rows.map((c) => (
+            {rows.map((c, i) => (
               <li
                 key={c.id}
                 className="rounded-lg border border-white/[0.09] bg-white/[0.02] px-3.5 py-3"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <p className="text-sm leading-snug text-white/90">{c.title}</p>
+                  <p className="text-sm leading-snug text-white/90">
+                    <span className="metric mr-1.5 text-tertiary">{i + 1}.</span>
+                    {c.title}
+                  </p>
                   {showStatus && <StatusChip status={c.status} />}
                 </div>
 
@@ -102,7 +108,10 @@ function Panel({
 
                 <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
                   {showDuration ? (
-                    <span className="note">
+                    <span
+                      className="text-2xs font-medium"
+                      style={{ color: "var(--color-warning)" }}
+                    >
                       Open {c.carry_depth} {c.carry_depth === 1 ? "week" : "weeks"}
                       {c.carry_depth > 1
                         ? " — usually too large for one week rather than neglected"
@@ -110,7 +119,7 @@ function Panel({
                     </span>
                   ) : (
                     c.carry_depth > 1 && (
-                      <span className="note">
+                      <span className="text-2xs text-secondary">
                         Carried {c.carry_depth} weeks — usually too large for one week
                         rather than neglected
                       </span>
@@ -228,7 +237,7 @@ export function PersonWeek({
         )
       )}
 
-      <div className="grid gap-3 lg:grid-cols-4 lg:gap-4">
+      <div className="grid gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-4">
         <Panel
           title="Delivered"
           rows={delivered}

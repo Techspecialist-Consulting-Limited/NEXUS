@@ -183,7 +183,7 @@ export function TaskBoard({
       onDragEnd={handleDragEnd}
       onDragCancel={() => setActiveId(null)}
     >
-      <div className="grid gap-3 lg:grid-cols-4 lg:gap-4">
+      <div className="grid gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-4">
         {COLUMNS.map((col) => (
           <Column
             key={col.status}
@@ -225,7 +225,7 @@ function Column({
     <div
       ref={setNodeRef}
       className={cn(
-        "flex min-h-0 flex-col rounded-lg border bg-white/[0.02] transition-colors lg:h-[540px]",
+        "flex min-h-0 min-w-0 flex-col rounded-lg border bg-white/[0.02] transition-colors xl:h-[540px]",
         isOver ? "border-white/30 bg-white/[0.05]" : "border-white/[0.08]",
       )}
     >

@@ -33,9 +33,8 @@ export function PageHeader({
 
   return (
     <header
-      className="sticky top-0 z-30 -mx-4 mb-1 hidden items-center justify-end gap-2
+      className="nx-header-glass sticky top-0 z-30 -mx-4 mb-1 hidden items-center justify-end gap-2
                  px-4 py-2 md:-mx-6 md:flex md:px-6 lg:-mx-8 lg:px-8"
-      style={{ background: "transparent" }}
     >
       <AlertBell alerts={alerts} />
 

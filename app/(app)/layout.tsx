@@ -136,7 +136,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           the identity block becomes a link rather than gaining a second control
           beside it.
         */}
-        <header className="glass-l2 safe-top sticky top-0 z-40 flex items-center justify-between gap-3 border-x-0 border-t-0 px-4 py-2.5 md:hidden">
+        <header className="nx-header-glass safe-top sticky top-0 z-40 flex items-center justify-between gap-3 px-4 py-2.5 md:hidden">
           {canAdminister ? (
             <Link
               href="/admin"

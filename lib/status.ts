@@ -38,8 +38,18 @@ export type StatusMeta = {
   /** Plain-language gloss shown in tooltips and legends. */
   gloss: string;
   icon: LucideIcon;
-  /** CSS custom property holding the hue. */
+  /** CSS custom property holding the hue. Paints the dot/fill — the "tone". */
   color: string;
+  /**
+   * The label's own colour — see visual-system.md's status section.
+   * `promised`/`deferred`/`dropped`/`superseded` are ink at low alpha: a
+   * legible dot, an unreadable word. `blocked`'s dot is the hottest mark in
+   * the palette and fails contrast as text, so its label borrows
+   * `--color-critical` instead — the same deeper hue, already named for
+   * exactly this. Every other status is already a real hue and reads fine as
+   * its own text.
+   */
+  text: string;
   /** Class from globals.css carrying the fill pattern. */
   fill: string;
 };
@@ -50,6 +60,7 @@ export const STATUS: Record<CommitmentStatus, StatusMeta> = {
     gloss: "Committed to, not started yet",
     icon: CircleDashed,
     color: "var(--color-promised)",
+    text: "var(--text-secondary)",
     fill: "status-promised",
   },
   in_progress: {
@@ -57,6 +68,7 @@ export const STATUS: Record<CommitmentStatus, StatusMeta> = {
     gloss: "Actively being worked on",
     icon: CircleDot,
     color: "var(--color-in-progress)",
+    text: "var(--color-in-progress)",
     fill: "status-in_progress",
   },
   delivered: {
@@ -64,6 +76,7 @@ export const STATUS: Record<CommitmentStatus, StatusMeta> = {
     gloss: "Delivered in full",
     icon: CheckCircle2,
     color: "var(--color-delivered)",
+    text: "var(--color-delivered)",
     fill: "status-delivered",
   },
   partial: {
@@ -71,6 +84,7 @@ export const STATUS: Record<CommitmentStatus, StatusMeta> = {
     gloss: "Some of it landed",
     icon: PieChart,
     color: "var(--color-partial)",
+    text: "var(--color-partial)",
     fill: "status-partial",
   },
   deferred: {
@@ -78,6 +92,7 @@ export const STATUS: Record<CommitmentStatus, StatusMeta> = {
     gloss: "Consciously moved to a later week",
     icon: Clock,
     color: "var(--color-deferred)",
+    text: "var(--text-secondary)",
     fill: "status-deferred",
   },
   blocked: {
@@ -85,6 +100,7 @@ export const STATUS: Record<CommitmentStatus, StatusMeta> = {
     gloss: "Cannot proceed — waiting on someone",
     icon: Ban,
     color: "var(--color-blocked)",
+    text: "var(--color-critical)",
     fill: "status-blocked",
   },
   dropped: {
@@ -92,6 +108,7 @@ export const STATUS: Record<CommitmentStatus, StatusMeta> = {
     gloss: "Abandoned",
     icon: CircleSlash,
     color: "var(--color-dropped)",
+    text: "var(--text-secondary)",
     fill: "status-dropped",
   },
   superseded: {
@@ -99,6 +116,7 @@ export const STATUS: Record<CommitmentStatus, StatusMeta> = {
     gloss: "Replaced by a different commitment",
     icon: CircleSlash,
     color: "var(--color-superseded)",
+    text: "var(--text-secondary)",
     fill: "status-superseded",
   },
 };

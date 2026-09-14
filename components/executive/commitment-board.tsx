@@ -356,7 +356,7 @@ export function CommitmentBoard({
                 body="Nobody in this unit had a commitment against this cycle."
               />
             ) : (
-              <div className="grid gap-6 lg:grid-cols-3 lg:gap-5">
+              <div className="grid gap-6 md:grid-cols-2 md:gap-5 xl:grid-cols-3">
                 {COLUMNS.map((col) => (
                   <BoardColumn
                     key={col.key}

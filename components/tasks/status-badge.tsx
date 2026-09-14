@@ -5,10 +5,8 @@ import { cn } from "@/lib/cn";
  * A commitment status shown as a dot + label, never by colour alone
  * (visual-system.md: "never signal state by color alone").
  *
- * Two colours per status: `tone` paints the dot, `text` paints the label.
- * They differ for the muted statuses on purpose — --color-dropped is white at
- * 0.22 alpha, legible as a dot and unreadable as a word. The label always
- * maps the achromatic statuses to a readable text value.
+ * Two colours per status: `tone` paints the dot, `text` paints the label —
+ * see lib/status.ts for why they differ (achromatic statuses, and blocked).
  *
  * Labels use the short forms from ui-content.md's commitment state table
  * (Done, Partly, Going, Blocked, Moved, Dropped, To do, Replaced) — a task
@@ -26,8 +24,6 @@ const SHORT_LABEL: Record<string, string> = {
   superseded: "Replaced",
 };
 
-const MUTED = new Set(["promised", "deferred", "dropped", "superseded"]);
-
 /** The short, task-list label for a status (ui-content.md commitment states). */
 export function statusShortLabel(status: string): string {
   return SHORT_LABEL[status] ?? statusMeta(status).label;
@@ -43,7 +39,6 @@ export function StatusBadge({
   className?: string;
 }) {
   const meta = statusMeta(status);
-  const isMuted = MUTED.has(status);
   const label = statusShortLabel(status);
   return (
     <span
@@ -52,7 +47,7 @@ export function StatusBadge({
         size === "md" ? "text-xs" : "text-[11px]",
         className,
       )}
-      style={{ color: isMuted ? "var(--text-secondary)" : meta.color }}
+      style={{ color: meta.text }}
     >
       <span
         aria-hidden="true"
