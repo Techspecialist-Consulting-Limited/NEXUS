@@ -70,7 +70,15 @@ export const GROUP_LABEL: Record<Exclude<NavGroup, "personal">, string> = {
 function personalTabs(): Tab[] {
   return [
     { href: "/my-week", label: "My week", icon: "myweek" },
-    { href: "/commitments", label: "Pending Tasks", icon: "tasks" },
+    /*
+     * "Tasks", not the page's own "Pending Tasks" — every other nav label
+     * here is one short word, and the phone bar's five slots (four tabs plus
+     * the launcher replacing Check in) don't cross labelOnlyWhenActive's
+     * >4 threshold, so this is the one label that has to actually fit. The
+     * page heading keeps the fuller name; only the nav wayfinding label
+     * changes.
+     */
+    { href: "/commitments", label: "Tasks", icon: "tasks" },
     { href: "/check-in", label: "Check in", icon: "checkin" },
     { href: "/advice", label: "Coaching", icon: "insights" },
     { href: "/notifications", label: "Alerts", icon: "alerts" },
