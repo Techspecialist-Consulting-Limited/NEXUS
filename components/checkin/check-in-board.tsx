@@ -13,7 +13,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { Check, Loader2, Plus, Repeat2, Send, ShieldAlert, X } from "lucide-react";
+import { ArrowRight, Check, Loader2, MoreVertical, Plus, Repeat2, Send, ShieldAlert, X } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
 import { weekLabel } from "@/lib/cycle";
@@ -59,6 +59,11 @@ import type { OpenCommitment, PlannedCommitment } from "@/lib/checkin";
  */
 
 type Bucket = "unresolved" | "done" | "notDone";
+const BUCKET_LABEL: Record<Bucket, string> = {
+  unresolved: "To resolve",
+  done: "Done",
+  notDone: "Not done",
+};
 /**
  * A card in the "Next week" column. `persisted` distinguishes a real
  * commitment already on the server (came in via `plannedNext`, removing it
@@ -108,6 +113,13 @@ export function CheckInBoard({
   const [droppingId, setDroppingId] = useState<string | null>(null);
 
   const [reasonModalFor, setReasonModalFor] = useState<string | null>(null);
+  /**
+   * A card's own move menu — the tap alternative to dragging. Columns stack
+   * on a phone (see the grid below), so dragging a card past the fold into a
+   * column that isn't even on screen is not a real option there; this is the
+   * same move a drag performs, reachable without a pointer.
+   */
+  const [moveMenuFor, setMoveMenuFor] = useState<string | null>(null);
   const [addingNextWeek, setAddingNextWeek] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -143,6 +155,16 @@ export function CheckInBoard({
     setBlockedFlag((f) => ({ ...f, [id]: blocked }));
     setBucket((b) => ({ ...b, [id]: "notDone" }));
     setReasonModalFor(null);
+  }
+
+  /** Same rule the drop handler applies: Not done always needs a reason first. */
+  function moveTo(id: string, target: Bucket) {
+    setMoveMenuFor(null);
+    if (target === "notDone") {
+      setReasonModalFor(id);
+      return;
+    }
+    setBucket((b) => ({ ...b, [id]: target }));
   }
 
   function addNextWeek(sentence: string) {
@@ -313,19 +335,27 @@ export function CheckInBoard({
         onDragEnd={handleDragEnd}
         onDragCancel={() => setActiveId(null)}
       >
-        <div className="grid gap-3 lg:grid-cols-4 lg:gap-4">
+        <div className="grid gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-4">
           <Column
             id="unresolved"
             title="To resolve"
-            hint="Drag to Done or Not done."
+            hint="Drag to a tray, or use a card's own menu."
             rows={unresolvedRows}
+            onOpenMove={setMoveMenuFor}
           />
-          <Column id="done" title="Done" hint="Finished and closed out." rows={doneRows} />
+          <Column
+            id="done"
+            title="Done"
+            hint="Finished and closed out."
+            rows={doneRows}
+            onOpenMove={setMoveMenuFor}
+          />
           <Column
             id="notDone"
             title="Not done"
             hint="Needs a reason."
             rows={notDoneRows}
+            onOpenMove={setMoveMenuFor}
             renderNote={(c) => (
               <button
                 type="button"
@@ -380,6 +410,15 @@ export function CheckInBoard({
       {addingNextWeek && (
         <NextWeekModal onCancel={() => setAddingNextWeek(false)} onConfirm={addNextWeek} />
       )}
+
+      {moveMenuFor && byId.get(moveMenuFor) && (
+        <MoveMenu
+          commitment={byId.get(moveMenuFor)!}
+          current={bucket[moveMenuFor]}
+          onCancel={() => setMoveMenuFor(null)}
+          onMove={(target) => moveTo(moveMenuFor, target)}
+        />
+      )}
     </div>
   );
 }
@@ -394,12 +433,14 @@ function Column({
   hint,
   rows,
   renderNote,
+  onOpenMove,
 }: {
   id: Bucket;
   title: string;
   hint: string;
   rows: OpenCommitment[];
   renderNote?: (c: OpenCommitment) => React.ReactNode;
+  onOpenMove: (id: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id });
 
@@ -407,7 +448,7 @@ function Column({
     <div
       ref={setNodeRef}
       className={cn(
-        "flex min-h-0 flex-col rounded-lg border bg-white/[0.02] transition-colors lg:h-[540px]",
+        "flex min-h-0 min-w-0 flex-col rounded-lg border bg-white/[0.02] transition-colors xl:h-[540px]",
         isOver ? "border-white/30 bg-white/[0.05]" : "border-white/[0.08]",
       )}
     >
@@ -428,7 +469,7 @@ function Column({
           <ul className="space-y-2">
             {rows.map((c) => (
               <li key={c.id}>
-                <DraggableCard c={c} note={renderNote?.(c)} />
+                <DraggableCard c={c} note={renderNote?.(c)} onMove={() => onOpenMove(c.id)} />
               </li>
             ))}
           </ul>
@@ -438,7 +479,15 @@ function Column({
   );
 }
 
-function DraggableCard({ c, note }: { c: OpenCommitment; note?: React.ReactNode }) {
+function DraggableCard({
+  c,
+  note,
+  onMove,
+}: {
+  c: OpenCommitment;
+  note?: React.ReactNode;
+  onMove?: () => void;
+}) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: c.id,
   });
@@ -455,26 +504,46 @@ function DraggableCard({ c, note }: { c: OpenCommitment; note?: React.ReactNode 
       }
       className={cn("touch-none", isDragging && "opacity-40")}
     >
-      <Card c={c} />
+      <Card c={c} onMove={onMove} />
       {note}
     </div>
   );
 }
 
-function Card({ c }: { c: OpenCommitment }) {
+function Card({ c, onMove }: { c: OpenCommitment; onMove?: () => void }) {
   return (
     <div className="rounded-lg border border-white/[0.09] bg-white/[0.03] px-3.5 py-3">
       <div className="flex items-start justify-between gap-2">
-        <p className="text-sm leading-snug text-white/90">{c.title}</p>
-        {c.carry_depth > 1 && (
-          <span
-            title={`Open for ${c.carry_depth} weeks`}
-            className="metric inline-flex shrink-0 items-center gap-1 text-xs text-tertiary"
-          >
-            <Repeat2 size={12} aria-hidden="true" />
-            {c.carry_depth}w
-          </span>
-        )}
+        <p className="min-w-0 flex-1 text-sm leading-snug text-white/90">{c.title}</p>
+        <div className="-mr-1.5 -mt-1 flex shrink-0 items-center gap-1">
+          {c.carry_depth > 1 && (
+            <span
+              title={`Open for ${c.carry_depth} weeks`}
+              className="metric inline-flex items-center gap-1 text-xs text-tertiary"
+            >
+              <Repeat2 size={12} aria-hidden="true" />
+              {c.carry_depth}w
+            </span>
+          )}
+          {/*
+            The tap alternative to dragging — same move, reachable without a
+            pointer. touch-none/the drag listeners live on the card's outer
+            div, so stopping the pointerdown here keeps a tap on this button
+            from being read as the start of a drag.
+          */}
+          {onMove && (
+            <button
+              type="button"
+              onClick={onMove}
+              onPointerDown={(e) => e.stopPropagation()}
+              aria-label={`Move "${c.title}" to another tray`}
+              className="nx-focus-ring flex size-11 shrink-0 items-center justify-center
+                         rounded-md text-white/40 transition-colors hover:bg-white/[0.08] hover:text-white/85"
+            >
+              <MoreVertical size={15} aria-hidden="true" />
+            </button>
+          )}
+        </div>
       </div>
       {c.source_quote && (
         <p className="mt-1.5 truncate text-xs italic leading-snug text-tertiary">
@@ -498,7 +567,7 @@ function NextWeekColumn({
   removingId: string | null;
 }) {
   return (
-    <div className="flex min-h-0 flex-col rounded-lg border border-white/[0.08] bg-white/[0.02] lg:h-[540px]">
+    <div className="flex min-h-0 min-w-0 flex-col rounded-lg border border-white/[0.08] bg-white/[0.02] xl:h-[540px]">
       <div className="flex shrink-0 items-center justify-between border-b border-white/[0.07] px-3.5 py-3">
         <div>
           <div className="flex items-center gap-2">
@@ -702,6 +771,58 @@ function NextWeekModal({
           >
             <Plus size={14} aria-hidden="true" />
             Add
+          </button>
+        </div>
+      </div>
+    </Dialog>
+  );
+}
+
+function MoveMenu({
+  commitment,
+  current,
+  onCancel,
+  onMove,
+}: {
+  commitment: OpenCommitment;
+  current: Bucket;
+  onCancel: () => void;
+  onMove: (target: Bucket) => void;
+}) {
+  const targets = (Object.keys(BUCKET_LABEL) as Bucket[]).filter((b) => b !== current);
+
+  return (
+    <Dialog open onClose={onCancel} labelledBy="move-menu-title">
+      <div className="p-5 sm:p-6">
+        <p className="eyebrow">Move to</p>
+        <h2 id="move-menu-title" className="card-title mt-2 pr-8 text-lg">
+          {commitment.title}
+        </h2>
+
+        <div className="mt-4 flex flex-col gap-2">
+          {targets.map((target) => (
+            <button
+              key={target}
+              type="button"
+              onClick={() => onMove(target)}
+              className="nx-focus-ring flex min-h-12 items-center justify-between rounded-lg
+                         border border-white/[0.10] bg-white/[0.03] px-4 text-sm font-medium
+                         text-white/90 transition-colors hover:bg-white/[0.07]"
+            >
+              {BUCKET_LABEL[target]}
+              <ArrowRight size={14} aria-hidden="true" className="text-white/40" />
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-5 flex justify-end">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="nx-focus-ring inline-flex min-h-11 items-center rounded-lg border
+                       border-white/[0.12] px-4 text-sm text-white/80 transition-colors hover:bg-white/[0.06]"
+          >
+            Cancel
           </button>
         </div>
       </div>

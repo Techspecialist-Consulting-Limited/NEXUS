@@ -157,14 +157,29 @@ export function BottomNav({
       className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center px-4 pb-[max(env(safe-area-inset-bottom),12px)] md:hidden"
     >
       <div className="glass-l2 glass-sheen pointer-events-auto relative flex w-full max-w-md rounded-full p-1.5">
+        {/*
+          A rounded badge behind icon AND label together — a literal circle
+          (tried first) can't wrap two stacked lines without either being
+          oversized or clipping the label, so this keeps the mic's soft,
+          fully-rounded language on a shape sized for what it actually holds.
+
+          Two layers, not one, so the inset doesn't fight the slide math.
+          `x: N * 100%` moves by 100% of THIS element's own width (that's
+          what CSS translateX(%) is relative to) — so the animated element
+          has to stay exactly one slot wide, or each step drifts by however
+          much narrower it is. The visible inset chip lives on a plain child
+          instead, sized against the parent's already-correct 100%.
+        */}
         {activeIndex >= 0 && (
-          <m.span
+          <m.div
             aria-hidden="true"
-            className="absolute inset-y-1.5 left-1.5 rounded-full bg-white/[0.12]"
-            style={{ width: `calc(${widthPct}% - 0.375rem)` }}
+            className="pointer-events-none absolute inset-y-0 left-0"
+            style={{ width: `${widthPct}%` }}
             animate={{ x: `${activeIndex * 100}%` }}
             transition={springDefault}
-          />
+          >
+            <span className="absolute inset-y-1 inset-x-2 rounded-2xl bg-white/[0.12]" />
+          </m.div>
         )}
 
         {slots.map((slot, i) => {

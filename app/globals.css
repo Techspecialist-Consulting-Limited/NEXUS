@@ -467,6 +467,22 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /*
+ * A sticky bar that covers scrolled content without reading as a floating
+ * card. glass-l1..l4 tint toward --nx-surface — the card colour — which is
+ * right for a panel sitting ON the page and wrong for a bar that IS the top
+ * of the page: against --nx-bg it shows up as a visibly lighter rectangle
+ * with a hard seam where it ends. This tints toward --nx-bg instead, so at
+ * rest it reads as the page continuing, and only shows itself once content
+ * actually scrolls underneath.
+ */
+.nx-header-glass {
+  background-color: color-mix(in srgb, var(--nx-bg) 90%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(20px) saturate(140%);
+  border-bottom: 1px solid var(--nx-border);
+}
+
+/*
  * A floating overlay: a dropdown menu or popover.
  *
  * WHY THIS IS NOT glass-l3.
