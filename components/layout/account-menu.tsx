@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { LogOut, UserRound } from "lucide-react";
-import { supabaseBrowser } from "@/lib/supabase-browser";
+import { signOut as authjsSignOut } from "next-auth/react";
 
 /** Who you are, and the way out. Replaces the persona switcher under real auth. */
 export function AccountMenu({ name, email }: { name: string; email: string }) {
@@ -38,7 +38,7 @@ export function AccountMenu({ name, email }: { name: string; email: string }) {
 
   function signOut() {
     startTransition(async () => {
-      await supabaseBrowser().auth.signOut();
+      await authjsSignOut({ redirect: false });
       router.push("/login");
       router.refresh();
     });

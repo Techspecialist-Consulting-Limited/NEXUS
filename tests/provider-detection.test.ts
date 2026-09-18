@@ -1,104 +1,61 @@
 /**
  * Whether the sign-in screen knows what it is talking about.
  *
- * `enabledProviders()` reports which sign-in methods a Supabase project has
- * switched on. Its failure mode is the interesting part: when the settings
- * endpoint cannot be read it returns "no social providers", which is
- * indistinguishable from a project that genuinely has none.
- *
- * That shipped. A deployment carrying a wrong publishable key got a 401 here,
- * fell back, and the login screen told people Microsoft was "not switched on
- * for this project yet" — sending them to the Supabase dashboard to enable a
- * provider that had been enabled the whole time. The admin Integrations page
- * reported the same non-fact.
- *
- * So `known` is pinned here: false whenever the answer is a guess, true only
- * when it was actually read. The copy on both surfaces branches on it.
+ * `microsoftConfigured()` used to be `enabledProviders()`, asking Supabase's
+ * own settings endpoint at request time — with a whole failure mode around
+ * "the endpoint could not be reached, so is this really off?" (see this
+ * file's git history). Identity is self-hosted now: the same three
+ * environment variables that configure the Microsoft Entra ID provider (see
+ * auth.ts) are the only source of truth for whether the button should
+ * appear, so there is nothing left to ask over the network and nothing left
+ * to fail independently of those variables themselves.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-const SETTINGS = {
-  external: { azure: true, google: false, email: true },
-};
+const KEYS = ["AZURE_CLIENT_ID", "AZURE_CLIENT_SECRET", "AZURE_TENANT_ID"] as const;
 
-/*
- * The module reads env at import time and caches for a minute, so each case
- * gets a fresh module registry rather than the previous case's answer.
- */
-async function load() {
-  vi.resetModules();
-  process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_test";
-  return import("../lib/supabase-env");
-}
-
-const originalFetch = globalThis.fetch;
-let warn: ReturnType<typeof vi.spyOn>;
+let saved: Record<string, string | undefined>;
 
 beforeEach(() => {
-  // The warnings are deliberate; they should not clutter the test output.
-  warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  saved = Object.fromEntries(KEYS.map((k) => [k, process.env[k]]));
 });
 
 afterEach(() => {
-  globalThis.fetch = originalFetch;
-  warn.mockRestore();
+  for (const k of KEYS) {
+    if (saved[k] === undefined) delete process.env[k];
+    else process.env[k] = saved[k];
+  }
 });
 
-describe("enabledProviders", () => {
-  it("reports what the project actually has, and knows it", async () => {
-    globalThis.fetch = vi.fn(async () =>
-      new Response(JSON.stringify(SETTINGS), { status: 200 }),
-    ) as unknown as typeof fetch;
+async function load() {
+  const mod = await import("../lib/auth-providers");
+  return mod.microsoftConfigured;
+}
 
-    const { enabledProviders } = await load();
-    const providers = await enabledProviders();
+describe("microsoftConfigured", () => {
+  it("is true only once all three values are present", async () => {
+    process.env.AZURE_CLIENT_ID = "id";
+    process.env.AZURE_CLIENT_SECRET = "secret";
+    process.env.AZURE_TENANT_ID = "tenant";
 
-    expect(providers.azure).toBe(true);
-    expect(providers.google).toBe(false);
-    expect(providers.known).toBe(true);
+    const microsoftConfigured = await load();
+    expect(microsoftConfigured()).toBe(true);
   });
 
-  it("does not claim a provider is off when the key was rejected", async () => {
-    globalThis.fetch = vi.fn(async () =>
-      new Response("unauthorized", { status: 401, statusText: "Unauthorized" }),
-    ) as unknown as typeof fetch;
+  it("is false if any one of the three is missing", async () => {
+    process.env.AZURE_CLIENT_ID = "id";
+    process.env.AZURE_CLIENT_SECRET = "secret";
+    delete process.env.AZURE_TENANT_ID;
 
-    const { enabledProviders } = await load();
-    const providers = await enabledProviders();
-
-    // Social stays off so no unusable button is offered...
-    expect(providers.azure).toBe(false);
-    // ...but the screen must not present that as an observation.
-    expect(providers.known).toBe(false);
-    // And the cause has to reach a log, or it is invisible in production.
-    expect(warn).toHaveBeenCalledOnce();
-    expect(String(warn.mock.calls[0]?.[0])).toContain("401");
+    const microsoftConfigured = await load();
+    expect(microsoftConfigured()).toBe(false);
   });
 
-  it("does not claim a provider is off when Supabase is unreachable", async () => {
-    globalThis.fetch = vi.fn(async () => {
-      throw new Error("network unreachable");
-    }) as unknown as typeof fetch;
+  it("is false with nothing configured", async () => {
+    for (const k of KEYS) delete process.env[k];
 
-    const { enabledProviders } = await load();
-    const providers = await enabledProviders();
-
-    expect(providers.known).toBe(false);
-    expect(providers.email).toBe(true);
-    expect(warn).toHaveBeenCalledOnce();
-  });
-
-  it("does not claim a provider is off when there is no project at all", async () => {
-    vi.resetModules();
-    process.env.NEXT_PUBLIC_SUPABASE_URL = "";
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "";
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "";
-
-    const { enabledProviders } = await import("../lib/supabase-env");
-    const providers = await enabledProviders();
-
-    expect(providers.known).toBe(false);
+    const microsoftConfigured = await load();
+    expect(microsoftConfigured()).toBe(false);
   });
 });

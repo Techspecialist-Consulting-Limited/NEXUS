@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { authMode, currentIdentity, currentMembership } from "@/lib/auth";
-import { enabledProviders } from "@/lib/supabase-env";
+import { microsoftConfigured } from "@/lib/auth-providers";
 import { previewInvitation } from "@/lib/onboarding";
 import { homeFor } from "@/lib/nav";
 import { explainAuthError } from "@/lib/auth-errors";
@@ -60,8 +60,6 @@ export default async function LoginPage({
         ? "That invitation link is no longer valid. Ask whoever invited you to send a new one."
         : null;
 
-  const providers = await enabledProviders();
-
   return (
     <SignInPanel
       mode={authMode()}
@@ -69,7 +67,7 @@ export default async function LoginPage({
       devEnabled
       forcedDemo={process.env.NEXUS_FORCE_DEMO_AUTH === "1"}
       notice={notice}
-      providers={providers}
+      providers={{ microsoft: microsoftConfigured() }}
       invitation={
         invitation
           ? {

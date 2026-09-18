@@ -6,7 +6,7 @@ import { ArrowRight, Sparkles } from "lucide-react";
 import { weekLabel } from "@/lib/cycle";
 import { unitTone, unitWash } from "@/lib/unit-tone";
 import { GlassCard } from "@/components/ui/glass-card";
-import { VoiceConsole } from "@/components/assistant/voice-console";
+import { FloatingAssistant } from "@/components/assistant/floating-assistant";
 import { WeeklyBriefModal } from "@/components/executive/weekly-brief-modal";
 import { UnitRoster } from "@/components/executive/unit-roster";
 import type { StaffUpdate, UnitRoster as Roster, WeeklyBrief } from "@/lib/queries";
@@ -15,12 +15,17 @@ import type { AIInsight } from "@/lib/insights";
 /*
  * The Chairman's landing view.
  *
- * Four bands, in the order somebody actually uses them:
+ * Five bands, in the order somebody actually uses them:
  *
- *   1  Ask         one thing to talk to, and the day's framing
- *   2  Who moved   what people published, most recent first
- *   3  What needs you   the findings, ranked, each with a way in
- *   4  Where to go  four destinations, not fourteen
+ *   1  Where I am     greeting and the week, plain text, no card
+ *   2  The board glance   backlog / pending / completed, three cards
+ *   3  What needs you   the findings, ranked, each with a way in — full width
+ *   4  Who moved       what people published, most recent first
+ *   5  The shape of the organisation   units and people
+ *
+ * Bands 4 and 5 share one row, two columns, rather than each taking the full
+ * width — neither is the reason he opened the page, and side by side reads as
+ * one glance rather than two more full-width sections to scroll past.
  *
  * The constraint that shapes it is subtraction. An executive dashboard fails
  * by showing everything it could rather than the few things that change a
@@ -92,21 +97,6 @@ import type { AIInsight } from "@/lib/insights";
  * Severity is the only thing that orders this band, so it has to be visible
  * before the words are read.
  */
-/*
- * THE WASH, IN THE THEME'S OWN INK.
- *
- * These were literal rgba(91,140,255) and rgba(124,124,255) — a blue and a
- * purple, hardcoded. The monochrome pass re-pointed tokens, and a literal is
- * by definition not a token, so the one screen the Chairman opens every
- * morning kept a blue glow after every other surface had stopped.
- *
- * Mixed from --nx-primary, they also follow the theme: white ink on black,
- * black ink on white, and the wash reads as depth in both instead of a
- * bruise on one.
- */
-const MIX_STRONG = "color-mix(in oklab, var(--nx-primary) 14%, transparent)";
-const MIX_SOFT = "color-mix(in oklab, var(--nx-primary) 9%, transparent)";
-
 const TONE = {
   critical: { ring: "var(--color-critical)", wash: "rgba(242,120,159,0.15)" },
   warning: { ring: "var(--color-warning)", wash: "rgba(245,185,66,0.15)" },
@@ -129,17 +119,16 @@ const LIVE = new Set(["delivered", "in_progress", "partial"]);
 export function ExecutiveHome({
   firstName,
   greeting,
-  today,
   cycleLabel,
   insights,
   updates,
   roster,
   reporting,
   weeklyBrief = null,
+  boardCounts = null,
 }: {
   firstName: string;
   greeting: string;
-  today: string;
   /** The settled week, or null when none has settled yet. */
   cycleLabel: string | null;
   insights: AIInsight[];
@@ -152,6 +141,8 @@ export function ExecutiveHome({
    */
   reporting: { expected: number; submitted: number };
   weeklyBrief?: WeeklyBrief | null;
+  /** Org-wide commitment counts for the glance strip. Null with no settled week. */
+  boardCounts?: { backlog: number; pending: number; completed: number } | null;
 }) {
   const priority = insights.slice(0, 3);
   const needsAttention = insights.filter((i) => i.severity !== "normal").length;
@@ -165,200 +156,59 @@ export function ExecutiveHome({
         browser immediately has to take back.
       */}
       {weeklyBrief && <WeeklyBriefModal brief={weeklyBrief} />}
-      {/* ---- 1 + 2: ask, and who moved ---------------------------------- */}
-      <div className="grid gap-3 lg:grid-cols-[1.9fr_1fr]">
-        <GlassCard level={2} className="relative overflow-hidden p-4 md:p-5">
+
+      {/*
+        The assistant is no longer the lede — see FloatingAssistant's own
+        comment. Fixed-position, so where it sits in this tree does not matter;
+        it lives here because this is the page it belongs to.
+      */}
+      <FloatingAssistant />
+
+      {/*
+        ---- 1: where I am ------------------------------------------------
+        Plain text, no card. A greeting and the week it describes are context
+        for everything below, not a section of their own — the hero card this
+        replaced was the two largest things on the screen and neither was the
+        reason he opened it.
+      */}
+      <div>
+        <p className="text-[15px] text-secondary">
+          {greeting}, {firstName}.
+        </p>
+        <h1 className="page-title mt-1">
           {/*
-            The wash. Purely decorative, so it is aria-hidden and painted with
-            gradients rather than an image — nothing here should cost a network
-            request on the first screen an executive sees each morning.
+            THE DATES, NOT THE WEEK NUMBER.
+
+            `cycleLabel` is the raw database label, "W34 · 17 Aug–23 Aug".
+            Rendering it whole put the week number back on the one screen
+            lib/cycle.ts was written to keep it off — and it is the exact
+            string somebody had to ask the meaning of.
           */}
-          <span
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 opacity-70"
-            style={{
-              background:
-                "radial-gradient(120% 90% at 12% 120%, " +
-                `${MIX_STRONG}, transparent 62%),` +
-                "radial-gradient(90% 70% at 78% 0%, " +
-                `${MIX_SOFT}, transparent 60%)`,
-            }}
-          />
-
-          <div className="relative">
-            {/*
-              The date reads as an eyebrow on a phone and as a right-hand
-              marker on a desktop. Left to wrap it landed BETWEEN the greeting
-              and the sentence explaining it, splitting one thought in two.
-            */}
-            <p className="metric mb-1 text-xs text-tertiary md:hidden">{today}</p>
-
-            {/*
-              A GREETING AT GREETING SIZE.
-
-              This was a 30px headline, in accent colour, over a sentence
-              describing the page — the two largest things on the Chairman's
-              screen, and neither of them the reason he opened it. What he
-              came for is the week's finding, which is now the first thing
-              with any weight to it.
-
-              The name stays. Addressing somebody by name costs one line and
-              is not the same as spending the top of the page on it.
-            */}
-            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-              <p className="text-[15px] text-secondary">
-                {greeting}, {firstName}.
-              </p>
-              <p className="metric hidden shrink-0 text-xs text-tertiary md:block">{today}</p>
-            </div>
-            <h1 className="page-title mt-1">
-              {/*
-                THE DATES, NOT THE WEEK NUMBER.
-
-                `cycleLabel` is the raw database label, "W34 · 17 Aug–23 Aug".
-                Rendering it whole put the week number back on the one screen
-                lib/cycle.ts was written to keep it off — and it is the exact
-                string somebody had to ask the meaning of.
-              */}
-              {cycleLabel
-                ? `The week of ${weekLabel(cycleLabel)}`
-                : "No week has settled yet"}
-            </h1>
-            <p className="mt-1.5 max-w-[54ch] text-[15px] leading-relaxed text-secondary">
-              {cycleLabel
-                ? "Everything below is counted from what people filed. Ask about any of it."
-                : "The figures below fill in once the first reporting week closes. Everything on this page is counted from what people file."}
-            </p>
-
-            <div className="mt-5 md:mt-6">
-              <VoiceConsole
-                greeting="Ask NEXUS"
-                /*
-                  The half that says something.
-
-                  "Speak it or type it, and the answer is written back in a
-                  few sentences" described the two controls sitting directly
-                  underneath it — a microphone button and a text field — and
-                  the shape of the reply, which the reader is about to see
-                  anyway. Copy that narrates the interface below it is copy
-                  somebody reads once and then learns to skip.
-
-                  What is left is the part he cannot work out by looking:
-                  what this thing knows enough to be asked about.
-                */
-                subtitle="Ask about the week, a unit or a person."
-                suggestions={[
-                  "How are we doing this week?",
-                  "What is blocked between teams?",
-                  "Who needs support?",
-                ]}
-              />
-            </div>
-          </div>
-        </GlassCard>
-
-        <GlassCard level={2} className="flex min-h-0 flex-col p-4">
-          <div className="flex items-baseline justify-between gap-3">
-            <h2 className="card-title">Recent updates</h2>
-            <Link
-              href="/departments"
-              /*
-                -mr-2 keeps the padding that makes this a real touch target
-                without pushing the label off the card's optical edge. A 16px
-                link is a link nobody can hit on a phone.
-              */
-              className="-mr-2 inline-flex min-h-11 shrink-0 items-center gap-1 px-2 text-sm
-                         text-[var(--dept-techspecialist)] transition-opacity hover:opacity-80"
-            >
-              View all <ArrowRight size={14} aria-hidden="true" />
-            </Link>
-          </div>
-
-          {updates.length === 0 ? (
-            /* Says what will fill it, and when. */
-            <p className="mt-4 text-sm leading-relaxed text-secondary">
-              {reporting.expected === 0
-                ? "Nobody has been added to the organisation yet. Once people are invited and start reporting, what they say appears here in their own words."
-                : cycleLabel
-                  ? `Nobody has filed for ${cycleLabel} yet. As each person reports, their update appears here — their own sentence, not a summary of it.`
-                  : "Nothing has been filed yet. As each person reports, their update appears here — their own sentence, not a summary of it."}
-            </p>
-          ) : (
-            <ul className="mt-3 flex flex-col gap-2">
-              {updates.slice(0, 3).map((u) => (
-                <li key={`${u.profile_id}-${u.title}`}>
-                  {/*
-                    The whole card is the target, not the name. The name
-                    truncates at this width — "Musa Danj…" — and a link you
-                    cannot read the end of is a poor thing to ask somebody to
-                    aim at. The card is already well over the 44px minimum.
-
-                    The label says whose week it opens, because the card's own
-                    text reads as a sentence about work rather than as a
-                    destination.
-                  */}
-                  <Link
-                    href={`/people/${u.profile_id}`}
-                    aria-label={`Open ${u.full_name}'s week`}
-                    className="block rounded-lg border border-white/[0.13] bg-white/[0.05] p-3
-                               transition-colors hover:border-white/[0.22] hover:bg-white/[0.09]
-                               focus-visible:outline focus-visible:outline-2 focus-visible:outline-white/40"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex min-w-0 items-center gap-2.5">
-                        <Avatar name={u.full_name} unit={u.department_name} />
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium leading-tight text-white/90">
-                            {u.full_name}
-                          </p>
-                          {/*
-                            12px, not 11px, and secondary rather than tertiary.
-                            Which unit somebody belongs to is how a Chairman
-                            reads this list at all.
-                          */}
-                          <p className="truncate text-xs text-secondary">
-                            {u.department_name ?? "Unassigned"}
-                          </p>
-                        </div>
-                      </div>
-                      {/*
-                        white/30 measures about 2.6:1 over the void — see
-                        globals.css [FIX 1], which raised the tertiary token
-                        for exactly this reason and left the literals behind.
-                      */}
-                      <span className="metric shrink-0 pt-0.5 text-2xs text-white/55">
-                        {ago(u.at)}
-                      </span>
-                    </div>
-
-                    <div className="mt-2 flex items-start gap-2">
-                      <span
-                        aria-hidden="true"
-                        className="mt-[7px] size-1.5 shrink-0 rounded-full"
-                        style={{
-                          background: LIVE.has(u.status)
-                            ? "var(--color-healthy)"
-                            : "var(--color-blocked)",
-                        }}
-                      />
-                      {/*
-                        Their own sentence where the extractor found a literal
-                        one, the commitment title otherwise. Never a generated
-                        paraphrase: this reads as "what Sarah said", and it has
-                        to actually be that.
-                      */}
-                      {/* What the person actually said. The content of the row. */}
-                      <p className="min-w-0 text-sm leading-snug text-white/85">
-                        {u.source_quote ?? u.title}
-                      </p>
-                    </div>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </GlassCard>
+          {cycleLabel
+            ? `The week of ${weekLabel(cycleLabel)}`
+            : "No week has settled yet"}
+        </h1>
       </div>
+
+      {/*
+        ---- 2: the board glance ------------------------------------------
+        Three counted numbers, org-wide, for one cycle — where the real work
+        is (`executive/commitment-board.tsx`) is one click through, per unit.
+        This is deliberately not a breakdown by department or person: that
+        would turn a glance into a second board on the page that is supposed
+        to lead with conclusions.
+      */}
+      {boardCounts && (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <BoardStat label="Backlog" value={boardCounts.backlog} />
+          <BoardStat label="Pending" value={boardCounts.pending} />
+          <BoardStat
+            label="Completed this week"
+            value={boardCounts.completed}
+            tone="var(--color-delivered)"
+          />
+        </div>
+      )}
 
       {/* ---- 3: what needs you ------------------------------------------ */}
       <GlassCard level={2} className="p-4">
@@ -475,10 +325,119 @@ export function ExecutiveHome({
         )}
       </GlassCard>
 
-      {/* ---- 4: the shape of the organisation --------------------------- */}
-      <GlassCard level={2} className="p-4">
-        <UnitRoster roster={roster} dense />
-      </GlassCard>
+      {/*
+        ---- 4 + 5: the shape of the organisation, and who moved -----------
+        Side by side rather than each full width — neither is the reason he
+        opened the page, and stacked they were two more full-width sections
+        to scroll past after the finding that actually needed him.
+      */}
+      <div className="grid gap-3 lg:grid-cols-[1.4fr_1fr]">
+        <GlassCard level={2} className="p-4">
+          <UnitRoster roster={roster} dense />
+        </GlassCard>
+
+        <GlassCard level={2} className="flex min-h-0 flex-col p-4">
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 className="card-title">Recent updates</h2>
+            <Link
+              href="/updates"
+              /*
+                -mr-2 keeps the padding that makes this a real touch target
+                without pushing the label off the card's optical edge. A 16px
+                link is a link nobody can hit on a phone.
+              */
+              className="-mr-2 inline-flex min-h-11 shrink-0 items-center gap-1 px-2 text-sm
+                         text-[var(--dept-techspecialist)] transition-opacity hover:opacity-80"
+            >
+              View all <ArrowRight size={14} aria-hidden="true" />
+            </Link>
+          </div>
+
+          {updates.length === 0 ? (
+            /* Says what will fill it, and when. */
+            <p className="mt-4 text-sm leading-relaxed text-secondary">
+              {reporting.expected === 0
+                ? "Nobody has been added to the organisation yet. Once people are invited and start reporting, what they say appears here in their own words."
+                : cycleLabel
+                  ? `Nobody has filed for ${cycleLabel} yet. As each person reports, their update appears here — their own sentence, not a summary of it.`
+                  : "Nothing has been filed yet. As each person reports, their update appears here — their own sentence, not a summary of it."}
+            </p>
+          ) : (
+            <ul className="mt-3 flex flex-col gap-2">
+              {updates.slice(0, 3).map((u) => (
+                <li key={`${u.profile_id}-${u.title}`}>
+                  {/*
+                    The whole card is the target, not the name. The name
+                    truncates at this width — "Musa Danj…" — and a link you
+                    cannot read the end of is a poor thing to ask somebody to
+                    aim at. The card is already well over the 44px minimum.
+
+                    The label says whose week it opens, because the card's own
+                    text reads as a sentence about work rather than as a
+                    destination.
+                  */}
+                  <Link
+                    href={`/people/${u.profile_id}`}
+                    aria-label={`Open ${u.full_name}'s week`}
+                    className="block rounded-lg border border-white/[0.13] bg-white/[0.05] p-3
+                               transition-colors hover:border-white/[0.22] hover:bg-white/[0.09]
+                               focus-visible:outline focus-visible:outline-2 focus-visible:outline-white/40"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <Avatar name={u.full_name} unit={u.department_name} />
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium leading-tight text-white/90">
+                            {u.full_name}
+                          </p>
+                          {/*
+                            12px, not 11px, and secondary rather than tertiary.
+                            Which unit somebody belongs to is how a Chairman
+                            reads this list at all.
+                          */}
+                          <p className="truncate text-xs text-secondary">
+                            {u.department_name ?? "Unassigned"}
+                          </p>
+                        </div>
+                      </div>
+                      {/*
+                        white/30 measures about 2.6:1 over the void — see
+                        globals.css [FIX 1], which raised the tertiary token
+                        for exactly this reason and left the literals behind.
+                      */}
+                      <span className="metric shrink-0 pt-0.5 text-2xs text-white/55">
+                        {ago(u.at)}
+                      </span>
+                    </div>
+
+                    <div className="mt-2 flex items-start gap-2">
+                      <span
+                        aria-hidden="true"
+                        className="mt-[7px] size-1.5 shrink-0 rounded-full"
+                        style={{
+                          background: LIVE.has(u.status)
+                            ? "var(--color-healthy)"
+                            : "var(--color-blocked)",
+                        }}
+                      />
+                      {/*
+                        Their own sentence where the extractor found a literal
+                        one, the commitment title otherwise. Never a generated
+                        paraphrase: this reads as "what Sarah said", and it has
+                        to actually be that.
+                      */}
+                      {/* What the person actually said. The content of the row. */}
+                      <p className="min-w-0 text-sm leading-snug text-white/85">
+                        {u.source_quote ?? u.title}
+                      </p>
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </GlassCard>
+      </div>
 
       {/*
         EXECUTIVE SHORTCUTS: DELETED.
@@ -498,6 +457,38 @@ export function ExecutiveHome({
         work, and the roster links to each unit. A short page is not a defect.
       */}
     </div>
+  );
+}
+
+/** One counted number, on its own card, linking through to the units it was counted from. */
+function BoardStat({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone?: string;
+}) {
+  return (
+    <Link
+      href="/departments"
+      className="group flex items-center justify-between rounded-xl border border-white/[0.08]
+                 bg-white/[0.02] px-4 py-3.5 transition-colors hover:bg-white/[0.045]"
+    >
+      <span>
+        <span className="eyebrow block">{label}</span>
+        <span className="metric mt-1 block text-2xl" style={tone ? { color: tone } : undefined}>
+          {value}
+        </span>
+      </span>
+      <ArrowRight
+        size={14}
+        aria-hidden="true"
+        className="shrink-0 text-white/30 transition-transform
+                   group-hover:translate-x-0.5 group-hover:text-white/70"
+      />
+    </Link>
   );
 }
 

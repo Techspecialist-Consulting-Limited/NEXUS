@@ -25,7 +25,7 @@ export function StatusChip({
         className,
       )}
       style={{
-        color: meta.color,
+        color: meta.text,
         backgroundColor: `color-mix(in srgb, ${meta.color} 14%, transparent)`,
         boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${meta.color} 28%, transparent)`,
       }}

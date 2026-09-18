@@ -42,8 +42,6 @@
     "scripts/test-email.ts",
     "scripts/resend-dns.ts",
     "scripts/check-resend.ts",
-    "scripts/seed-remote.ts",
-    "scripts/verify-remote-login.ts",
     "scripts/check-azure.mts",
     "scripts/preview-digest.mts",
     "scripts/probe-narrate.mts",

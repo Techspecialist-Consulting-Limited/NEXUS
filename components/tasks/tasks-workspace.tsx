@@ -1,13 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CircleAlert, ListTodo, Repeat2, Timer } from "lucide-react";
+import { CircleAlert, Kanban, List, ListTodo, Repeat2, Timer } from "lucide-react";
 import type { Cycle, CommitmentRow, LiveCommitment } from "@/lib/queries";
 import { weekLabel } from "@/lib/cycle";
 import { OpenWork, type TaskFilter } from "@/components/tasks/open-work";
 import { PreviousWeeks } from "@/components/tasks/previous-weeks";
 import { TaskUpdateDialog } from "@/components/tasks/task-update-dialog";
+import { TaskBoard } from "@/components/tasks/task-board";
 import { cn } from "@/lib/cn";
+
+type View = "list" | "board";
 
 /*
  * Tasks — what is still yours to move, then the record of what was.
@@ -79,6 +82,14 @@ export function TasksWorkspace({
    */
   const [taskId, setTaskId] = useState<string | null>(openTaskId);
   const [filter, setFilter] = useState<TaskFilter>("all");
+  const [view, setView] = useState<View>("list");
+  /**
+   * Set only when the dialog was opened by dropping a card onto Blocked —
+   * pre-selects that status without writing anything. Plain clicks (list rows,
+   * board cards otherwise) leave this null and the dialog opens on the
+   * commitment's actual current status, as it always has.
+   */
+  const [pendingStatus, setPendingStatus] = useState<string | null>(null);
 
   // Back and forward move through opened commitments like any other navigation.
   useEffect(() => {
@@ -103,13 +114,20 @@ export function TasksWorkspace({
     return null;
   }, [weeks, taskId]);
 
-  const openTask = useCallback((c: CommitmentRow) => {
+  const openTask = useCallback((c: CommitmentRow, initialStatus?: string) => {
     setTaskId(c.id);
+    setPendingStatus(initialStatus ?? null);
     window.history.pushState(null, "", `?task=${encodeURIComponent(c.id)}`);
   }, []);
 
+  const openBlocked = useCallback(
+    (c: CommitmentRow) => openTask(c, "blocked"),
+    [openTask],
+  );
+
   const closeTask = useCallback(() => {
     setTaskId(null);
+    setPendingStatus(null);
     window.history.replaceState(null, "", window.location.pathname);
   }, []);
 
@@ -158,6 +176,21 @@ export function TasksWorkspace({
     };
   }, [open]);
 
+  /*
+   * The board's Done column. `open` never has these — it is the still-open
+   * set — and a delivered item keeps the `target_cycle_id` of whichever week
+   * it was actually promised for, which is very often not the current one
+   * once carry is involved. Scoping this to `current.commitments` alone
+   * missed exactly that case: marking a six-week-carried item delivered
+   * updated the row but it never appeared here, because it was never the
+   * current week's to begin with. Scanning every week already fetched for
+   * the record below is the same data, just read completely.
+   */
+  const done = useMemo(
+    () => weeks.flatMap((w) => w.commitments.filter((c) => c.status === "delivered")),
+    [weeks],
+  );
+
   return (
     <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-4 lg:gap-5">
       {/* ---- Header ---------------------------------------------------- */}
@@ -170,7 +203,12 @@ export function TasksWorkspace({
             Keep the work you have promised visible, and move what needs a decision.
           </p>
         </div>
-        <TaskFilters filter={filter} onFilter={setFilter} counts={counts} />
+        <div className="flex flex-wrap items-center gap-2">
+          <ViewToggle view={view} onChange={setView} />
+          {view === "list" && (
+            <TaskFilters filter={filter} onFilter={setFilter} counts={counts} />
+          )}
+        </div>
       </header>
 
       {/* ---- What is still open --------------------------------------- */}
@@ -178,13 +216,22 @@ export function TasksWorkspace({
 
       <div className="h-px bg-gradient-to-r from-[var(--nx-border-strong)] via-[var(--nx-border)] to-transparent" />
 
-      <OpenWork
-        commitments={open}
-        currentWeekLabel={current ? weekLabel(current.cycle.label) : null}
-        hasRecord={previous.length > 0}
-        onOpen={openTask}
-        filter={filter}
-      />
+      {view === "list" ? (
+        <OpenWork
+          commitments={open}
+          currentWeekLabel={current ? weekLabel(current.cycle.label) : null}
+          hasRecord={previous.length > 0}
+          onOpen={openTask}
+          filter={filter}
+        />
+      ) : (
+        <TaskBoard
+          open={open}
+          doneThisWeek={done}
+          onOpenBlocked={openBlocked}
+          onOpenDetail={openTask}
+        />
+      )}
 
       {/* ---- The record ------------------------------------------------ */}
       <PreviousWeeks weeks={previous} onOpenCommitment={openTask} />
@@ -199,7 +246,48 @@ export function TasksWorkspace({
         commitment={detail}
         open={Boolean(detail)}
         onClose={closeTask}
+        initialStatus={pendingStatus ?? undefined}
       />
+    </div>
+  );
+}
+
+function ViewToggle({
+  view,
+  onChange,
+}: {
+  view: View;
+  onChange: (view: View) => void;
+}) {
+  const options: { id: View; label: string; icon: typeof List }[] = [
+    { id: "list", label: "List", icon: List },
+    { id: "board", label: "Board", icon: Kanban },
+  ];
+
+  return (
+    <div
+      role="tablist"
+      aria-label="Switch between list and board"
+      className="flex gap-1 rounded-lg border border-white/[0.08] bg-white/[0.03] p-1"
+    >
+      {options.map(({ id, label, icon: Icon }) => (
+        <button
+          key={id}
+          type="button"
+          role="tab"
+          aria-selected={view === id}
+          onClick={() => onChange(id)}
+          className={cn(
+            "nx-focus-ring inline-flex min-h-8 items-center gap-1.5 rounded-md px-2.5 text-[11px] font-medium transition-colors",
+            view === id
+              ? "bg-[var(--nx-text-primary)] text-[var(--nx-bg)] shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]"
+              : "text-[var(--nx-text-secondary)] hover:bg-white/[0.04] hover:text-[var(--nx-text-primary)]",
+          )}
+        >
+          <Icon size={13} aria-hidden="true" />
+          {label}
+        </button>
+      ))}
     </div>
   );
 }

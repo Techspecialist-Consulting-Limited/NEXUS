@@ -296,6 +296,51 @@ export function invitationEmail(input: {
   return { subject, text, html };
 }
 
+export function passwordResetEmail(input: { name: string | null; link: string }) {
+  const { name, link } = input;
+  const greeting = name ? `Hi ${name.split(/\s+/)[0]},` : "Hi,";
+
+  const subject = "Reset your NEXUS password";
+
+  const text = [
+    greeting,
+    "",
+    "Somebody asked to reset the password on this NEXUS account. If that was",
+    "you, choose a new one here:",
+    "",
+    link,
+    "",
+    "This link is for you alone and expires in one hour. If you did not ask",
+    "for this, nothing has changed — you can ignore this message.",
+  ].join("\n");
+
+  const html = shell(`
+    <h1 style="margin:12px 0 8px;font-size:22px;font-weight:600;line-height:1.3">
+      Reset your password
+    </h1>
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#3c4250">
+      ${escapeHtml(greeting)} somebody asked to reset the password on this
+      NEXUS account. If that was you, choose a new one below.
+    </p>
+    <a href="${escapeAttr(link)}"
+       style="display:inline-block;padding:12px 22px;background:#3b6cf5;color:#ffffff;
+              text-decoration:none;border-radius:8px;font-size:15px;font-weight:600">
+      Choose a new password
+    </a>
+    <p style="margin:20px 0 0;font-size:12px;line-height:1.6;color:#8a91a0">
+      This link is for you alone and expires in one hour. If the button does
+      not work, paste this into your browser:<br>
+      <span style="color:#5b6272;word-break:break-all">${escapeHtml(link)}</span>
+    </p>
+    <p style="margin:16px 0 0;font-size:12px;line-height:1.6;color:#8a91a0">
+      If you did not ask for this, nothing has changed — you can ignore this
+      message.
+    </p>
+  `);
+
+  return { subject, text, html };
+}
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
