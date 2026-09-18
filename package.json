@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "node --env-file-if-exists=.env.local scripts/require-local-db.mjs && npm run db:migrate",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
@@ -15,6 +16,9 @@
     "smoke:prod": "node scripts/serve-and-smoke.mjs",
     "db:setup-shim": "node --env-file-if-exists=.env.local scripts/setup-auth-shim.mjs",
     "db:migrate": "node --env-file-if-exists=.env.local scripts/migrate.mjs",
+    "db:migrate:live": "node --env-file-if-exists=.env.local scripts/migrate-live.mjs",
+    "db:setup-shim:live": "node --env-file-if-exists=.env.local scripts/setup-shim-live.mjs",
+    "db:grant-roles:live": "node --env-file-if-exists=.env.local scripts/grant-roles-live.mjs",
     "db:grant-roles": "node --env-file-if-exists=.env.local scripts/grant-roles.mjs",
     "db:seed:staging": "node --env-file-if-exists=.env.local --import tsx scripts/seed-staging.mts",
     "db:seed:local": "npm run db:seed:generate && node --env-file-if-exists=.env.local scripts/seed-local.mjs",
